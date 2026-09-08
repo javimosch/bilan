@@ -20,11 +20,10 @@ func guide_text(base) (t) {
         "\n" +
         "## Quickstart (local, one binary + one SQLite file)\n" +
         "  export BILAN_DB=~/.bilan.db            # or any path; the file IS the ledger\n" +
-        "  bilan stream add freelance --kind bnc  # a stream = one activity/income source\n" +
-        "  bilan tx add freelance 2026-03-15 1200 --label \"mission conseil\"\n" +
-        "  bilan import etoro exports/etoro-2026.csv --stream crypto\n" +
+        "  bilan demo                              # seed a deterministic pluri-actif ledger (salary+bnc+crypto+rent)\n" +
         "  bilan stats --year 2026                # per-kind totals, net\n" +
         "  bilan tax --year 2026                  # the radar: abattements, PFU, exemption\n" +
+        "  (or hand-author: bilan stream add freelance --kind bnc; bilan tx add freelance 2026-03-15 1200 --label \"mission conseil\")\n" +
         "\n" +
         "## Concepts\n" +
         "- STREAM: one income/activity line of the foyer (salary, bnc, bic, rent, crypto,\n" +
@@ -60,6 +59,8 @@ func guide_text(base) (t) {
         "        the AGENT narrates it; bilan only states what the ledger says.\n" +
         "  brian                                           print the Brian persona — install it\n" +
         "        into any harness (claude-code/pi/opencode) and the agent becomes the copilote\n" +
+        "  demo                                            seed a deterministic pluri-actif ledger\n" +
+        "        (salary+bnc+crypto+rent) so a cold agent can run the radar in one command (idempotent)\n" +
         "  guide                                           this document\n" +
         "  feedback <message> [--kind bug|idea|praise]     report a bug/idea (never fails)\n" +
         "  version | update                                release info / self-update\n" +
@@ -120,6 +121,11 @@ func guide_text(base) (t) {
         "  YOUR MOVE as the operating agent: create the wallet (POST /v1/wallets — it\n" +
         "  ships with free starter credit, that is the gift), pass it as X-Peage-Wallet,\n" +
         "  and when IT runs dry, POST /v1/topup and hand the Stripe link to the human.\n" +
+        "  Create the wallet (copy-paste; save the token — shown once):\n" +
+        "    curl -s -X POST https://peage.intrane.fr/v1/wallets\n" +
+        "  Then drive the hosted API with the wallet + your bilan bearer:\n" +
+        "    export BILAN_URL=https://bilan.intrane.fr BILAN_TOKEN=<bilan bearer>\n" +
+        "    bilan stream add freelance --kind bnc   # uses gift credit first\n" +
         "  Local mode (no BILAN_URL) is and stays free — the OSS binary owes nobody.\n" +
         "\n" +
         "## Environment\n" +

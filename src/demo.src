@@ -1,0 +1,65 @@
+// demo — `bilan demo` seeds a deterministic pluri-actif ledger so a cold agent
+// (or a human evaluating the tool) can run stats/tax/brief/brian against real-
+// shaped numbers in one command, without hand-authoring streams and txs. The
+// data is FIXED (no RNG on the money) so two agents running `bilan demo` get the
+// same radar — the point is reproducibility, not surprise. Idempotent: re-running
+// on the same db inserts nothing (every tx carries a demo: ext_id).
+
+// demo_seed — populate the four streams + their 2026 transactions if absent.
+// Returns JSON describing what was ensured. The data models a freelance dev who
+// also has a salaried contract, trades crypto on eToro, and rents one apartment.
+func demo_seed(db) (out, code, err) {
+    y := str(current_year())
+    s_bnc := demo_ensure_stream(db, "freelance", "bnc")
+    s_sal := demo_ensure_stream(db, "salaire", "salary")
+    s_cry := demo_ensure_stream(db, "crypto", "crypto")
+    s_rnt := demo_ensure_stream(db, "appartement", "rent")
+    n := 0
+    // BNC freelance — 6 monthly missions, Jan–Jun
+    n = n + demo_tx(db, s_bnc, y+"-01-15", 320000, "mission client A")
+    n = n + demo_tx(db, s_bnc, y+"-02-15", 280000, "mission client A")
+    n = n + demo_tx(db, s_bnc, y+"-03-15", 350000, "mission client B")
+    n = n + demo_tx(db, s_bnc, y+"-04-15", 290000, "mission client B")
+    n = n + demo_tx(db, s_bnc, y+"-05-15", 410000, "mission client C")
+    n = n + demo_tx(db, s_bnc, y+"-06-15", 380000, "mission client C")
+    // Salary — 6 monthly net pays, Jan–Jun
+    n = n + demo_tx(db, s_sal, y+"-01-31", 180000, "salaire net janvier")
+    n = n + demo_tx(db, s_sal, y+"-02-28", 180000, "salaire net fevrier")
+    n = n + demo_tx(db, s_sal, y+"-03-31", 180000, "salaire net mars")
+    n = n + demo_tx(db, s_sal, y+"-04-30", 180000, "salaire net avril")
+    n = n + demo_tx(db, s_sal, y+"-05-31", 180000, "salaire net mai")
+    n = n + demo_tx(db, s_sal, y+"-06-30", 180000, "salaire net juin")
+    // Crypto — signed realized P/L (what form 2086 needs), 3 closed positions
+    n = n + demo_tx(db, s_cry, y+"-02-20", 85000, "BTC position fermee +850")
+    n = n + demo_tx(db, s_cry, y+"-04-10", -32000, "ETH stop-loss -320")
+    n = n + demo_tx(db, s_cry, y+"-06-05", 120000, "SOL position fermee +1200")
+    // Rent — 5 monthly rents + 1 charge
+    n = n + demo_tx(db, s_rnt, y+"-02-10", 120000, "loyer appartement")
+    n = n + demo_tx(db, s_rnt, y+"-03-10", 120000, "loyer appartement")
+    n = n + demo_tx(db, s_rnt, y+"-04-10", 120000, "loyer appartement")
+    n = n + demo_tx(db, s_rnt, y+"-05-10", 120000, "loyer appartement")
+    n = n + demo_tx(db, s_rnt, y+"-06-10", 120000, "loyer appartement")
+    n = n + demo_tx(db, s_rnt, y+"-02-15", -35000, "charges copro Q1")
+    out = "{\"ok\":true,\"demo\":true,\"year\":" + y + ",\"streams\":[\"freelance (bnc)\",\"salaire (salary)\",\"crypto (crypto)\",\"appartement (rent)\"],\"txs_ensured\":" + str(n) + ",\"next\":\"bilan stats --year " + y + " && bilan tax --year " + y + " && bilan brief --year " + y + " && bilan brian\"}"
+    code = 0
+    err = ""
+}
+
+// demo_ensure_stream — create the stream if absent, return its id (idempotent).
+func demo_ensure_stream(db, name, kind) (id) {
+    id = stream_ref(db, name)
+    if id != "" { return id }
+    nid := to_hex(rand_bytes(8))
+    sqlite_exec(db, "INSERT INTO streams(id,name,kind,currency,created) VALUES(?,?,?,?,?)", []string{nid, name, kind, "EUR", str(now_ms())})
+    id = nid
+}
+
+// demo_tx — insert one tx with a deterministic demo: ext_id so re-seeding is a
+// no-op. Returns 1 if inserted, 0 if already present (idempotent via INSERT OR
+// IGNORE + changes()).
+func demo_tx(db, sid, date, cents, label) (inserted) {
+    inserted = 0
+    ext := "demo:" + date + ":" + str(cents) + ":" + label
+    sqlite_exec(db, "INSERT OR IGNORE INTO txs(id,stream_id,date,cents,label,source,ext_id,created) VALUES(?,?,?,?,?,?,?,?)", []string{to_hex(rand_bytes(8)), sid, date, str(cents), label, "demo", ext, str(now_ms())})
+    if changes_n(db) > 0 { inserted = 1 }
+}

@@ -109,6 +109,19 @@ r=$(cat test/fixtures/generic-fr-2026.csv | $BIN import generic - --stream diver
 ok "fr semicolon csv rows" 3 "$(jq -r .inserted <<<"$r")"
 ok "fr amounts parse (1 234,56)" 186406 "$(jq -r .by_kind.other.cents <<<"$($BIN stats --year 2026)")"
 
+# --- demo (deterministic cold-start data, idempotent) -------------------------
+DEMODB="$(mktemp -u /tmp/bilan-demo-XXXXXX.db)"
+r=$(BILAN_DB="$DEMODB" $BIN demo)
+ok "demo seeds 21 txs" 21 "$(jq -r .txs_ensured <<<"$r")"
+ok "demo lists 4 streams" 4 "$(jq -r '.streams | length' <<<"$r")"
+r=$(BILAN_DB="$DEMODB" $BIN demo)
+ok "demo idempotent re-run" 0 "$(jq -r .txs_ensured <<<"$r")"
+ok "demo stats has salary" 1080000 "$(jq -r .by_kind.salary.cents <<<"$(BILAN_DB="$DEMODB" $BIN stats --year 2026)")"
+ok "demo stats has bnc" 2030000 "$(jq -r .by_kind.bnc.cents <<<"$(BILAN_DB="$DEMODB" $BIN stats --year 2026)")"
+ok "demo stats has crypto" 173000 "$(jq -r .by_kind.crypto.cents <<<"$(BILAN_DB="$DEMODB" $BIN stats --year 2026)")"
+ok "demo stats has rent" 565000 "$(jq -r .by_kind.rent.cents <<<"$(BILAN_DB="$DEMODB" $BIN stats --year 2026)")"
+rm -f "$DEMODB"
+
 # --- Brian: brief + moves + dashboard ---------------------------------------
 okre "brian persona" 'copilote financier' "$($BIN brian)"
 r=$($BIN move add --kind securite --action "provisionner 2774 EUR" --pourquoi "flat tax + sociales YTD" --impact "couvert au prochain salaire")
