@@ -21,6 +21,19 @@ ok  "help-json first cmd" "stream add"              "$(jq -r .commands[0].name <
 okre "guide mentions no-LLM rule" 'NO LLM inside'   "$($BIN guide)"
 okre "guide has command ref"      '## Command reference' "$($BIN guide)"
 
+# --- per-command help (--help / help <cmd> must NOT run the command) -----------
+okre "help tax -> per-command"     '"command":"tax"'    "$($BIN help tax)"
+okre "tax --help -> usage not data" '"command":"tax"'   "$($BIN tax --help)"
+ok "tax --help exit 0"             0 "$(code_of $BIN tax --help)"
+okre "stats --help -> usage"       '"command":"stats"'  "$($BIN stats --help)"
+okre "brief --help -> usage"       '"command":"brief"'  "$($BIN brief --help)"
+okre "stream --help -> usage"      '"command":"stream"' "$($BIN stream --help)"
+okre "tx --help -> usage"          '"command":"tx"'     "$($BIN tx --help)"
+okre "move --help -> usage"        '"command":"move"'   "$($BIN move --help)"
+okre "import --help -> usage"      '"command":"import"' "$($BIN import --help)"
+ok "help bogus -> error"           false "$(jq -r .ok <<<"$($BIN help boguscmd 2>&1)")"
+okre "unknown cmd hints help"      'bilan help'         "$($BIN boguscmd 2>&1)"
+
 # --- streams ----------------------------------------------------------------
 ok "stream add missing kind -> 80" 80 "$(code_of $BIN stream add x)"
 ok "stream add bad kind -> 80"     80 "$(code_of $BIN stream add x --kind nope)"

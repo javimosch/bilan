@@ -15,7 +15,7 @@ func main() {
     a := args()
     cmd := ""
     if len(a) >= 2 { cmd = a[1] }
-    if cmd == "" || cmd == "help" { cmd_help(); return }
+    if cmd == "" || cmd == "help" { cmd_help(a); return }
     if cmd == "help-json" { say(help_json()); return }
     if cmd == "version" || cmd == "--version" || cmd == "-v" { cmd_version(); return }
     if cmd == "guide" { cmd_guide(); return }
@@ -40,8 +40,7 @@ func main() {
     if cmd == "brief" { cmd_brief(db, a); sqlite_close(db); return }
     if cmd == "brian" { cmd_brian(); return }
     sqlite_close(db)
-    hint := ""
-    if cmd == "--help" || cmd == "-h" { hint = " (try: bilan help, or bilan help-json for the machine catalog)" }
+    hint := " (try: bilan help, or bilan help-json for the machine catalog)"
     write(2, "{\"ok\":false,\"error\":\"unknown command: " + esc(cmd) + esc(hint) + "\"}\n")
     exit(80)
 }
@@ -49,6 +48,7 @@ func main() {
 // ── cmd wrappers over the ledger cores ──────────────────────────────────────
 
 func cmd_stream(db, a) {
+    if has_flag(a, "--help") == 1 || has_flag(a, "-h") == 1 { say(help_for("stream")); return }
     sub := ""
     if len(a) >= 3 { sub = a[2] }
     if sub == "add" {
@@ -63,6 +63,7 @@ func cmd_stream(db, a) {
 }
 
 func cmd_tx(db, a) {
+    if has_flag(a, "--help") == 1 || has_flag(a, "-h") == 1 { say(help_for("tx")); return }
     sub := ""
     if len(a) >= 3 { sub = a[2] }
     if sub == "add" {
@@ -82,6 +83,7 @@ func cmd_tx(db, a) {
 }
 
 func cmd_import(db, a) {
+    if has_flag(a, "--help") == 1 || has_flag(a, "-h") == 1 { say(help_for("import")); return }
     if len(a) < 5 { die(80, "usage: bilan import <etoro|revolut|generic> <file|-> --stream S") }
     body := ""
     if a[3] == "-" { body = read_stdin() } else { body = read_file(a[3]) }
@@ -91,6 +93,7 @@ func cmd_import(db, a) {
 }
 
 func cmd_stats(db, a) {
+    if has_flag(a, "--help") == 1 || has_flag(a, "-h") == 1 { say(help_for("stats")); return }
     year := flagv(a, "--year", str(current_year()))
     if parse_cents_ok(year) == 0 { die(80, "bad --year: " + year) }
     out, code, err := stats_json(db, year)
@@ -99,6 +102,7 @@ func cmd_stats(db, a) {
 }
 
 func cmd_tax(db, a) {
+    if has_flag(a, "--help") == 1 || has_flag(a, "-h") == 1 { say(help_for("tax")); return }
     year := flagv(a, "--year", str(current_year()))
     if parse_cents_ok(year) == 0 { die(80, "bad --year: " + year) }
     out, code, err := tax_json(db, year)
@@ -107,6 +111,7 @@ func cmd_tax(db, a) {
 }
 
 func cmd_rule(db, a) {
+    if has_flag(a, "--help") == 1 || has_flag(a, "-h") == 1 { say(help_for("rule")); return }
     sub := ""
     if len(a) >= 3 { sub = a[2] }
     if sub == "list" {
@@ -131,7 +136,11 @@ func cmd_version() {
     say("{\"ok\":true,\"name\":\"bilan\",\"version\":\"" + version_str() + "\"}")
 }
 
-func cmd_help() {
+func cmd_help(a) {
+    if len(a) >= 3 {
+        say(help_for(a[2]))
+        return
+    }
     say(help_text())
 }
 
@@ -181,6 +190,7 @@ func cmd_feedback(a) {
 // bilan move list [--status proposed|done|dismissed]
 // bilan move done <id> | bilan move dismiss <id>
 func cmd_move(db, a) {
+    if has_flag(a, "--help") == 1 || has_flag(a, "-h") == 1 { say(help_for("move")); return }
     sub := ""
     if len(a) >= 3 { sub = a[2] }
     if sub == "add" {
@@ -201,6 +211,7 @@ func cmd_move(db, a) {
 }
 
 func cmd_brief(db, a) {
+    if has_flag(a, "--help") == 1 || has_flag(a, "-h") == 1 { say(help_for("brief")); return }
     year := flagv(a, "--year", str(current_year()))
     if parse_cents_ok(year) == 0 { die(80, "bad --year: " + year) }
     out, code, err := brief_json(db, year)
@@ -294,4 +305,50 @@ func help_text() (t) {
 
 func help_json() (t) {
     t = "{\"ok\":true,\"name\":\"bilan\",\"version\":\"" + version_str() + "\",\"commands\":[{\"name\":\"stream add\",\"usage\":\"bilan stream add <name> --kind <k> [--currency EUR]\",\"description\":\"create an activity stream (kind: salary|bnc|bic|rent|crypto|trading|dividends|other)\"},{\"name\":\"stream list\",\"usage\":\"bilan stream list\",\"description\":\"all streams\"},{\"name\":\"tx add\",\"usage\":\"bilan tx add <stream> <YYYY-MM-DD> <amount> [--label L] [--source S] [--ext-id X]\",\"description\":\"record one signed money event (positive income, negative expense/loss)\"},{\"name\":\"tx list\",\"usage\":\"bilan tx list [--stream S] [--year Y] [--limit N]\",\"description\":\"transactions, latest first\"},{\"name\":\"import\",\"usage\":\"bilan import <etoro|revolut|generic> <file|-> --stream S\",\"description\":\"import a broker/bank CSV (idempotent; - reads stdin)\"},{\"name\":\"stats\",\"usage\":\"bilan stats [--year Y]\",\"description\":\"per-kind signed totals, income/expense/net\"},{\"name\":\"tax\",\"usage\":\"bilan tax [--year Y]\",\"description\":\"the tax radar: abattements, social, PFU, crypto 2086 exemption\"},{\"name\":\"rule list\",\"usage\":\"bilan rule list [--year Y]\",\"description\":\"the rate card (tax rules as data)\"},{\"name\":\"rule set\",\"usage\":\"bilan rule set <year> <regime> <param> <value>\",\"description\":\"override a rate for a year (decipercent tenths: 340 = 34.0%)\"},{\"name\":\"move\",\"usage\":\"bilan move add --kind controle|securite|construction|patrimoine --action A --pourquoi P --impact I [--horizon H] | move list [--status S] | move done <id>\",\"description\":\"Brian moves: propose (agent) / approve (human, dashboard /app) — Action + Pourquoi + Impact\"},{\"name\":\"brief\",\"usage\":\"bilan brief [--year Y]\",\"description\":\"the morning digest: tax provision, stream momentum, moves en attente (deterministic)\"},{\"name\":\"brian\",\"usage\":\"bilan brian\",\"description\":\"print the Brian persona to install into any agent harness (the cheap copilote)\"},{\"name\":\"guide\",\"usage\":\"bilan guide\",\"description\":\"the complete operator reference\"},{\"name\":\"feedback\",\"usage\":\"bilan feedback <message> [--kind bug|idea|praise]\",\"description\":\"send feedback (dual-write, never fails)\"},{\"name\":\"serve\",\"usage\":\"bilan serve [--port N]\",\"description\":\"HTTP JSON API; /v1/* Bearer-gated, /_health + /guide + /llms.txt open\"},{\"name\":\"version\",\"usage\":\"bilan version\",\"description\":\"the release version\"},{\"name\":\"update\",\"usage\":\"bilan update\",\"description\":\"self-update via the official installer\"}],\"exit_codes\":{\"0\":\"ok\",\"80\":\"bad input\",\"93\":\"conflict\",\"94\":\"not found\",\"100\":\"upstream\",\"110\":\"internal\"},\"guide\":\"run bilan guide for the full operator reference\"}"
+}
+
+// help_for — per-command help (JSON). `bilan help <cmd>` and `bilan <cmd> --help`
+// both route here so an agent exploring one command gets its usage, not the whole
+// catalog (and not the command's data output by accident — a cold agent typing
+// `bilan tax --help` used to get tax DATA because --year defaulted to the current year).
+func help_for(cmd) (t) {
+    u := cmd_usage(cmd)
+    if u == "" { t = "{\"ok\":false,\"error\":\"no such command: " + esc(cmd) + " (try: bilan help)\"}"  return t }
+    t = "{\"ok\":true,\"name\":\"bilan\",\"version\":\"" + version_str() + "\",\"command\":\"" + esc(cmd) + "\",\"usage\":\"" + esc(u) + "\",\"description\":\"" + esc(cmd_desc(cmd)) + "\",\"see_also\":\"bilan guide | bilan help-json\"}"
+}
+
+func cmd_usage(cmd) (u) {
+    u = ""
+    if cmd == "stream" { u = "bilan stream add <name> --kind salary|bnc|bic|rent|crypto|trading|dividends|other [--currency EUR] | bilan stream list" }
+    if cmd == "tx" { u = "bilan tx add <stream> <YYYY-MM-DD> <amount> [--label L --source S --ext-id X] | bilan tx list [--stream S] [--year Y] [--limit N]" }
+    if cmd == "import" { u = "bilan import <etoro|revolut|generic> <file|-> --stream S (idempotent; - reads stdin)" }
+    if cmd == "stats" { u = "bilan stats [--year Y]" }
+    if cmd == "tax" { u = "bilan tax [--year Y] — the radar: abattements, social, PFU, crypto 2086 exemption" }
+    if cmd == "rule" { u = "bilan rule list [--year Y] | bilan rule set <year> <regime> <param> <value> (rates are DATA)" }
+    if cmd == "move" { u = "bilan move add --kind controle|securite|construction|patrimoine --action A --pourquoi P --impact I [--horizon H] | move list [--status S] | move done <id>" }
+    if cmd == "brief" { u = "bilan brief [--year Y] — the morning digest: provision, stream momentum, pending moves" }
+    if cmd == "brian" { u = "bilan brian — print the persona to install into your agent harness" }
+    if cmd == "guide" { u = "bilan guide — the complete operator reference" }
+    if cmd == "feedback" { u = "bilan feedback <message> [--kind bug|idea|praise] [--context C]" }
+    if cmd == "serve" { u = "bilan serve [--port N] — HTTP JSON API (Bearer-gated /v1/*)" }
+    if cmd == "version" { u = "bilan version" }
+    if cmd == "update" { u = "bilan update — self-update via the official installer" }
+}
+
+func cmd_desc(cmd) (d) {
+    d = ""
+    if cmd == "stream" { d = "create or list activity streams (one income source each)" }
+    if cmd == "tx" { d = "record one signed money event (positive income, negative expense/loss), or list transactions" }
+    if cmd == "import" { d = "import a broker/bank CSV (idempotent; etoro/revolut/generic)" }
+    if cmd == "stats" { d = "per-kind signed totals + net for a year" }
+    if cmd == "tax" { d = "the tax radar: abattements, social, PFU, crypto 2086 exemption" }
+    if cmd == "rule" { d = "the rate card (tax rules as data): list or set" }
+    if cmd == "move" { d = "Brian moves: propose (agent) / approve (human) — Action + Pourquoi + Impact" }
+    if cmd == "brief" { d = "the morning digest: provision, stream momentum, pending moves (deterministic)" }
+    if cmd == "brian" { d = "print the Brian persona to install into your agent harness (claude-code/pi/opencode)" }
+    if cmd == "guide" { d = "the complete operator reference (agents: read this first)" }
+    if cmd == "feedback" { d = "report a bug/idea/praise (dual-write, never fails the caller)" }
+    if cmd == "serve" { d = "HTTP JSON API (Bearer-gated /v1/*; /_health, /guide, /llms.txt open)" }
+    if cmd == "version" { d = "the release version" }
+    if cmd == "update" { d = "self-update via the official installer" }
 }

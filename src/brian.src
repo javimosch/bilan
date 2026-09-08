@@ -164,4 +164,5 @@ func persona_text() (t) {
 
 func cmd_brian() {
     println(persona_text())
+    write(2, "{\"event\":\"brian_install\",\"hint\":\"install: bilan brian >> CLAUDE.md  (or AGENTS.md / your harness system prompt) — then run bilan brief to start the loop\"}\n")
 }
