@@ -1,0 +1,106 @@
+// `bilan guide` — the complete operator reference, baked into the binary (like
+// `machin guide`). Also served at GET /guide. This is THE document an agent should
+// read before driving the CLI; llms.txt is the short pointer, this is the full map.
+
+func guide_text(base) (t) {
+    t = "# bilan guide — the complete operator reference\n" +
+        "\n" +
+        "bilan is the deterministic financial ledger + tax radar for professionnels\n" +
+        "pluri-actifs (multi-income: salary + micro-BNC/BIC + crypto + trading + rent +\n" +
+        "dividends). Humans own the money; their AI assistants (YOU, probably) operate\n" +
+        "everything through this CLI. Read this once and you know the full surface.\n" +
+        "\n" +
+        "## The one design rule\n" +
+        "There is NO LLM inside bilan — by design, not by omission. Tax and money math\n" +
+        "must be deterministic and auditable, so bilan only STORES and COMPUTES; it never\n" +
+        "guesses. The intelligence is yours: you parse the messy exports your human hands\n" +
+        "you, you explain the JSON, you plan around the numbers. If a CSV doesn't fit a\n" +
+        "connector, YOU normalize it (with your own LLM powers) into the generic schema\n" +
+        "before importing. The platform never sees a prompt and runs no inference.\n" +
+        "\n" +
+        "## Quickstart (local, one binary + one SQLite file)\n" +
+        "  export BILAN_DB=~/.bilan.db            # or any path; the file IS the ledger\n" +
+        "  bilan stream add freelance --kind bnc  # a stream = one activity/income source\n" +
+        "  bilan tx add freelance 2026-03-15 1200 --label \"mission conseil\"\n" +
+        "  bilan import etoro exports/etoro-2026.csv --stream crypto\n" +
+        "  bilan stats --year 2026                # per-kind totals, net\n" +
+        "  bilan tax --year 2026                  # the radar: abattements, PFU, exemption\n" +
+        "\n" +
+        "## Concepts\n" +
+        "- STREAM: one income/activity line of the foyer (salary, bnc, bic, rent, crypto,\n" +
+        "  trading, dividends, other). The kind drives which tax regime math applies.\n" +
+        "- TX: one money event (date, signed cents, label). Positive = income, negative =\n" +
+        "  expense/loss. Crypto/trading streams expect SIGNED REALIZED P/L per closed\n" +
+        "  position (what form 2086 needs), not gross buys/sells.\n" +
+        "- TAX RULES: the rate card is DATA in the db (regime, param, value per year), not\n" +
+        "  code — a loi de finances change is `bilan rule set`, never a new binary.\n" +
+        "- IMPORTS are idempotent: re-importing the same file inserts nothing (ext_id is\n" +
+        "  derived from row content). Safe to retry.\n" +
+        "\n" +
+        "## Command reference\n" +
+        "  stream add <name> --kind <k> [--currency EUR]   new activity stream\n" +
+        "  stream list                                     all streams\n" +
+        "  tx add <stream> <YYYY-MM-DD> <amount> [--label L --source S --ext-id X]\n" +
+        "  tx list [--stream S] [--year Y] [--limit N]     latest first\n" +
+        "  import <etoro|revolut|generic> <file|-> --stream S\n" +
+        "        file \"-\" reads stdin. generic wants date/amount/label headers (fr\n" +
+        "        montant ok). etoro: Close Date + Profit(EUR). revolut: Completed Date.\n" +
+        "  stats [--year Y]                                per-kind signed totals + net\n" +
+        "  tax [--year Y]                                  the radar (see Tax model)\n" +
+        "  rule list [--year Y]                            the rate card\n" +
+        "  rule set <year> <regime> <param> <value>        override a rate (rates are DATA)\n" +
+        "  guide                                           this document\n" +
+        "  feedback <message> [--kind bug|idea|praise]     report a bug/idea (never fails)\n" +
+        "  version | update                                release info / self-update\n" +
+        "  serve [--port N]                                HTTP JSON API (see below)\n" +
+        "\n" +
+        "## The rate card (seeded for the current year; override per year)\n" +
+        "  micro_bnc:          abattement 34%  ·  social 24.6%   (regime rows micro_bnc)\n" +
+        "  micro_bic_services: abattement 50%  ·  social 21.2%\n" +
+        "  micro_foncier:      abattement 30%\n" +
+        "  capital (crypto/trading): PFU 31.4% on positive net gains\n" +
+        "  crypto exemption:   net gains under 305.00 EUR -> not declarable (form 2086)\n" +
+        "  dividends:          PFU on the positive sum\n" +
+        "  salary:             gross reported only — progressive IR scale is v1\n" +
+        "  Override any of them: bilan rule set 2027 micro_bnc deduction_pct_tenths 340\n" +
+        "  (rates are DECIPERCENT tenths: 340 = 34.0%; all math is integer cents)\n" +
+        "\n" +
+        "## What the radar is NOT\n" +
+        "  It computes regime math on the numbers YOU imported. It does not know about\n" +
+        "  the IR progressive scale, deficits carried forward, or your quotient familial.\n" +
+        "  Output is an estimate to reason from, not tax advice — say so to the human.\n" +
+        "\n" +
+        "## Output contract (cli-output-spec)\n" +
+        "  stdout = data only: one JSON object per command ({\"ok\":true,...}).\n" +
+        "  stderr = errors as {\"ok\":false,\"error\":\"...\"} — context/progress never pollutes data.\n" +
+        "  exit codes: 0 ok · 80s bad input · 90s not-found/resource · 100s upstream · 110s internal.\n" +
+        "  help-json = the machine-readable command catalog.\n" +
+        "\n" +
+        "## HTTP endpoints (when the CLI is elsewhere)\n" +
+        "  bilan serve --port 8791   binds all interfaces; /v1/* requires\n" +
+        "  'Authorization: Bearer <BILAN_TOKEN>' (a token is generated and printed to\n" +
+        "  stderr at startup when BILAN_TOKEN is unset). Open routes: GET /_health,\n" +
+        "  GET /guide, GET /llms.txt. POST /_shutdown (token-gated) stops the server.\n" +
+        "  /v1/streams (GET list, POST create {name,kind,currency}), /v1/tx (GET list\n" +
+        "  ?stream=&year=&limit=, POST {stream,date,amount,label}), /v1/import (POST\n" +
+        "  {source,csv,stream}), /v1/stats?year=, /v1/tax?year=.\n" +
+        "\n" +
+        "## Environment\n" +
+        "  BILAN_DB      ledger path (default ~/.bilan.db)\n" +
+        "  BILAN_TOKEN   bearer token for /v1/* and /_shutdown when serving\n" +
+        "  BILAN_PORT    default serve port (8791; --port overrides)\n" +
+        "  BILAN_URL     feedback target (default https://bilan.intrane.fr)\n" +
+        "  FEEDBACK_RELAY central relay (default https://feedback.intrane.fr; \"off\" disables)\n" +
+        "\n" +
+        "## Typical agent loops\n" +
+        "  Year-end radar:  bilan import <each export> -> bilan stats --year Y -> bilan tax --year Y\n" +
+        "                   -> explain the notes to the human in plain French.\n" +
+        "  Monthly check-in: bilan stats -> compare by_kind vs last month -> flag anomalies\n" +
+        "                    (a stream that went quiet, a duplicate-looking import).\n" +
+        "  Filing prep:     bilan tax --year Y -> walk the human through 2042-C-PRO cases\n" +
+        "                   (5HQ/5HY for BNC) and the 2086 decision from crypto.exempt.\n"
+}
+
+func cmd_guide() {
+    println(guide_text(""))
+}

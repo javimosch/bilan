@@ -1,0 +1,60 @@
+// store — db location, schema, and the seeded tax-rule rows. The tax rates are DATA
+// (comptoir's config-row pattern), not code: a loi de finances change is an UPDATE on
+// tax_rules, never a recompile. Seeding uses INSERT OR IGNORE so a rate the operator
+// set by hand is never overwritten by a re-open.
+
+func dbpath() (p) {
+    p = env("BILAN_DB")
+    if p == "" { p = env("HOME") + "/.bilan.db" }
+}
+
+// open_db_at — schema + pragmas, shared by the CLI path and serve's per-request handles.
+// One short-lived handle per operation + WAL + busy_timeout is the concurrency story
+// (machweb is goroutine-per-connection; long-held handles are how you get SQLITE_BUSY).
+func open_db_at(path) (db) {
+    db = sqlite_open(path)
+    sqlite_exec(db, "PRAGMA busy_timeout=5000", []string{})
+    sqlite_exec(db, "PRAGMA journal_mode=WAL", []string{})
+    sqlite_exec(db, "CREATE TABLE IF NOT EXISTS streams(id TEXT PRIMARY KEY, name TEXT UNIQUE, kind TEXT, currency TEXT DEFAULT 'EUR', created INTEGER)", []string{})
+    sqlite_exec(db, "CREATE TABLE IF NOT EXISTS txs(id TEXT PRIMARY KEY, stream_id TEXT, date TEXT, cents INTEGER, label TEXT, source TEXT, ext_id TEXT, created INTEGER, UNIQUE(stream_id, ext_id))", []string{})
+    sqlite_exec(db, "CREATE TABLE IF NOT EXISTS imports(id TEXT PRIMARY KEY, source TEXT, file TEXT, rows INTEGER, skipped INTEGER, ts INTEGER)", []string{})
+    sqlite_exec(db, "CREATE TABLE IF NOT EXISTS tax_rules(year INTEGER, regime TEXT, param TEXT, value TEXT, PRIMARY KEY(year, regime, param))", []string{})
+    seed_rules(db)
+}
+
+func opendb() (db) { db = open_db_at(dbpath()) }
+
+// seed_rules — the default rate card, in DECIPERCENT tenths (340 = 34.0%) so every
+// computation stays integer math. Sources: the operator's own filing knowledge
+// (micro-BNC 34% abattement, crypto PFU 31.4%, 305 EUR exemption threshold). Every
+// value is overridable per year; a future year with no rows falls back to these.
+func seed_rules(db) {
+    y := str(current_year())
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'micro_bnc', 'deduction_pct_tenths', '340')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'micro_bnc', 'social_pct_tenths', '246')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'micro_bic_services', 'deduction_pct_tenths', '500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'micro_bic_services', 'social_pct_tenths', '212')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'micro_foncier', 'deduction_pct_tenths', '300')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'capital', 'pfu_pct_tenths', '314')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'capital', 'crypto_exempt_threshold_cents', '30500')", []string{y})
+}
+
+type Rulevalrow struct { value string }
+
+// rule_int — one tax-rule value as an int; dflt when the row is absent (a future year
+// with no seeded rules still computes with last-known rates instead of zeroes).
+// year is bound as text, so CAST it — year=2026 (INTEGER) never equals '2026' (TEXT).
+func rule_int(db, year, regime, param, dflt) (v) {
+    v = dflt
+    rows := sqlite_query(db, "SELECT value FROM tax_rules WHERE year=CAST(? AS INTEGER) AND regime=? AND param=?", []string{str(year), regime, param})
+    if rows == "" || rows == "[]" { return v }
+    parsed := parse(rows, []Rulevalrow{})
+    if len(parsed) > 0 { v = parse_int(parsed[0].value) }
+}
+
+// current_year — the default tax year (local time; a French filer thinks in local years).
+// time_fields takes SECONDS (a unix timestamp), now_ms() is millis — divide.
+func current_year() (y) {
+    f := time_fields(now_ms() / 1000)
+    y = f[0]
+}

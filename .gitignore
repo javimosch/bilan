@@ -1,0 +1,7 @@
+build/
+bilan
+bilan.mfl
+*.db
+*.db-journal
+*.db-wal
+*.db-shm

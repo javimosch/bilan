@@ -1,0 +1,103 @@
+// Unit tests for src/core.src (the pure helpers). Run: ./test.sh
+// Composed as: framework/test.src + src/core.src + this file.
+
+func test_parse_cents() {
+    assert_eq_int(parse_cents("1234.56"), 123456, "parse_cents basic")
+    assert_eq_int(parse_cents("-12"), -1200, "parse_cents negative integer")
+    assert_eq_int(parse_cents(" 1 234,56 "), 123456, "parse_cents fr spaces + comma")
+    assert_eq_int(parse_cents("12."), 1200, "parse_cents trailing dot")
+    assert_eq_int(parse_cents(".5"), 50, "parse_cents bare fraction")
+    assert_eq_int(parse_cents("0.00"), 0, "parse_cents zero")
+    // rounding: a third decimal >= 5 rounds the cents up (bankers' worst enemy is drift)
+    assert_eq_int(parse_cents("12.345"), 1235, "parse_cents rounds half up")
+    assert_eq_int(parse_cents("12.344"), 1234, "parse_cents third decimal < 5 rounds down")
+    assert_eq_int(parse_cents("abc"), 0, "parse_cents junk is 0 (validate with parse_cents_ok)")
+    assert_eq_int(parse_cents(""), 0, "parse_cents empty")
+}
+
+func test_parse_cents_ok() {
+    assert_eq_int(parse_cents_ok("1234.56"), 1, "parse_cents_ok number")
+    assert_eq_int(parse_cents_ok("-12.5"), 1, "parse_cents_ok negative")
+    assert_eq_int(parse_cents_ok(""), 0, "parse_cents_ok empty rejected")
+    assert_eq_int(parse_cents_ok("abc"), 0, "parse_cents_ok junk rejected")
+    assert_eq_int(parse_cents_ok("12x"), 1, "parse_cents_ok digits among junk accepted (lenient v0)")
+}
+
+func test_fmt_cents() {
+    assert_eq_str(fmt_cents(123456), "1234.56", "fmt_cents positive")
+    assert_eq_str(fmt_cents(-1200), "-12.00", "fmt_cents negative")
+    assert_eq_str(fmt_cents(5), "0.05", "fmt_cents pads cents")
+    assert_eq_str(fmt_cents(30500), "305.00", "fmt_cents threshold value")
+    assert_eq_str(fmt_cents(0), "0.00", "fmt_cents zero")
+    // round trip
+    assert_eq_str(fmt_cents(parse_cents("99.99")), "99.99", "fmt_cents round trip")
+}
+
+func test_date_ok() {
+    assert_eq_int(date_ok("2026-03-15"), 1, "date_ok iso")
+    assert_eq_int(date_ok("2026-13-01"), 0, "date_ok month 13")
+    assert_eq_int(date_ok("2026-00-10"), 0, "date_ok month 00")
+    assert_eq_int(date_ok("2026-03-32"), 0, "date_ok day 32")
+    assert_eq_int(date_ok("20260315"), 0, "date_ok compact form rejected")
+    assert_eq_int(date_ok(""), 0, "date_ok empty")
+    assert_eq_int(date_ok("2026-3-15"), 0, "date_ok unpadded month rejected (shape, not calendar)")
+}
+
+func test_col_find() {
+    h := []string{"Close Date", "Profit(EUR)", "Details"}
+    assert_eq_int(col_find(h, "close date"), 0, "col_find exact-ish")
+    assert_eq_int(col_find(h, "profit"), 1, "col_find case-insensitive")
+    assert_eq_int(col_find(h, "label"), -1, "col_find missing -> -1")
+}
+
+func test_csv_split() {
+    a := csv_split("2026-01-15,54.40,BTC sale")
+    assert_eq_int(len(a), 3, "csv_split plain")
+    assert_eq_str(a[2], "BTC sale", "csv_split plain cell")
+    b := csv_split("1,\"a,b\",3")
+    assert_eq_int(len(b), 3, "csv_split quoted comma stays in cell")
+    assert_eq_str(b[1], "a,b", "csv_split quoted comma preserved")
+    c := csv_split("\"say \"\"hi\"\"\",2")
+    assert_eq_str(c[0], "say \"hi\"", "csv_split escaped quotes")
+    assert_eq_str(c[1], "2", "csv_split second cell")
+}
+
+func test_esc() {
+    assert_eq_str(esc("plain"), "plain", "esc plain")
+    assert_eq_str(esc("a\"b"), "a\\\"b", "esc quote")
+    assert_eq_str(esc("a\\b"), "a\\\\b", "esc backslash")
+    assert_eq_str(esc("a\nb"), "a\\nb", "esc newline")
+}
+
+func test_flags() {
+    a := []string{"bilan", "tx", "add", "--label", "mission", "--dry"}
+    assert_eq_str(flagv(a, "--label", "none"), "mission", "flagv present")
+    assert_eq_str(flagv(a, "--missing", "def"), "def", "flagv default")
+    assert_eq_int(has_flag(a, "--label"), 1, "has_flag present")
+    assert_eq_int(has_flag(a, "--nope"), 0, "has_flag absent")
+}
+
+func test_pct_str() {
+    assert_eq_str(pct_str(340), "34.0", "pct_str 34%")
+    assert_eq_str(pct_str(314), "31.4", "pct_str 31.4")
+    assert_eq_str(pct_str(246), "24.6", "pct_str 24.6")
+    assert_eq_str(pct_str(500), "50.0", "pct_str 50.0")
+}
+
+func test_version() {
+    assert(len(version_str()) > 0, "version non-empty (kept in lockstep with the git tag)")
+}
+
+func main() {
+    test_parse_cents()
+    test_parse_cents_ok()
+    test_fmt_cents()
+    test_date_ok()
+    test_col_find()
+    test_csv_split()
+    test_esc()
+    test_flags()
+    test_pct_str()
+    test_version()
+    test_summary()
+}

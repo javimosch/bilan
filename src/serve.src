@@ -1,0 +1,147 @@
+// serve — the HTTP JSON API over the same domain cores the CLI uses. Binds all
+// interfaces (machin's listen() has no bind-address arg), so per cli-daemon-spec
+// every /v1/* route and /_shutdown are token-gated; /_health, /guide, /llms.txt
+// stay open. The token comes from BILAN_TOKEN or is generated + printed on stderr.
+
+func cmd_serve(a) {
+    port := 8791
+    p := env("BILAN_PORT")
+    if p != "" { port = parse_int(p) }
+    pv := flagv(a, "--port", "")
+    if pv != "" { port = parse_int(pv) }
+    token := env("BILAN_TOKEN")
+    if token == "" { token = to_hex(rand_bytes(16)) }
+    write(2, "{\"event\":\"serve_token\",\"token\":\"" + token + "\",\"note\":\"set BILAN_TOKEN to pin it\"}\n")
+    say("{\"ok\":true,\"serving\":\"bilan\",\"port\":" + str(port) + ",\"open\":[\"GET /_health\",\"GET /guide\",\"GET /llms.txt\"],\"gated\":[\"/v1/*\",\"POST /_shutdown\"]}")
+    serve(port, func(req) {
+        p := path_only(req.path)
+        if p == "/_health" { return ok_json("{\"ok\":true,\"service\":\"bilan\",\"version\":\"" + version_str() + "\"}") }
+        if req.method == "GET" && p == "/guide" { return ok_text(guide_text("")) }
+        if req.method == "GET" && p == "/llms.txt" { return ok_text(llms_txt()) }
+        if p == "/_shutdown" {
+            if auth_ok(req, token) == 0 { return unauthorized() }
+            write(2, "{\"event\":\"shutdown\"}\n")
+            go shutdown_soon()
+            return ok_json("{\"ok\":true,\"shutdown\":true}")
+        }
+        if has_prefix(p, "/v1/") {
+            if auth_ok(req, token) == 0 { return unauthorized() }
+            return api(req)
+        }
+        return not_found()
+    })
+}
+
+// path_only — req.path is the full request-URI (machweb keeps the ?query on it);
+// routes match on the path part only.
+func path_only(p) (o) {
+    o = p
+    qi := index(p, "?")
+    if qi >= 0 { o = substr(p, 0, qi) }
+}
+
+// shutdown_soon — give the HTTP response a beat to flush, then exit the process.
+func shutdown_soon() {
+    sleep(100)
+    exit(0)
+}
+
+// auth_ok — Bearer token check (constant-enough for v0; the token is high-entropy).
+func auth_ok(req, token) (ok) {
+    ok = 0
+    h := header(req, "authorization")
+    want := "Bearer " + token
+    if h == want { ok = 1 }
+}
+
+func unauthorized() (r) {
+    r = response("401 Unauthorized", "application/json", "{\"ok\":false,\"error\":\"unauthorized — pass 'Authorization: Bearer <BILAN_TOKEN>'\"}")
+}
+
+func llms_txt() (t) {
+    t = "# bilan\n\n" +
+        "Agent-first financial ledger + tax radar for professionnels pluri-actifs.\n" +
+        "No LLM inside by design: bilan stores and computes; your agent reasons.\n" +
+        "\n" +
+        "- Full operator reference: GET /guide (or run `bilan guide`)\n" +
+        "- Command catalog: `bilan help-json`\n" +
+        "- Output contract: stdout=JSON data, stderr=errors, exit 0/80s/90s/100s/110s\n" +
+        "- Endpoints: /v1/streams, /v1/tx, /v1/import, /v1/stats, /v1/tax (Bearer token)\n"
+}
+
+// api — the /v1/* router. GETs render the same JSON the CLI prints; POSTs parse a
+// small JSON body. Errors come back as 400/404 with {"ok":false,"error":...}.
+// (MFL vars are function-scoped: every branch gets its own names.)
+func api(req) (res) {
+    db := opendb()
+    p := path_only(req.path)
+    if p == "/v1/streams" && req.method == "GET" {
+        res = ok_json(stream_list_json(db))
+        sqlite_close(db)
+        return res
+    }
+    if p == "/v1/streams" && req.method == "POST" {
+        body_s := parse(req.body, StreamIn{})
+        out_s, code_s, err_s := stream_add(db, body_s.name, body_s.kind, body_s.currency)
+        sqlite_close(db)
+        if err_s != "" { return err_res(code_s, err_s) }
+        res = created(out_s)
+        return res
+    }
+    if p == "/v1/tx" && req.method == "GET" {
+        out_l, code_l, err_l := tx_list_json(db, query(req, "stream"), query(req, "year"), query(req, "limit"))
+        sqlite_close(db)
+        if err_l != "" { return err_res(code_l, err_l) }
+        res = ok_json(out_l)
+        return res
+    }
+    if p == "/v1/tx" && req.method == "POST" {
+        body_t := parse(req.body, TxIn{})
+        out_t, code_t, err_t := tx_add(db, body_t.stream, body_t.date, body_t.amount, body_t.label, "api", "")
+        sqlite_close(db)
+        if err_t != "" { return err_res(code_t, err_t) }
+        res = created(out_t)
+        return res
+    }
+    if p == "/v1/import" && req.method == "POST" {
+        body_i := parse(req.body, ImportIn{})
+        out_i, code_i, err_i := import_csv(db, body_i.source, body_i.csv, body_i.stream)
+        sqlite_close(db)
+        if err_i != "" { return err_res(code_i, err_i) }
+        res = ok_json(out_i)
+        return res
+    }
+    if p == "/v1/stats" {
+        year_a := query(req, "year")
+        if year_a == "" { year_a = str(current_year()) }
+        out_a, code_a, err_a := stats_json(db, year_a)
+        sqlite_close(db)
+        if err_a != "" { return err_res(code_a, err_a) }
+        res = ok_json(out_a)
+        return res
+    }
+    if p == "/v1/tax" {
+        year_x := query(req, "year")
+        if year_x == "" { year_x = str(current_year()) }
+        out_x, code_x, err_x := tax_json(db, year_x)
+        sqlite_close(db)
+        if err_x != "" { return err_res(code_x, err_x) }
+        res = ok_json(out_x)
+        return res
+    }
+    sqlite_close(db)
+    res = not_found()
+}
+
+func err_res(code, msg) (r) {
+    status := "400 Bad Request"
+    if code == 94 { status = "404 Not Found" }
+    if code == 93 { status = "409 Conflict" }
+    r = response(status, "application/json", "{\"ok\":false,\"error\":\"" + esc(err_msg_sanitize(msg)) + "\"}")
+}
+
+func err_msg_sanitize(msg) (m) { m = msg }
+
+type StreamIn struct { name string  kind string  currency string }
+type TxIn struct { stream string  date string  amount string  label string }
+type ImportIn struct { source string  csv string  stream string }

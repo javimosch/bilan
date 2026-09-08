@@ -1,0 +1,179 @@
+// bilan — CLI entry point and command routing. stdout = data (JSON), stderr =
+// context/errors, semantic exit codes (cli-output-spec). The cmd_* wrappers only
+// parse argv and die() on errors; the domain logic lives in ledger.src's *_json cores.
+
+// say — one JSON object + newline on stdout (the data stream).
+func say(s) { write(1, s + "\n") }
+
+// die — a typed error: JSON on stderr + a semantic exit code, nothing on stdout.
+func die(code, msg) {
+    write(2, "{\"ok\":false,\"error\":\"" + esc(msg) + "\"}\n")
+    exit(code)
+}
+
+func main() {
+    a := args()
+    cmd := ""
+    if len(a) >= 2 { cmd = a[1] }
+    if cmd == "" || cmd == "help" { cmd_help(); return }
+    if cmd == "help-json" { say(help_json()); return }
+    if cmd == "version" || cmd == "--version" || cmd == "-v" { cmd_version(); return }
+    if cmd == "guide" { cmd_guide(); return }
+    if cmd == "feedback" { cmd_feedback(a); return }
+    if cmd == "update" || cmd == "selfupdate" { cmd_update(); return }
+    if cmd == "serve" { cmd_serve(a); return }
+    db := opendb()
+    if cmd == "stream" { cmd_stream(db, a); sqlite_close(db); return }
+    if cmd == "tx" { cmd_tx(db, a); sqlite_close(db); return }
+    if cmd == "import" { cmd_import(db, a); sqlite_close(db); return }
+    if cmd == "stats" { cmd_stats(db, a); sqlite_close(db); return }
+    if cmd == "tax" { cmd_tax(db, a); sqlite_close(db); return }
+    if cmd == "rule" { cmd_rule(db, a); sqlite_close(db); return }
+    sqlite_close(db)
+    hint := ""
+    if cmd == "--help" || cmd == "-h" { hint = " (try: bilan help, or bilan help-json for the machine catalog)" }
+    write(2, "{\"ok\":false,\"error\":\"unknown command: " + esc(cmd) + esc(hint) + "\"}\n")
+    exit(80)
+}
+
+// ── cmd wrappers over the ledger cores ──────────────────────────────────────
+
+func cmd_stream(db, a) {
+    sub := ""
+    if len(a) >= 3 { sub = a[2] }
+    if sub == "add" {
+        if len(a) < 4 { die(80, "usage: bilan stream add <name> --kind salary|bnc|bic|rent|crypto|trading|dividends|other [--currency EUR]") }
+        out, code, err := stream_add(db, a[3], flagv(a, "--kind", ""), flagv(a, "--currency", "EUR"))
+        if err != "" { die(code, err) }
+        say(out)
+        return
+    }
+    if sub == "list" { say(stream_list_json(db)); return }
+    die(80, "usage: bilan stream add <name> --kind <k> | bilan stream list")
+}
+
+func cmd_tx(db, a) {
+    sub := ""
+    if len(a) >= 3 { sub = a[2] }
+    if sub == "add" {
+        if len(a) < 6 { die(80, "usage: bilan tx add <stream> <YYYY-MM-DD> <amount> [--label L] [--source S] [--ext-id X]") }
+        out, code, err := tx_add(db, a[3], a[4], a[5], flagv(a, "--label", ""), flagv(a, "--source", "manual"), flagv(a, "--ext-id", ""))
+        if err != "" { die(code, err) }
+        say(out)
+        return
+    }
+    if sub == "list" {
+        out, code, err := tx_list_json(db, flagv(a, "--stream", ""), flagv(a, "--year", ""), flagv(a, "--limit", "50"))
+        if err != "" { die(code, err) }
+        say(out)
+        return
+    }
+    die(80, "usage: bilan tx add <stream> <date> <amount> [--label L] | bilan tx list [--stream S] [--year Y] [--limit N]")
+}
+
+func cmd_import(db, a) {
+    if len(a) < 5 { die(80, "usage: bilan import <etoro|revolut|generic> <file|-> --stream S") }
+    body := ""
+    if a[3] == "-" { body = read_stdin() } else { body = read_file(a[3]) }
+    out, code, err := import_csv(db, a[2], body, flagv(a, "--stream", ""))
+    if err != "" { die(code, err) }
+    say(out)
+}
+
+func cmd_stats(db, a) {
+    year := flagv(a, "--year", str(current_year()))
+    if parse_cents_ok(year) == 0 { die(80, "bad --year: " + year) }
+    out, code, err := stats_json(db, year)
+    if err != "" { die(code, err) }
+    say(out)
+}
+
+func cmd_tax(db, a) {
+    year := flagv(a, "--year", str(current_year()))
+    if parse_cents_ok(year) == 0 { die(80, "bad --year: " + year) }
+    out, code, err := tax_json(db, year)
+    if err != "" { die(code, err) }
+    say(out)
+}
+
+func cmd_rule(db, a) {
+    sub := ""
+    if len(a) >= 3 { sub = a[2] }
+    if sub == "list" {
+        out, code, err := rule_list_json(db, flagv(a, "--year", ""))
+        if err != "" { die(code, err) }
+        say(out)
+        return
+    }
+    if sub == "set" {
+        if len(a) < 7 { die(80, "usage: bilan rule set <year> <regime> <param> <value>") }
+        out, code, err := rule_set(db, a[3], a[4], a[5], a[6])
+        if err != "" { die(code, err) }
+        say(out)
+        return
+    }
+    die(80, "usage: bilan rule list [--year Y] | bilan rule set <year> <regime> <param> <value>")
+}
+
+// ── meta commands (cli-guide-spec / cli-feedback-spec / cli-update-spec) ────
+
+func cmd_version() {
+    say("{\"ok\":true,\"name\":\"bilan\",\"version\":\"" + version_str() + "\"}")
+}
+
+func cmd_help() {
+    say(help_text())
+}
+
+// cmd_update — re-run the official installer (downloads the latest prebuilt release
+// and swaps it in atomically). BILAN_UPDATE_URL overrides the source (useful before
+// the public release exists).
+func cmd_update() {
+    url := env("BILAN_UPDATE_URL")
+    if url == "" { url = "https://raw.githubusercontent.com/javimosch/bilan/master/install.sh" }
+    say("{\"ok\":true,\"action\":\"update\",\"from\":\"" + version_str() + "\",\"note\":\"fetching the latest release…\"}")
+    code := system("curl -fsSL " + url + " | sh")
+    if code != 0 { die(100, "update failed (installer exit " + str(code) + ") — check network, or reinstall from bilan.intrane.fr") }
+    say("{\"ok\":true,\"updated\":true,\"hint\":\"run: bilan version\"}")
+}
+
+// cmd_feedback — dual-write per cli-feedback-spec: the app endpoint AND the central
+// relay, same idempotency key, best-effort, never fails the caller.
+func cmd_feedback(a) {
+    if len(a) < 3 { die(80, "usage: bilan feedback <message> [--kind bug|idea|praise] [--context <what you were doing>]") }
+    msg := a[2]
+    kind := flagv(a, "--kind", "note")
+    ctx := flagv(a, "--context", "")
+    rep := env("USER")
+    if rep == "" { rep = "agent" }
+    id := to_hex(rand_bytes(8))
+    payload := "{\"app\":\"bilan\",\"version\":\"" + version_str() + "\",\"kind\":\"" + esc(kind) + "\",\"message\":\"" + esc(msg) + "\",\"context\":\"" + esc(ctx) + "\",\"reporter\":\"" + esc(rep) + "\",\"id\":\"" + id + "\"}"
+    app := env("BILAN_URL")
+    if app == "" { app = "https://bilan.intrane.fr" }
+    stored := post_fb(app + "/v1/feedback", payload)
+    relay := env("FEEDBACK_RELAY")
+    if relay == "" { relay = "https://feedback.intrane.fr" }
+    relayed := 0
+    if relay != "off" { relayed = post_fb(relay + "/v1/feedback", payload) }
+    st := "false"
+    if stored == 1 { st = "true" }
+    rl := "false"
+    if relayed == 1 { rl = "true" }
+    say("{\"ok\":true,\"id\":\"" + id + "\",\"stored\":" + st + ",\"relayed\":" + rl + "}")
+}
+
+// post_fb — best-effort feedback POST; 1 on 200. Never blocks the caller on failure.
+func post_fb(url, payload) (ok) {
+    status, resp, err := http_request("POST", url, []string{"content-type: application/json"}, payload)
+    if err == "" { if status == 200 { ok = 1 } }
+}
+
+// ── help surfaces ───────────────────────────────────────────────────────────
+
+func help_text() (t) {
+    t = "{\"ok\":true,\"name\":\"bilan\",\"version\":\"" + version_str() + "\",\"tagline\":\"the deterministic financial ledger + tax radar for professionnels pluri-actifs — no LLM inside, your agent drives\",\"db\":\"$BILAN_DB (default ~/.bilan.db)\",\"commands\":{\"stream\":\"stream add <name> --kind salary|bnc|bic|rent|crypto|trading|dividends|other [--currency EUR] | stream list\",\"tx\":\"tx add <stream> <YYYY-MM-DD> <amount> [--label L --source S --ext-id X] | tx list [--stream S] [--year Y] [--limit N]\",\"import\":\"import <etoro|revolut|generic> <file|-> --stream S (idempotent; - = stdin)\",\"stats\":\"stats [--year Y] (per-kind signed totals + net)\",\"tax\":\"tax [--year Y] (the radar: abattements, PFU, crypto exemption)\",\"rule\":\"rule list [--year Y] | rule set <year> <regime> <param> <value> (rates are DATA)\",\"guide\":\"the complete operator reference (agents: read this first)\",\"feedback\":\"feedback <message> [--kind bug|idea|praise]\",\"serve\":\"serve [--port N] — HTTP JSON API (Bearer-gated /v1/*)\",\"version\":\"release version\",\"update\":\"self-update via the official installer\"},\"learn_more\":\"bilan guide | bilan help-json\"}"
+}
+
+func help_json() (t) {
+    t = "{\"ok\":true,\"name\":\"bilan\",\"version\":\"" + version_str() + "\",\"commands\":[{\"name\":\"stream add\",\"usage\":\"bilan stream add <name> --kind <k> [--currency EUR]\",\"description\":\"create an activity stream (kind: salary|bnc|bic|rent|crypto|trading|dividends|other)\"},{\"name\":\"stream list\",\"usage\":\"bilan stream list\",\"description\":\"all streams\"},{\"name\":\"tx add\",\"usage\":\"bilan tx add <stream> <YYYY-MM-DD> <amount> [--label L] [--source S] [--ext-id X]\",\"description\":\"record one signed money event (positive income, negative expense/loss)\"},{\"name\":\"tx list\",\"usage\":\"bilan tx list [--stream S] [--year Y] [--limit N]\",\"description\":\"transactions, latest first\"},{\"name\":\"import\",\"usage\":\"bilan import <etoro|revolut|generic> <file|-> --stream S\",\"description\":\"import a broker/bank CSV (idempotent; - reads stdin)\"},{\"name\":\"stats\",\"usage\":\"bilan stats [--year Y]\",\"description\":\"per-kind signed totals, income/expense/net\"},{\"name\":\"tax\",\"usage\":\"bilan tax [--year Y]\",\"description\":\"the tax radar: abattements, social, PFU, crypto 2086 exemption\"},{\"name\":\"rule list\",\"usage\":\"bilan rule list [--year Y]\",\"description\":\"the rate card (tax rules as data)\"},{\"name\":\"rule set\",\"usage\":\"bilan rule set <year> <regime> <param> <value>\",\"description\":\"override a rate for a year (decipercent tenths: 340 = 34.0%)\"},{\"name\":\"guide\",\"usage\":\"bilan guide\",\"description\":\"the complete operator reference\"},{\"name\":\"feedback\",\"usage\":\"bilan feedback <message> [--kind bug|idea|praise]\",\"description\":\"send feedback (dual-write, never fails)\"},{\"name\":\"serve\",\"usage\":\"bilan serve [--port N]\",\"description\":\"HTTP JSON API; /v1/* Bearer-gated, /_health + /guide + /llms.txt open\"},{\"name\":\"version\",\"usage\":\"bilan version\",\"description\":\"the release version\"},{\"name\":\"update\",\"usage\":\"bilan update\",\"description\":\"self-update via the official installer\"}],\"exit_codes\":{\"0\":\"ok\",\"80\":\"bad input\",\"93\":\"conflict\",\"94\":\"not found\",\"100\":\"upstream\",\"110\":\"internal\"},\"guide\":\"run bilan guide for the full operator reference\"}"
+}

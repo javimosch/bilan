@@ -1,0 +1,316 @@
+// ledger — the domain logic. Each operation has a *_json core returning (out, code, err)
+// so BOTH the CLI commands and the HTTP handlers render the exact same JSON; the cmd_*
+// wrappers only parse argv and die() on errors. All money is integer cents.
+
+type Idrow struct { id string }
+type Kindrow struct { kind string  total int  n int }
+type Nrow struct { n int }
+
+// changes_n — rows touched by the last statement on db (INSERT OR IGNORE writes 0
+// when the UNIQUE key collides — sqlite_exec's own return value does NOT tell you).
+func changes_n(db) (n) {
+    n = 0
+    rows := sqlite_query(db, "SELECT changes() AS n", []string{})
+    parsed := parse(rows, []Nrow{})
+    if len(parsed) > 0 { n = parsed[0].n }
+}
+
+// stream_ref — resolve a stream by exact name or exact id; "" when unknown (callers die 94).
+func stream_ref(db, q) (id) {
+    id = ""
+    rows := sqlite_query(db, "SELECT id FROM streams WHERE name=?", []string{q})
+    if rows != "[]" && rows != "" {
+        parsed := parse(rows, []Idrow{})
+        if len(parsed) > 0 { id = parsed[0].id  return id }
+    }
+    rows = sqlite_query(db, "SELECT id FROM streams WHERE id=?", []string{q})
+    if rows != "[]" && rows != "" {
+        parsed := parse(rows, []Idrow{})
+        if len(parsed) > 0 { id = parsed[0].id }
+    }
+}
+
+// kind_ok — the closed v0 set of stream kinds. The tax compute switches on these, so
+// an unknown kind is rejected at the door instead of silently skipped by the radar.
+func kind_ok(k) (ok) {
+    ok = 0
+    if k == "salary" { ok = 1  return ok }
+    if k == "bnc" { ok = 1  return ok }
+    if k == "bic" { ok = 1  return ok }
+    if k == "rent" { ok = 1  return ok }
+    if k == "crypto" { ok = 1  return ok }
+    if k == "trading" { ok = 1  return ok }
+    if k == "dividends" { ok = 1  return ok }
+    if k == "other" { ok = 1  return ok }
+}
+
+// ── stream ──────────────────────────────────────────────────────────────────
+
+func stream_add(db, name, kind, cur) (out, code, err) {
+    if name == "" || kind == "" { return "", 80, "usage: bilan stream add <name> --kind salary|bnc|bic|rent|crypto|trading|dividends|other [--currency EUR]" }
+    if kind_ok(kind) == 0 { return "", 80, "unknown kind: " + kind + " (salary|bnc|bic|rent|crypto|trading|dividends|other)" }
+    if stream_ref(db, name) != "" { return "", 93, "stream already exists: " + name }
+    id := to_hex(rand_bytes(8))
+    sqlite_exec(db, "INSERT INTO streams(id,name,kind,currency,created) VALUES(?,?,?,?,?)", []string{id, name, kind, cur, str(now_ms())})
+    out = "{\"ok\":true,\"stream\":\"" + esc(name) + "\",\"id\":\"" + id + "\",\"kind\":\"" + esc(kind) + "\",\"currency\":\"" + esc(cur) + "\"}"
+    code = 0
+    err = ""
+}
+
+func stream_list_json(db) (out) {
+    rows := sqlite_query(db, "SELECT id, name, kind, currency FROM streams ORDER BY name", []string{})
+    out = "{\"ok\":true,\"streams\":" + rows + "}"
+}
+
+// ── tx ──────────────────────────────────────────────────────────────────────
+
+// tx_add — one manual transaction. ext_id defaults to a content key of
+// (date,cents,label) so re-adding the same line is a no-op, not a dupe.
+func tx_add(db, stream_q, date, amount, label, source, ext_in) (out, code, err) {
+    sid := stream_ref(db, stream_q)
+    if sid == "" { return "", 94, "no such stream: " + stream_q + " (create it: bilan stream add " + stream_q + " --kind ...)" }
+    if date_ok(date) == 0 { return "", 80, "bad date \"" + date + "\" — want YYYY-MM-DD" }
+    if parse_cents_ok(amount) == 0 { return "", 80, "bad amount \"" + amount + "\" — want a number, e.g. 1234.56 or -12" }
+    cents := parse_cents(amount)
+    if source == "" { source = "manual" }
+    ext := ext_in
+    if ext == "" { ext = "manual:" + date + ":" + str(cents) + ":" + label }
+    id := to_hex(rand_bytes(8))
+    sqlite_exec(db, "INSERT OR IGNORE INTO txs(id,stream_id,date,cents,label,source,ext_id,created) VALUES(?,?,?,?,?,?,?,?)", []string{id, sid, date, str(cents), label, source, ext, str(now_ms())})
+    if changes_n(db) == 0 { out = "{\"ok\":true,\"duplicate\":true,\"id\":null,\"hint\":\"identical (stream,date,amount,label) already imported — nothing written\"}"  code = 0  err = ""  return out, code, err }
+    out = "{\"ok\":true,\"id\":\"" + id + "\",\"stream\":\"" + esc(stream_q) + "\",\"date\":\"" + date + "\",\"cents\":" + str(cents) + "}"
+    code = 0
+    err = ""
+}
+
+func tx_list_json(db, stream_q, year, limit) (out, code, err) {
+    where := ""
+    params := []string{}
+    if stream_q != "" {
+        sid := stream_ref(db, stream_q)
+        if sid == "" { return "", 94, "no such stream: " + stream_q }
+        where = "t.stream_id=?"
+        params = append(params, sid)
+    }
+    if year != "" {
+        if parse_cents_ok(year) == 0 { return "", 80, "bad --year: " + year }
+        if where != "" { where = where + " AND " }
+        where = where + "t.date>=? AND t.date<=?"
+        params = append(params, year+"-01-01")
+        params = append(params, year+"-12-31")
+    }
+    if limit == "" { limit = "50" }
+    sql := "SELECT t.id, t.date, t.cents, t.label, t.source, s.name AS stream FROM txs t JOIN streams s ON s.id=t.stream_id"
+    if where != "" { sql = sql + " WHERE " + where }
+    sql = sql + " ORDER BY t.date DESC, t.rowid DESC LIMIT ?"
+    params = append(params, limit)
+    rows := sqlite_query(db, sql, params)
+    out = "{\"ok\":true,\"txs\":" + rows + "}"
+    code = 0
+    err = ""
+}
+
+// ── import ──────────────────────────────────────────────────────────────────
+
+// import_csv — map a broker/bank CSV's header to (date, amount, label) columns and
+// insert every parseable row. source: etoro | revolut | generic. Idempotent: the
+// (stream, ext_id) UNIQUE key is derived from row content, so re-importing the same
+// file inserts nothing new.
+func import_csv(db, source, body, stream_q) (out, code, err) {
+    sid := stream_ref(db, stream_q)
+    if sid == "" { return "", 94, "no such stream: " + stream_q }
+    lines := split(body, "\n")
+    if len(lines) < 2 { return "", 80, "no data rows (need a header line + at least one row)" }
+    head := csv_split(trim_cr(lines[0]))
+    lower_head := to_lower(trim_cr(lines[0]))
+    datecol := -1
+    amtcol := -1
+    labcol := -1
+    if source == "etoro" || contains(lower_head, "profit") {
+        datecol = col_find(head, "close date")
+        if datecol < 0 { datecol = col_find(head, "date") }
+        amtcol = col_find(head, "profit")
+        if amtcol < 0 { amtcol = col_find(head, "amount") }
+        labcol = col_find(head, "details")
+        if labcol < 0 { labcol = col_find(head, "action") }
+    } else if source == "revolut" || contains(lower_head, "completed date") {
+        datecol = col_find(head, "completed date")
+        if datecol < 0 { datecol = col_find(head, "date") }
+        amtcol = col_find(head, "amount")
+        labcol = col_find(head, "description")
+    } else {
+        datecol = col_find(head, "date")
+        amtcol = col_find(head, "amount")
+        if amtcol < 0 { amtcol = col_find(head, "montant") }
+        labcol = col_find(head, "label")
+        if labcol < 0 { labcol = col_find(head, "description") }
+        if labcol < 0 { labcol = col_find(head, "details") }
+    }
+    if datecol < 0 || amtcol < 0 { return "", 80, "could not find date/amount columns in the header (source=" + source + ") — rename the columns to date/amount/label, or pick the right source" }
+    inserted := 0
+    skipped := 0
+    i := 1
+    for i < len(lines) {
+        line := trim_cr(lines[i])
+        if trim(line) == "" { i = i + 1  continue }
+        cells := csv_split(line)
+        d := ""
+        if datecol < len(cells) { d = norm_date(cells[datecol]) }
+        amtc := ""
+        if amtcol < len(cells) { amtc = trim(cells[amtcol]) }
+        if d == "" || parse_cents_ok(amtc) == 0 { skipped = skipped + 1  i = i + 1  continue }
+        label := ""
+        if labcol >= 0 && labcol < len(cells) { label = trim(cells[labcol]) }
+        cents := parse_cents(amtc)
+        ext := source + ":" + d + ":" + str(cents) + ":" + label
+        sqlite_exec(db, "INSERT OR IGNORE INTO txs(id,stream_id,date,cents,label,source,ext_id,created) VALUES(?,?,?,?,?,?,?,?)", []string{to_hex(rand_bytes(8)), sid, d, str(cents), label, source, ext, str(now_ms())})
+        if changes_n(db) > 0 { inserted = inserted + 1 } else { skipped = skipped + 1 }
+        i = i + 1
+    }
+    sqlite_exec(db, "INSERT INTO imports(id,source,file,rows,skipped,ts) VALUES(?,?,?,?,?,?)", []string{to_hex(rand_bytes(8)), source, "stdin", str(inserted), str(skipped), str(now_ms())})
+    out = "{\"ok\":true,\"source\":\"" + esc(source) + "\",\"stream\":\"" + esc(stream_q) + "\",\"inserted\":" + str(inserted) + ",\"skipped\":" + str(skipped) + "}"
+    code = 0
+    err = ""
+}
+
+func trim_cr(s) (o) {
+    o = s
+    if len(o) > 0 && substr(o, len(o)-1, len(o)) == "\r" { o = substr(o, 0, len(o)-1) }
+}
+
+// norm_date — accept "YYYY-MM-DD…" (first 10 chars) or "DD/MM/YYYY…" (fr exports);
+// anything else is "" (the row is skipped and counted, never guessed).
+func norm_date(s) (d) {
+    d = ""
+    t := trim(s)
+    if len(t) >= 10 && substr(t, 4, 5) == "-" { d = substr(t, 0, 10)  return d }
+    if len(t) >= 10 && substr(t, 2, 3) == "/" && substr(t, 5, 6) == "/" {
+        d = substr(t, 6, 10) + "-" + substr(t, 3, 5) + "-" + substr(t, 0, 2)
+        return d
+    }
+}
+
+// ── stats + tax radar ───────────────────────────────────────────────────────
+
+// kind_sums — signed per-kind totals for a date range (the one query both stats and
+// tax build on). Kinds with no txs are absent from the result.
+func kind_sums(db, dfrom, dto) (kinds) {
+    rows := sqlite_query(db, "SELECT s.kind AS kind, SUM(t.cents) AS total, COUNT(*) AS n FROM txs t JOIN streams s ON s.id=t.stream_id WHERE t.date>=? AND t.date<=? GROUP BY s.kind ORDER BY s.kind", []string{dfrom, dto})
+    kinds = parse(rows, []Kindrow{})
+}
+
+// kind_get — the sum for one kind, 0 when absent.
+func kind_get(kinds, k) (v) {
+    v = 0
+    i := 0
+    for i < len(kinds) {
+        if kinds[i].kind == k { v = kinds[i].total  return v }
+        i = i + 1
+    }
+}
+
+// kind_n — the tx count for one kind, 0 when absent.
+func kind_n(kinds, k) (v) {
+    v = 0
+    i := 0
+    for i < len(kinds) {
+        if kinds[i].kind == k { v = kinds[i].n  return v }
+        i = i + 1
+    }
+}
+
+// cmd_stats — per-kind signed totals for a year (the human-readable radar input).
+func stats_json(db, year) (out, code, err) {
+    kinds := kind_sums(db, year+"-01-01", year+"-12-31")
+    out = "{\"ok\":true,\"year\":" + year + ",\"by_kind\":{"
+    first := 1
+    income := 0
+    expense := 0
+    count := 0
+    i := 0
+    for i < len(kinds) {
+        k := kinds[i]
+        if first == 0 { out = out + "," }
+        out = out + "\"" + esc(k.kind) + "\":{\"cents\":" + str(k.total) + ",\"eur\":\"" + fmt_cents(k.total) + "\",\"tx\":" + str(k.n) + "}"
+        first = 0
+        if k.total > 0 { income = income + k.total } else { expense = expense + k.total }
+        count = count + k.n
+        i = i + 1
+    }
+    out = out + "},\"income_cents\":" + str(income) + ",\"expense_cents\":" + str(expense) + ",\"net_cents\":" + str(income+expense) + ",\"net_eur\":\"" + fmt_cents(income+expense) + "\",\"tx_count\":" + str(count) + "}"
+    code = 0
+    err = ""
+}
+
+// tax_json — the tax radar: deterministic regime math over the year's sums. Every rate
+// comes from tax_rules (rule_int), never from code, so a loi de finances change is an
+// UPDATE, not a release. Estimates only — the IR barème (progressive) is out of scope.
+func tax_json(db, year) (out, code, err) {
+    kinds := kind_sums(db, year+"-01-01", year+"-12-31")
+    g_bnc := kind_get(kinds, "bnc")
+    g_bic := kind_get(kinds, "bic")
+    g_rent := kind_get(kinds, "rent")
+    g_crypto := kind_get(kinds, "crypto")
+    g_trade := kind_get(kinds, "trading")
+    g_div := kind_get(kinds, "dividends")
+    g_salary := kind_get(kinds, "salary")
+    rate_ded_bnc := rule_int(db, year, "micro_bnc", "deduction_pct_tenths", 340)
+    rate_soc_bnc := rule_int(db, year, "micro_bnc", "social_pct_tenths", 246)
+    rate_ded_bic := rule_int(db, year, "micro_bic_services", "deduction_pct_tenths", 500)
+    rate_soc_bic := rule_int(db, year, "micro_bic_services", "social_pct_tenths", 212)
+    rate_ded_fon := rule_int(db, year, "micro_foncier", "deduction_pct_tenths", 300)
+    rate_pfu := rule_int(db, year, "capital", "pfu_pct_tenths", 314)
+    thr := rule_int(db, year, "capital", "crypto_exempt_threshold_cents", 30500)
+    ab_bnc := g_bnc * rate_ded_bnc / 1000
+    soc_bnc := g_bnc * rate_soc_bnc / 1000
+    net_bnc := g_bnc - ab_bnc
+    ab_bic := g_bic * rate_ded_bic / 1000
+    soc_bic := g_bic * rate_soc_bic / 1000
+    net_bic := g_bic - ab_bic
+    ab_fon := g_rent * rate_ded_fon / 1000
+    net_fon := g_rent - ab_fon
+    crypto_exempt := 0
+    if g_crypto >= 0 && g_crypto < thr { crypto_exempt = 1 }
+    taxable := g_crypto + g_trade
+    if taxable < 0 { taxable = 0 }
+    cap_tax := taxable * rate_pfu / 1000
+    div_tax := 0
+    if g_div > 0 { div_tax = g_div * rate_pfu / 1000 }
+    out = "{\"ok\":true,\"year\":" + year
+    out = out + ",\"rates\":{\"pfu_pct\":" + pct_str(rate_pfu) + ",\"micro_bnc_abattement_pct\":" + pct_str(rate_ded_bnc) + ",\"micro_bnc_social_pct\":" + pct_str(rate_soc_bnc) + ",\"micro_bic_abattement_pct\":" + pct_str(rate_ded_bic) + ",\"micro_bic_social_pct\":" + pct_str(rate_soc_bic) + ",\"micro_foncier_abattement_pct\":" + pct_str(rate_ded_fon) + "}"
+    out = out + ",\"regimes\":{"
+    out = out + "\"bnc\":{\"gross_cents\":" + str(g_bnc) + ",\"gross_eur\":\"" + fmt_cents(g_bnc) + "\",\"abattement_cents\":" + str(ab_bnc) + ",\"net_ir_cents\":" + str(net_bnc) + ",\"social_cents\":" + str(soc_bnc) + "}"
+    out = out + ",\"bic\":{\"gross_cents\":" + str(g_bic) + ",\"gross_eur\":\"" + fmt_cents(g_bic) + "\",\"abattement_cents\":" + str(ab_bic) + ",\"net_ir_cents\":" + str(net_bic) + ",\"social_cents\":" + str(soc_bic) + "}"
+    out = out + ",\"foncier\":{\"gross_cents\":" + str(g_rent) + ",\"gross_eur\":\"" + fmt_cents(g_rent) + "\",\"abattement_cents\":" + str(ab_fon) + ",\"net_ir_cents\":" + str(net_fon) + "}"
+    out = out + ",\"salary\":{\"gross_cents\":" + str(g_salary) + ",\"gross_eur\":\"" + fmt_cents(g_salary) + "\",\"note\":\"progressive IR scale not computed (v0)\"}"
+    out = out + "}"
+    out = out + ",\"crypto\":{\"net_cents\":" + str(g_crypto) + ",\"net_eur\":\"" + fmt_cents(g_crypto) + "\",\"exempt\":" + json(crypto_exempt == 1) + ",\"threshold_cents\":" + str(thr) + "}"
+    out = out + ",\"capital\":{\"taxable_cents\":" + str(taxable) + ",\"taxable_eur\":\"" + fmt_cents(taxable) + "\",\"tax_cents\":" + str(cap_tax) + ",\"tax_eur\":\"" + fmt_cents(cap_tax) + "\"}"
+    out = out + ",\"dividends\":{\"gross_cents\":" + str(g_div) + ",\"tax_cents\":" + str(div_tax) + "}"
+    out = out + ",\"totals\":{\"flat_tax_cents\":" + str(cap_tax+div_tax) + ",\"flat_tax_eur\":\"" + fmt_cents(cap_tax+div_tax) + "\",\"social_cents\":" + str(soc_bnc+soc_bic) + ",\"social_eur\":\"" + fmt_cents(soc_bnc+soc_bic) + "\"}"
+    out = out + ",\"notes\":[\"estimates on the seeded rate card — override with bilan rule set\",\"IR progressive scale not applied (v0); net figures are post-abattement only\",\"crypto exemption per form 2086: net gains under the threshold are not declarable\"]}"
+    code = 0
+    err = ""
+}
+
+// rule_list / rule_set — the rate card is data. list [--year Y]; set <year> <regime> <param> <value>.
+func rule_list_json(db, year) (out, code, err) {
+    where := ""
+    params := []string{}
+    if year != "" { where = "year=CAST(? AS INTEGER)"  params = append(params, year) }
+    sql := "SELECT year, regime, param, value FROM tax_rules"
+    if where != "" { sql = sql + " WHERE " + where }
+    sql = sql + " ORDER BY year, regime, param"
+    rows := sqlite_query(db, sql, params)
+    out = "{\"ok\":true,\"rules\":" + rows + "}"
+    code = 0
+    err = ""
+}
+
+func rule_set(db, year, regime, param, value) (out, code, err) {
+    if parse_cents_ok(year) == 0 { return "", 80, "bad year: " + year }
+    sqlite_exec(db, "INSERT INTO tax_rules(year,regime,param,value) VALUES(?,?,?,?) ON CONFLICT(year,regime,param) DO UPDATE SET value=excluded.value", []string{year, regime, param, value})
+    out = "{\"ok\":true,\"year\":" + year + ",\"regime\":\"" + esc(regime) + "\",\"param\":\"" + esc(param) + "\",\"value\":\"" + esc(value) + "\"}"
+    code = 0
+    err = ""
+}
