@@ -22,6 +22,9 @@ func open_db_at(path) (db) {
     // moves — Brian's proposals (Action + Pourquoi + Impact), one row each; the human
     // approves via the dashboard or `bilan move done`. Henry's "Moves" as data.
     sqlite_exec(db, "CREATE TABLE IF NOT EXISTS moves(id TEXT PRIMARY KEY, kind TEXT, action TEXT, pourquoi TEXT, impact TEXT, horizon TEXT DEFAULT 'today', status TEXT DEFAULT 'proposed', created INTEGER, closed INTEGER DEFAULT 0)", []string{})
+    // telemetry — usage + errors only (hosted mode). NO financial data, NO stream
+    // names, NO amounts. event = endpoint/command name, code = exit/HTTP status.
+    sqlite_exec(db, "CREATE TABLE IF NOT EXISTS telemetry_events(event TEXT, ts INTEGER, tenant TEXT, code INTEGER, duration_ms INTEGER)", []string{})
     seed_rules(db)
 }
 
@@ -41,20 +44,33 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'micro_foncier', 'social_pct_tenths', '172')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'capital', 'pfu_pct_tenths', '314')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'capital', 'crypto_exempt_threshold_cents', '30500')", []string{y})
-    // IR progressive barème (2025 barème on 2024 income — the latest published; the
-    // operator overrides when the 2026 barème lands). 5 brackets, each a
-    // threshold_cents + rate_tenths. parts = quotient familial (default 1 part).
+    // IR progressive barème (2025 barème on 2024 income — loi de finances 2025, art. 2;
+    // revalorisation +1.8% vs 2024 barème. Source: BOFiP BOI-IR-LIQ-20-20-30,
+    // legifiscal.fr/bareme-impot-revenu). 5 brackets, each a threshold_cents + rate_tenths.
+    // parts = quotient familial (default 1 part). Operator overrides per year.
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_1_threshold_cents', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_1_rate_tenths', '0')", []string{y})
-    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_2_threshold_cents', '1129700')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_2_threshold_cents', '1149700')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_2_rate_tenths', '110')", []string{y})
-    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_3_threshold_cents', '2879700')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_3_threshold_cents', '2931500')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_3_rate_tenths', '300')", []string{y})
-    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_4_threshold_cents', '8234100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_4_threshold_cents', '8382300')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_4_rate_tenths', '410')", []string{y})
-    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_5_threshold_cents', '17709500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_5_threshold_cents', '18029400')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_5_rate_tenths', '450')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'parts', '1')", []string{y})
+    // Décote (2024 income — art. 197 CGI 4°I). Plafond 889 € (célibataire, 1 part) /
+    // 1470 € (couple, imposition commune). Coefficient 45.25%. Décote = plafond -
+    // 45.25% × IR; applies when IR < plafond/0.4525 (≈1965 € single / 3249 € couple).
+    // Source: BOFiP BOI-IR-LIQ-20-20-30-20250414. Operator sets plafond for couple.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'decote_plafond_cents', '88900')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'decote_coefficient_milliemes', '4525')", []string{y})
+    // 10% frais abattement on salary (2024 income — art. 83 CGI). 10% of gross, min
+    // 509 € / max 14,555 € per member of the foyer. Source: impots.gouv.fr/particulier/
+    // questions/comment-puis-je-beneficier-de-la-deduction-forfaitaire-de-10.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'salary', 'frais_abattement_pct_tenths', '100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'salary', 'frais_abattement_min_cents', '50900')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'salary', 'frais_abattement_max_cents', '1455500')", []string{y})
 }
 
 type Rulevalrow struct { value string }

@@ -61,30 +61,43 @@ func guide_text(base) (t) {
         "        into any harness (claude-code/pi/opencode) and the agent becomes the copilote\n" +
         "  demo                                            seed a deterministic pluri-actif ledger\n" +
         "        (salary+bnc+crypto+rent) so a cold agent can run the radar in one command (idempotent)\n" +
+        "  telemetry                                       aggregate usage + errors across tenants\n" +
+        "        (hosted operator only; local mode records none — usage + errors only, NO financial data)\n" +
         "  guide                                           this document\n" +
         "  feedback <message> [--kind bug|idea|praise]     report a bug/idea (never fails)\n" +
         "  version | update                                release info / self-update\n" +
         "  serve [--port N]                                HTTP JSON API (see below)\n" +
         "\n" +
         "## The rate card (seeded for the current year; override per year)\n" +
+        "  Sources: BOFiP (bofip.impots.gouv.fr), impots.gouv.fr, legifiscal.fr — see notes.\n" +
         "  micro_bnc:          abattement 34%  ·  social 24.6%   (regime rows micro_bnc)\n" +
         "  micro_bic_services: abattement 50%  ·  social 21.2%\n" +
         "  micro_foncier:      abattement 30%  ·  social 17.2% (on net after abattement)\n" +
         "  capital (crypto/trading): PFU 31.4% on positive net gains\n" +
         "  crypto exemption:   net gains under 305.00 EUR -> not declarable (form 2086)\n" +
         "  dividends:          PFU on the positive sum\n" +
-        "  salary:             enters the IR base gross (10% frais abattement is v1)\n" +
+        "  salary:             10% frais abattement (min 509 / max 14555 EUR per member)\n" +
+        "                      on gross; net enters the IR base. Source: art. 83 CGI.\n" +
         "  IR barème:          5 progressive brackets on net imposable (0/11/30/41/45%);\n" +
-        "                      quotient familial via ir_bareme parts (default 1). Override:\n" +
-        "                      bilan rule set 2026 ir_bareme parts 2  (a couple = 2, +0.5/child)\n" +
+        "                      2025 barème on 2024 income (loi de finances 2025, art. 2,\n" +
+        "                      revalorisation +1.8%). Source: BOFiP BOI-IR-LIQ-20-20-30.\n" +
+        "  décote:             plafond 889 EUR (célibataire) / 1470 EUR (couple) - 45.25% × IR;\n" +
+        "                      applies when IR < ~1965 EUR (single) / 3249 EUR (couple).\n" +
+        "                      Source: art. 197 CGI 4°I, BOFiP BOI-IR-LIQ-20-20-30-20250414.\n" +
+        "  quotient familial:  ir_bareme parts (default 1; couple = 2, +0.5/child).\n" +
+        "                      Override: bilan rule set 2026 ir_bareme parts 2\n" +
+        "  deficits:           BNC/BIC deficits carried forward 6 years (computed from\n" +
+        "                      history, not stored). Source: CGI, report en avant.\n" +
         "  Override any of them: bilan rule set 2027 micro_bnc deduction_pct_tenths 340\n" +
         "  (rates are DECIPERCENT tenths: 340 = 34.0%; all math is integer cents)\n" +
         "\n" +
         "## What the radar is NOT\n" +
-        "  It computes regime math + the progressive IR barème on the numbers YOU imported.\n" +
-        "  It does NOT apply the décote (low-IR reduction), the 10% frais abattement on\n" +
-        "  salary, deficits carried forward, or the quotient familial beyond `parts`.\n" +
-        "  Output is an estimate to reason from, not tax advice — say so to the human.\n" +
+        "  It computes regime math + the progressive IR barème + décote + 10% frais on\n" +
+        "  salary + BNC/BIC deficit carry-forward (6y). It does NOT model: the 10% frais\n" +
+        "  on salary per-member (uses one abattement for the foyer), deficits beyond 6\n" +
+        "  years, the plafonnement du quotient familial, or revenus fonciers imputation\n" +
+        "  on the revenu global (10,700 EUR cap). Output is an estimate to reason from,\n" +
+        "  not tax advice — say so to the human.\n" +
         "\n" +
         "## Brian — the cheap copilote (no inference in the platform)\n" +
         "  Brian is a PERSONA, not a service: install it into the harness your human\n" +

@@ -97,24 +97,50 @@ ok "foncier net after abattement" 70000 "$(jq -r .regimes.foncier.net_ir_cents <
 ok "foncier social 17.2% on net" 12040 "$(jq -r .regimes.foncier.social_cents <<<"$r")"
 ok "foncier social in totals" 59425 "$(jq -r .totals.social_cents <<<"$r")"
 
-# --- progressive IR barème (5 brackets, quotient familial) ---
+# --- progressive IR barème (5 brackets, quotient familial, 10% frais, décote) ---
 IRDB="$(mktemp -u /tmp/bilan-ir-XXXXXX.db)"
 BILAN_DB="$IRDB" $BIN stream add sal --kind salary >/dev/null
 BILAN_DB="$IRDB" $BIN tx add sal 2026-06-30 50000 --label "salaire annuel" >/dev/null
 r=$(BILAN_DB="$IRDB" $BIN tax --year 2026)
-# 50000 EUR, 1 part: 11% on 17500 + 30% on 21203 = 1925.00 + 6360.90 = 8285.90
-ok "ir base = salary gross" 5000000 "$(jq -r .ir.base_cents <<<"$r")"
-ok "ir 11%+30% brackets" 828590 "$(jq -r .ir.ir_cents <<<"$r")"
+# 50000 EUR salary - 10% frais (5000, within 509..14555) = 45000 EUR net imposable.
+# 2025 barème: 11% on (29315-11497)=17818 -> 1960.0; 30% on (45000-29315)=15685 -> 4705.5
+# IR brut = 6665.50 EUR; décote = 889 - 45.25%×6665.50 = negative -> 0. IR = 6665.48.
+ok "salary 10% frais abattement" 500000 "$(jq -r .regimes.salary.frais_abattement_cents <<<"$r")"
+ok "salary net after frais" 4500000 "$(jq -r .regimes.salary.net_cents <<<"$r")"
+ok "ir base = salary net after frais" 4500000 "$(jq -r .ir.base_cents <<<"$r")"
+ok "ir 11%+30% brackets (2025 barème)" 666548 "$(jq -r .ir.ir_cents <<<"$r")"
 ok "ir marginal 30%" 30 "$(jq -r .ir.marginal_rate_pct <<<"$r")"
 ok "ir parts default 1" 1 "$(jq -r .ir.parts <<<"$r")"
-ok "ir in totals" 828590 "$(jq -r .totals.ir_cents <<<"$r")"
-ok "total_tax = ir + flat + social" 828590 "$(jq -r .totals.total_tax_cents <<<"$r")"
+ok "ir in totals" 666548 "$(jq -r .totals.ir_cents <<<"$r")"
+ok "total_tax = ir + flat + social" 666548 "$(jq -r .totals.total_tax_cents <<<"$r")"
 # quotient familial: 2 parts halves the quotient -> IR drops
 BILAN_DB="$IRDB" $BIN rule set 2026 ir_bareme parts 2 >/dev/null
 r=$(BILAN_DB="$IRDB" $BIN tax --year 2026)
-# quotient = 5000000/2 = 2500000; 11% on (2500000-1129700)=1370300 -> 150733; x2 parts = 301466
-ok "ir QF 2 parts lowers IR" 301466 "$(jq -r .ir.ir_cents <<<"$r")"
+# quotient = 4500000/2 = 2250000; 11% on (2250000-1149700)=1100300 -> 121033; x2 = 242066
+ok "ir QF 2 parts lowers IR" 242066 "$(jq -r .ir.ir_cents <<<"$r")"
 rm -f "$IRDB"
+
+# --- décote (low IR: 24000 EUR salary -> 21600 net -> 1111.33 brut -> 725.20 after décote) ---
+DCDB="$(mktemp -u /tmp/bilan-decote-XXXXXX.db)"
+BILAN_DB="$DCDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$DCDB" $BIN tx add sal 2026-06-30 24000 --label "low salary" >/dev/null
+r=$(BILAN_DB="$DCDB" $BIN tax --year 2026)
+ok "décote: ir before décote" 111133 "$(jq -r .ir.ir_before_decote_cents <<<"$r")"
+ok "décote: amount" 38613 "$(jq -r .ir.decote_cents <<<"$r")"
+ok "décote: ir after décote" 72520 "$(jq -r .ir.ir_cents <<<"$r")"
+rm -f "$DCDB"
+
+# --- deficits carried forward (BNC: prior-year loss offsets current-year gross) ---
+DFDB="$(mktemp -u /tmp/bilan-deficit-XXXXXX.db)"
+BILAN_DB="$DFDB" $BIN stream add biz --kind bnc >/dev/null
+BILAN_DB="$DFDB" $BIN tx add biz 2020-06-30 -80000 --label "loss 2020" >/dev/null
+BILAN_DB="$DFDB" $BIN tx add biz 2026-06-30 60000 --label "profit 2026" >/dev/null
+r=$(BILAN_DB="$DFDB" $BIN tax --year 2026)
+# 2020 loss 80000 EUR (8000000 cents) carries forward (no intermediate years use it);
+# 2026 gross 60000 EUR - deficit 80000 EUR = -20000, clamped to 0 adjusted gross.
+ok "deficit carried forward (6y)" 8000000 "$(jq -r .regimes.bnc.deficit_carried_cents <<<"$r")"
+ok "deficit adjusts gross (clamped to 0)" 0 "$(jq -r .regimes.bnc.adjusted_gross_cents <<<"$r")"
+rm -f "$DFDB"
 
 # --- fixtures (realistic broker exports; no real PII available on this box) --
 $BIN stream add etoro --kind crypto >/dev/null
@@ -207,6 +233,14 @@ ok "hosted gift call 3 -> 200" 200 "$code"
 r=$(curl -s -H "Authorization: Bearer tenant-a" http://127.0.0.1:$HPORT/v1/stats)
 ok "gift exhausted -> 402 pay object" peage "$(jq -r .pay.rail <<<"$r")"
 ok "  ...price on the pay object" 1 "$(jq -r .pay.price_cents <<<"$r")"
+# telemetry: the 4 calls above (3 gift + 1 402) are recorded; CLI reads them back.
+# Local mode (no BILAN_HOSTED) reports telemetry:false — verified separately below.
+r=$(HOME="$HOMEDIR" BILAN_HOSTED=1 $BIN telemetry)
+ok "hosted telemetry records events" 4 "$(jq -r '.totals[0].n // .totals.n // empty' <<<"$r" 2>/dev/null || jq -r '.by_event[0].n // .by_event[].n' <<<"$r" | head -1)"
+ok "hosted telemetry counts errors (402)" 1 "$(jq -r '[.by_event[].errs // 0] | add' <<<"$r" 2>/dev/null || echo 0)"
+# local mode telemetry is a no-op (the OSS binary owes nobody metrics)
+r=$($BIN telemetry)
+ok "local telemetry is a no-op" false "$(jq -r .telemetry <<<"$r")"
 # CLI hosted mode: same agent surface against the hosted API (fresh tenant, 3 gift calls)
 export BILAN_URL=http://127.0.0.1:$HPORT BILAN_TOKEN=cli-tenant
 r=$($BIN stream add hosted --kind bnc)

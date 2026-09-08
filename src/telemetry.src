@@ -1,0 +1,25 @@
+// telemetry — usage + errors only (hosted mode). NO financial data, NO stream
+// names, NO amounts. Records to the hosted control db so the operator sees aggregate
+// usage across tenants. The tenant field is the bearer-token hash (not the token
+// itself). Local mode never records telemetry — the OSS binary owes nobody metrics.
+
+// telemetry_record — append one event to the control db. Best-effort: never fails
+// the caller (a telemetry write error is swallowed, not propagated).
+func telemetry_record(cdb, event, tenant, code, duration_ms) {
+    sqlite_exec(cdb, "CREATE TABLE IF NOT EXISTS telemetry_events(event TEXT, ts INTEGER, tenant TEXT, code INTEGER, duration_ms INTEGER)", []string{})
+    sqlite_exec(cdb, "INSERT INTO telemetry_events(event,ts,tenant,code,duration_ms) VALUES(?,?,?,?,?)", []string{event, str(now_ms()), tenant, str(code), str(duration_ms)})
+}
+
+// telemetry_json — aggregate usage stats for the operator. Counts by event, error
+// count (code >= 400), total calls, and a 24h window. Reads from the control db.
+func telemetry_json(cdb) (out, code, err) {
+    sqlite_exec(cdb, "CREATE TABLE IF NOT EXISTS telemetry_events(event TEXT, ts INTEGER, tenant TEXT, code INTEGER, duration_ms INTEGER)", []string{})
+    byEvent := sqlite_query(cdb, "SELECT event, COUNT(*) AS n, SUM(CASE WHEN code>=400 THEN 1 ELSE 0 END) AS errs FROM telemetry_events GROUP BY event ORDER BY n DESC", []string{})
+    total := sqlite_query(cdb, "SELECT COUNT(*) AS n, SUM(CASE WHEN code>=400 THEN 1 ELSE 0 END) AS errs FROM telemetry_events", []string{})
+    since24h := now_ms() - 86400000
+    recent := sqlite_query(cdb, "SELECT COUNT(*) AS n FROM telemetry_events WHERE ts>=?", []string{str(since24h)})
+    tenants := sqlite_query(cdb, "SELECT COUNT(DISTINCT tenant) AS n FROM telemetry_events WHERE tenant!=''", []string{})
+    out = "{\"ok\":true,\"by_event\":" + byEvent + ",\"totals\":" + total + ",\"last_24h\":" + recent + ",\"distinct_tenants\":" + tenants + "}"
+    code = 0
+    err = ""
+}

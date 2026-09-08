@@ -137,10 +137,12 @@ func llms_txt() (t) {
         "## Cold start (60 seconds)\n" +
         "1. install: curl -fsSL https://raw.githubusercontent.com/javimosch/bilan/master/install.sh | sh\n" +
         "2. learn: bilan guide (the full operator reference, also GET /guide)\n" +
-        "3. catalog: bilan help-json (18 commands, exit codes 0/80s/93/94/100/110)\n" +
+        "3. catalog: bilan help-json (19 commands, exit codes 0/80s/93/94/100/110)\n" +
         "4. per-command: bilan help <cmd> or bilan <cmd> --help (never runs the command)\n" +
         "5. demo data: bilan demo (deterministic salary+bnc+crypto+rent ledger, idempotent)\n" +
         "6. the radar: bilan stats --year 2026 && bilan tax --year 2026\n" +
+        "   (radar = regime math + progressive IR barème + décote + 10% frais on salary\n" +
+        "    + BNC/BIC deficit carry-forward 6y; 2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +
         "bilan ships a persona: `bilan brian` prints it — install into your harness\n" +

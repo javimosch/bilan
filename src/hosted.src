@@ -55,8 +55,9 @@ func pay_required(msg) (r) {
 
 // hosted_handle — the hosted front door for one /v1/* request: authenticate the
 // tenant, apply the gift credit, charge peage past the gift, then run the API against
-// the tenant's own ledger. Returns the HTTP response (single value — machweb
-// closures can't multi-assign). Local (non-hosted) mode never calls this.
+// the tenant's own ledger. Records usage telemetry (event + status + duration, NO
+// financial data) to the control db. Returns the HTTP response (single value —
+// machweb closures can't multi-assign). Local (non-hosted) mode never calls this.
 func hosted_handle(req) (res) {
     h := header(req, "authorization")
     if has_prefix(h, "Bearer ") == false { res = unauthorized()  return res }
@@ -64,34 +65,42 @@ func hosted_handle(req) (res) {
     if tok == "" { res = unauthorized()  return res }
     cdb := hosted_control_db()
     tws, used := tenant_ensure(cdb, tok)
+    tenant_hash := substr(sha256(tok), 0, 16)
+    started := now_ms()
+    ev := path_only(req.path)
     if used < gift_calls() {
         bump_calls(cdb, tok)
-        sqlite_close(cdb)
         res = api(req, tws)
+        telemetry_record(cdb, ev, tenant_hash, parse_int(substr(res.status, 0, 3)), now_ms() - started)
+        sqlite_close(cdb)
         return res
     }
     // gift spent: charge 1 cent on the caller's peage wallet (X-Peage-Wallet)
     w := header(req, "x-peage-wallet")
     if w == "" {
-        sqlite_close(cdb)
         res = pay_required("gift credit exhausted — send X-Peage-Wallet (a peage wallet token) to pay per call")
+        telemetry_record(cdb, ev, tenant_hash, 402, now_ms() - started)
+        sqlite_close(cdb)
         return res
     }
     mkey := env("BILAN_MERCHANT_KEY")
     if mkey == "" {
-        sqlite_close(cdb)
         res = pay_required("operator has not configured a peage merchant key — cannot charge; top up your wallet and retry later")
+        telemetry_record(cdb, ev, tenant_hash, 402, now_ms() - started)
+        sqlite_close(cdb)
         return res
     }
     idem := "bilan-" + to_hex(rand_bytes(8))
     body := "{\"wallet_token\":" + json(w) + ",\"amount_cents\":1,\"memo\":\"bilan " + esc(path_only(req.path)) + "\",\"idempotency_key\":\"" + idem + "\"}"
     st, pbody, herr := http_request("POST", "https://peage.intrane.fr/v1/charge", []string{"authorization: Bearer " + mkey, "content-type: application/json"}, body)
     if herr != "" || st != 200 {
-        sqlite_close(cdb)
         res = pay_required("peage charge failed (status " + str(st) + ") — top up your wallet and retry")
+        telemetry_record(cdb, ev, tenant_hash, 402, now_ms() - started)
+        sqlite_close(cdb)
         return res
     }
     bump_calls(cdb, tok)
-    sqlite_close(cdb)
     res = api(req, tws)
+    telemetry_record(cdb, ev, tenant_hash, parse_int(substr(res.status, 0, 3)), now_ms() - started)
+    sqlite_close(cdb)
 }
