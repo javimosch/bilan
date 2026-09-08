@@ -478,6 +478,110 @@ r=$(BILAN_DB="$PMEDB2" $BIN tax --year 2026)
 ok "ir_pme capped at 50000" 900000 "$(jq -r .reductions.ir_pme.reduction_cents <<<"$r")"
 rm -f "$PMEDB2"
 
+# --- PER — plan épargne retraite (art. 163 quatervicies): deduction from ir_base ---
+# 5000 salary -> 45000 net; PER 5000 -> cap 35194 -> 5000 deducted from base
+# base = 45000 - 5000 = 40000 EUR = 4000000 cents
+PERDB="$(mktemp -u /tmp/bilan-per-XXXXXX.db)"
+BILAN_DB="$PERDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$PERDB" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$PERDB" $BIN stream add ret --kind per >/dev/null
+BILAN_DB="$PERDB" $BIN tx add ret 2026-06-30 5000 >/dev/null
+r=$(BILAN_DB="$PERDB" $BIN tax --year 2026)
+ok "per deduction 5000" 500000 "$(jq -r .ir.per_deduction_cents <<<"$r")"
+ok "per reduces ir_base" 4000000 "$(jq -r .ir.base_cents <<<"$r")"
+rm -f "$PERDB"
+
+# --- PER above cap: 50000 -> cap 35194 ---
+PERDB2="$(mktemp -u /tmp/bilan-per2-XXXXXX.db)"
+BILAN_DB="$PERDB2" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$PERDB2" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$PERDB2" $BIN stream add ret --kind per >/dev/null
+BILAN_DB="$PERDB2" $BIN tx add ret 2026-06-30 50000 >/dev/null
+r=$(BILAN_DB="$PERDB2" $BIN tax --year 2026)
+ok "per capped at 35194" 3519400 "$(jq -r .ir.per_deduction_cents <<<"$r")"
+rm -f "$PERDB2"
+
+# --- FCPI/FIP (art. 199 terdecies-0 A VI): 18% cap 12000 ---
+# 10000 versements -> 18% = 1800 EUR = 180000 cents
+FFDB="$(mktemp -u /tmp/bilan-ff-XXXXXX.db)"
+BILAN_DB="$FFDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$FFDB" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$FFDB" $BIN stream add fc --kind fcpi_fip >/dev/null
+BILAN_DB="$FFDB" $BIN tx add fc 2026-06-30 10000 >/dev/null
+r=$(BILAN_DB="$FFDB" $BIN tax --year 2026)
+ok "fcpi_fip 18% rate" "18" "$(jq -r .reductions.fcpi_fip.rate_pct <<<"$r")"
+ok "fcpi_fip 18% reduction" 180000 "$(jq -r .reductions.fcpi_fip.reduction_cents <<<"$r")"
+ok "fcpi_fip ir reduction" 180000 "$(jq -r .ir.fcpi_fip_reduction_cents <<<"$r")"
+rm -f "$FFDB"
+
+# --- FCPI/FIP above cap: 20000 -> cap 12000 -> 18% = 2160 ---
+FFDB2="$(mktemp -u /tmp/bilan-ff2-XXXXXX.db)"
+BILAN_DB="$FFDB2" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$FFDB2" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$FFDB2" $BIN stream add fc --kind fcpi_fip >/dev/null
+BILAN_DB="$FFDB2" $BIN tx add fc 2026-06-30 20000 >/dev/null
+r=$(BILAN_DB="$FFDB2" $BIN tax --year 2026)
+ok "fcpi_fip capped at 12000" 216000 "$(jq -r .reductions.fcpi_fip.reduction_cents <<<"$r")"
+rm -f "$FFDB2"
+
+# --- SOFICA (art. 199 quater E): 30% cap 18000 OR 25% revenu ---
+# 5000 versements, salary 50000 -> net 45000; 25% of 45000 = 11250 > 5000
+# so base = 5000; 30% of 5000 = 1500 EUR = 150000 cents
+SODB="$(mktemp -u /tmp/bilan-so-XXXXXX.db)"
+BILAN_DB="$SODB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$SODB" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$SODB" $BIN stream add cine --kind sofica >/dev/null
+BILAN_DB="$SODB" $BIN tx add cine 2026-06-30 5000 >/dev/null
+r=$(BILAN_DB="$SODB" $BIN tax --year 2026)
+ok "sofica 30% rate" "30" "$(jq -r .reductions.sofica.rate_pct <<<"$r")"
+ok "sofica 30% reduction (under revenu cap)" 150000 "$(jq -r .reductions.sofica.reduction_cents <<<"$r")"
+ok "sofica ir reduction" 150000 "$(jq -r .ir.sofica_reduction_cents <<<"$r")"
+rm -f "$SODB"
+
+# --- FOREST (art. 199 decies HA): 22% cap 5700 ---
+# 2000 versements -> 22% = 440 EUR = 44000 cents
+FODB="$(mktemp -u /tmp/bilan-fo-XXXXXX.db)"
+BILAN_DB="$FODB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$FODB" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$FODB" $BIN stream add tree --kind forest >/dev/null
+BILAN_DB="$FODB" $BIN tx add tree 2026-06-30 2000 >/dev/null
+r=$(BILAN_DB="$FODB" $BIN tax --year 2026)
+ok "forest 22% rate" "22" "$(jq -r .reductions.forest.rate_pct <<<"$r")"
+ok "forest 22% reduction" 44000 "$(jq -r .reductions.forest.reduction_cents <<<"$r")"
+ok "forest ir reduction" 44000 "$(jq -r .ir.forest_reduction_cents <<<"$r")"
+rm -f "$FODB"
+
+# --- FOREST above cap: 10000 -> cap 5700 -> 22% = 1254 ---
+FODB2="$(mktemp -u /tmp/bilan-fo2-XXXXXX.db)"
+BILAN_DB="$FODB2" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$FODB2" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$FODB2" $BIN stream add tree --kind forest >/dev/null
+BILAN_DB="$FODB2" $BIN tx add tree 2026-06-30 10000 >/dev/null
+r=$(BILAN_DB="$FODB2" $BIN tax --year 2026)
+ok "forest capped at 5700" 125400 "$(jq -r .reductions.forest.reduction_cents <<<"$r")"
+rm -f "$FODB2"
+
+# --- Plafonnement global (art. 200-0 A): caps total niche advantage at 10k ---
+# Build a scenario with >10k of niche reductions. Pinel 300000 @ 18% / 9y = 6000/yr
+# + IR-PME 50000 @ 18% = 9000 + frais_garde 3500 @ 50% = 1750 = 16750 total.
+# Cap 10000 -> excess 6750 added back to ir_after_credit.
+PGDB="$(mktemp -u /tmp/bilan-pg-XXXXXX.db)"
+BILAN_DB="$PGDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$PGDB" $BIN tx add sal 2026-06-30 200000 >/dev/null
+BILAN_DB="$PGDB" $BIN stream add pin --kind pinel --engagement 9 >/dev/null
+BILAN_DB="$PGDB" $BIN tx add pin 2026-06-30 300000 >/dev/null
+BILAN_DB="$PGDB" $BIN stream add inv --kind ir_pme >/dev/null
+BILAN_DB="$PGDB" $BIN tx add inv 2026-06-30 50000 >/dev/null
+BILAN_DB="$PGDB" $BIN stream add garde --kind frais_garde >/dev/null
+BILAN_DB="$PGDB" $BIN tx add garde 2026-06-30 3500 >/dev/null
+r=$(BILAN_DB="$PGDB" $BIN tax --year 2026)
+# niche_total = 6000 (pinel 18%/9y) + 9000 (ir_pme) + 1750 (frais_garde) = 1675000 cents
+ok "plafonnement niche_total" 1675000 "$(jq -r .reductions.plafonnement_global.niche_total_cents <<<"$r")"
+ok "plafonnement cap 10000" 1000000 "$(jq -r .reductions.plafonnement_global.cap_effective_cents <<<"$r")"
+ok "plafonnement excess 6750" 675000 "$(jq -r .reductions.plafonnement_global.excess_cents <<<"$r")"
+ok "plafonnement ir excess" 675000 "$(jq -r .ir.plafonnement_global_excess_cents <<<"$r")"
+rm -f "$PGDB"
+
 # --- deficits carried forward (BNC: prior-year loss offsets current-year gross) ---
 DFDB="$(mktemp -u /tmp/bilan-deficit-XXXXXX.db)"
 BILAN_DB="$DFDB" $BIN stream add biz --kind bnc >/dev/null

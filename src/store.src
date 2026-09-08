@@ -263,6 +263,42 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_pme', 'rate_pct_tenths', '180')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_pme', 'cap_single_cents', '5000000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_pme', 'cap_couple_cents', '10000000')", []string{y})
+    // Plafonnement global des avantages fiscaux (art. 200-0 A CGI). Caps the
+    // TOTAL niche tax advantage at 10,000 EUR per year (18,000 EUR with SOFICA
+    // or outre-mer). Applies to: pinel, denormandie, censi_bouvard, ir_pme,
+    // fcpi_fip, forest, sofica, emploi_domicile, frais_garde. Does NOT apply to:
+    // dons, scolarite, pension_alimentaire, PER (deductions or non-niche).
+    // Source: BOFiP BOI-IR-LIQ-20-20-10, service-public.gouv.fr F31179.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'plafonnement_global', 'cap_cents', '1000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'plafonnement_global', 'cap_sofica_cents', '1800000')", []string{y})
+    // PER — plan épargne retraite (art. 163 quatervicies CGI). Deduction from
+    // revenu global (reduces IR base). 10% of revenus professionnels N-1, capped
+    // at 8x PASS (35,194 EUR for 2024 income) or 10% PASS minimum (4,399 EUR).
+    // Simplified: cap at 35,194 EUR. Record versements as positive txs in a
+    // 'per' stream. Source: BOFiP BOI-IR-BASE-20-50.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'per', 'cap_cents', '3519400')", []string{y})
+    // FCPI/FIP (art. 199 terdecies-0 A VI CGI). 18% reduction, capped at 12,000
+    // EUR single / 24,000 EUR couple. 25% for FIP Corse/Outre-Mer (until 2026).
+    // Subject to plafonnement global. Record versements as positive txs in a
+    // 'fcpi_fip' stream. Source: BOFiP BOI-IR-RICI-90.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'fcpi_fip', 'rate_pct_tenths', '180')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'fcpi_fip', 'cap_single_cents', '1200000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'fcpi_fip', 'cap_couple_cents', '2400000')", []string{y})
+    // SOFICA (art. 199 quater E CGI). 30% or 36% reduction, capped at 18,000 EUR
+    // OR 25% of revenu net global (whichever is lower). Subject to plafonnement
+    // global with 18,000 EUR cap (not 10,000). Record versements as positive txs
+    // in a 'sofica' stream. Source: BOFiP BOI-IR-RICI-120.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'sofica', 'rate_pct_tenths', '300')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'sofica', 'cap_cents', '1800000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'sofica', 'revenu_pct_tenths', '250')", []string{y})
+    // FOREST — investissement forestier (art. 199 decies HA CGI). 22% (or 18%
+    // for groupements) reduction, capped at 5,700 EUR single / 6,250 EUR couple
+    // (for 2024). 25% for contrats de plantation. Subject to plafonnement global.
+    // Record versements as positive txs in a 'forest' stream. Source: BOFiP
+    // BOI-IR-RICI-50.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'forest', 'rate_pct_tenths', '220')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'forest', 'cap_single_cents', '570000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'forest', 'cap_couple_cents', '625000')", []string{y})
 }
 
 type Rulevalrow struct { value string }

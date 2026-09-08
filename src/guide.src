@@ -225,23 +225,64 @@ func guide_text(base) (t) {
         "  Override any of them: bilan rule set 2027 micro_bnc deduction_pct_tenths 340\n" +
         "  (rates are DECIPERCENT tenths: 340 = 34.0%; all math is integer cents)\n" +
         "\n" +
+        "## PER — plan d'épargne retraite (art. 163 quatervicies CGI)\n" +
+        "  Record versements as positive txs in a 'per' stream. DEDUCTION from\n" +
+        "  revenu global (reduces IR base, like pension alimentaire). 10% of revenus\n" +
+        "  professionnels N-1, capped at 8x PASS (35,194 EUR for 2024 income) or 10%\n" +
+        "  PASS minimum (4,399 EUR). Simplified: cap at the seeded value (35,194 EUR).\n" +
+        "  For TNS the article 154 bis regime (10% bénéfice + 15% between 1-8 PASS) is\n" +
+        "  more generous but not modeled separately — record versements in 'per' and\n" +
+        "  the radar applies the 163 quatervicies cap. Source: BOFiP BOI-IR-BASE-20-50.\n" +
+        "\n" +
+        "## FCPI/FIP (art. 199 terdecies-0 A VI CGI)\n" +
+        "  Record versements as positive txs in a 'fcpi_fip' stream. 18% RÉDUCTION\n" +
+        "  (non-refundable), capped at 12,000 EUR single / 24,000 EUR couple. 25% for\n" +
+        "  FIP Corse/Outre-Mer (until 2026). Subject to plafonnement global niches.\n" +
+        "  Source: BOFiP BOI-IR-RICI-90.\n" +
+        "\n" +
+        "## SOFICA (art. 199 quater E CGI)\n" +
+        "  Record versements as positive txs in a 'sofica' stream. 30% RÉDUCTION\n" +
+        "  (36% under conditions), capped at 18,000 EUR OR 25% of revenu net global\n" +
+        "  (whichever is lower). Subject to plafonnement global with the 18,000 EUR\n" +
+        "  cap (not the 10,000 default). Source: BOFiP BOI-IR-RICI-120.\n" +
+        "\n" +
+        "## FOREST — investissement forestier (art. 199 decies HA CGI)\n" +
+        "  Record versements as positive txs in a 'forest' stream. 22% RÉDUCTION (18%\n" +
+        "  for groupements, 25% for contrats de plantation), capped at 5,700 EUR single\n" +
+        "  / 6,250 EUR couple. Subject to plafonnement global niches.\n" +
+        "  Source: BOFiP BOI-IR-RICI-50.\n" +
+        "\n" +
+        "## Plafonnement global des avantages fiscaux (art. 200-0 A CGI)\n" +
+        "  Caps the TOTAL niche tax advantage at 10,000 EUR per year (18,000 EUR when\n" +
+        "  SOFICA or outre-mer reductions are present). Applies to: pinel,\n" +
+        "  denormandie, censi_bouvard, ir_pme, fcpi_fip, forest, sofica,\n" +
+        "  emploi_domicile, frais_garde. Does NOT apply to: dons, scolarite, pension,\n" +
+        "  PER (deductions or non-niche). If the sum of niche reductions+credits exceeds\n" +
+        "  the cap, the excess is added back to ir_after_credit (the advantage is\n" +
+        "  capped). Source: BOFiP BOI-IR-LIQ-20-20-10, service-public.gouv.fr F31179.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
         "  deficit carry-forward (6y) + déficit foncier imputation (10700 on global,\n" +
         "  10y on foncier, micro + réel) + pension alimentaire deduction (art. 156)\n" +
-        "  + TVA franchise + régime simplifié eligibility + TVA collectée/déductible\n" +
-        "  (à payer / crédit) + PAS taux neutre + taux personnalisé + dons reduction\n" +
-        "  (art. 200) + PINEL/DENORMANDIE (art. 199 novovicies) + MALRAUX (art. 199\n" +
-        "  tervicies) + CENSI-BOUVARD (art. 199 sexvicies) + scolarité (art. 199\n" +
-        "  quater F) + IR-PME (art. 199 terdecies) + LMNP micro-BIC + LMNP régime réel\n" +
-        "  + emploi à domicile crédit (art. 199 sexdecies) + frais de garde crédit\n" +
-        "  (art. 200 quater B). It does NOT model: deficits beyond their windows,\n" +
-        "  plafonnement global des avantages fiscaux (10,000 EUR niches cap), TVA\n" +
-        "  régime normal (CA3 mensuel/trimestriel), the full BOFiP PAS formula, or\n" +
-        "  LMNP amortissement tables (record the amortissement as a negative tx in\n" +
-        "  the 'lmnp_reel' stream). Output is an estimate to reason from, not tax\n" +
-        "  advice — say so to the human.\n" +
+        "  + PER deduction (art. 163 quatervicies) + TVA franchise + régime\n" +
+        "  simplifié eligibility + TVA collectée/déductible (à payer / crédit) + PAS\n" +
+        "  taux neutre + taux personnalisé + dons reduction (art. 200) +\n" +
+        "  PINEL/DENORMANDIE (art. 199 novovicies) + MALRAUX (art. 199 tervicies)\n" +
+        "  + CENSI-BOUVARD (art. 199 sexvicies) + scolarité (art. 199 quater F)\n" +
+        "  + IR-PME (art. 199 terdecies) + FCPI/FIP (art. 199 terdecies-0 A VI)\n" +
+        "  + SOFICA (art. 199 quater E) + FOREST (art. 199 decies HA) + LMNP\n" +
+        "  micro-BIC + LMNP régime réel + emploi à domicile crédit (art. 199\n" +
+        "  sexdecies) + frais de garde crédit (art. 200 quater B) + plafonnement\n" +
+        "  global des avantages fiscaux (art. 200-0 A, 10k / 18k SOFICA cap). It\n" +
+        "  does NOT model: deficits beyond their windows, TVA régime normal (CA3\n" +
+        "  mensuel/trimestriel), the full BOFiP PAS formula, the article 154 bis TNS\n" +
+        "  PER plafond (10% bénéfice + 15% between 1-8 PASS — record versements in\n" +
+        "  'per' and the radar applies the 163 quatervicies cap), or LMNP amortissement\n" +
+        "  tables (record the amortissement as a negative tx in the 'lmnp_reel'\n" +
+        "  stream). Output is an estimate to reason from, not tax advice — say so to\n" +
+        "  the human.\n" +
         "\n" +
         "## Brian — the cheap copilote (no inference in the platform)\n" +
         "  Brian is a PERSONA, not a service: install it into the harness your human\n" +
