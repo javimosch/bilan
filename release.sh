@@ -28,17 +28,18 @@ GOT=$(./bilan version | grep -oE '"version":"[^"]+"' | cut -d'"' -f4)
 # 4. asset + checksum
 cp bilan bilan-linux-amd64
 SHA=$(sha256sum bilan-linux-amd64 | cut -d' ' -f1)
+echo "bilan-linux-amd64  $SHA" > SHA256SUMS.txt
 echo "✓ gate green · bilan-linux-amd64 $(du -h bilan-linux-amd64 | cut -f1) · sha256 $SHA"
 
-if [ "$DRY" = "--dry-run" ]; then echo "(dry-run — no release created)"; rm -f bilan-linux-amd64; exit 0; fi
+if [ "$DRY" = "--dry-run" ]; then echo "(dry-run — no release created)"; rm -f bilan-linux-amd64 SHA256SUMS.txt; exit 0; fi
 
 # 5. cut the release
-gh release create "$TAG" bilan-linux-amd64 -R "$REPO" \
+gh release create "$TAG" bilan-linux-amd64 SHA256SUMS.txt -R "$REPO" \
   --title "bilan $TAG" \
   --notes "Install: \`curl -fsSL https://raw.githubusercontent.com/$REPO/master/install.sh | sh\` · update: \`bilan update\`.
 
 Prebuilt \`bilan-linux-amd64\` (glibc ≥ 2.35, libsqlite3); other platforms auto-fall-back to source.
 
 \`sha256(bilan-linux-amd64) = $SHA\`"
-rm -f bilan-linux-amd64
+rm -f bilan-linux-amd64 SHA256SUMS.txt
 echo "✓ released $TAG"
