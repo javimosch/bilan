@@ -42,6 +42,10 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'micro_bic_services', 'social_pct_tenths', '212')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'micro_foncier', 'deduction_pct_tenths', '300')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'micro_foncier', 'social_pct_tenths', '172')", []string{y})
+    // Déficit foncier imputable on revenu global (art. 156 CGI I.3° — régime réel,
+    // not micro). Cap 10,700 EUR/year; the excess + intérêts d'emprunt carry 10y on
+    // revenus fonciers. Source: BOFiP BOI-RFPI-BASE-30-20-20250916.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'micro_foncier', 'deficit_global_cap_cents', '1070000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'capital', 'pfu_pct_tenths', '314')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'capital', 'crypto_exempt_threshold_cents', '30500')", []string{y})
     // IR progressive barème (2025 barème on 2024 income — loi de finances 2025, art. 2;
@@ -59,6 +63,15 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_5_threshold_cents', '18029400')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_5_rate_tenths', '450')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'parts', '1')", []string{y})
+    // Demi-parts for fractional quotient familial (couple + 1 child = 2.5 parts = 5
+    // demi-parts). If set, takes precedence over `parts` (which stays integer 1/2).
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'demi_parts', '0')", []string{y})
+    // Plafonnement du quotient familial (art. 197 CGI I.2 — 2024 income). The tax
+    // advantage from each demi-part beyond the base (1 part célibataire / 2 couple)
+    // is capped at 1,791 EUR. base_parts = 1 (célibataire) or 2 (couple); the
+    // operator sets it. Source: BOFiP BOI-IR-LIQ-20-20-20-20250414.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'base_parts', '1')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'qf_cap_per_demi_part_cents', '179100')", []string{y})
     // Décote (2024 income — art. 197 CGI 4°I). Plafond 889 € (célibataire, 1 part) /
     // 1470 € (couple, imposition commune). Coefficient 45.25%. Décote = plafond -
     // 45.25% × IR; applies when IR < plafond/0.4525 (≈1965 € single / 3249 € couple).

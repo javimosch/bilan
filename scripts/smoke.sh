@@ -110,15 +110,56 @@ ok "salary net after frais" 4500000 "$(jq -r .regimes.salary.net_cents <<<"$r")"
 ok "ir base = salary net after frais" 4500000 "$(jq -r .ir.base_cents <<<"$r")"
 ok "ir 11%+30% brackets (2025 barème)" 666548 "$(jq -r .ir.ir_cents <<<"$r")"
 ok "ir marginal 30%" 30 "$(jq -r .ir.marginal_rate_pct <<<"$r")"
-ok "ir parts default 1" 1 "$(jq -r .ir.parts <<<"$r")"
+ok "ir demi_parts default 2 (1 part)" 2 "$(jq -r .ir.demi_parts <<<"$r")"
+ok "ir qf not capped (1 part = base)" false "$(jq -r .ir.qf_capped <<<"$r")"
 ok "ir in totals" 666548 "$(jq -r .totals.ir_cents <<<"$r")"
 ok "total_tax = ir + flat + social" 666548 "$(jq -r .totals.total_tax_cents <<<"$r")"
-# quotient familial: 2 parts halves the quotient -> IR drops
+# quotient familial: couple (2 parts = 4 demi-parts, base_parts=2) halves the quotient.
+# Set base_parts=2 so the 2 base parts are NOT capped by plafonnement.
 BILAN_DB="$IRDB" $BIN rule set 2026 ir_bareme parts 2 >/dev/null
+BILAN_DB="$IRDB" $BIN rule set 2026 ir_bareme base_parts 2 >/dev/null
 r=$(BILAN_DB="$IRDB" $BIN tax --year 2026)
-# quotient = 4500000/2 = 2250000; 11% on (2250000-1149700)=1100300 -> 121033; x2 = 242066
-ok "ir QF 2 parts lowers IR" 242066 "$(jq -r .ir.ir_cents <<<"$r")"
+# quotient = 4500000*2/4 = 2250000; 11% on (2250000-1149700)=1100300 -> 121033; x4/2 = 242066
+ok "ir QF couple (2 parts, base 2) lowers IR" 242066 "$(jq -r .ir.ir_cents <<<"$r")"
+ok "ir QF couple not capped" false "$(jq -r .ir.qf_capped <<<"$r")"
 rm -f "$IRDB"
+
+# --- plafonnement du quotient familial (célibataire + 1 child: parts=1.5, base=1) ---
+PFDB="$(mktemp -u /tmp/bilan-plafond-XXXXXX.db)"
+BILAN_DB="$PFDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$PFDB" $BIN tx add sal 2026-06-30 200000 --label "high salary" >/dev/null
+# célibataire + 1 child = 1.5 parts = 3 demi-parts; base_parts=1 (célibataire) -> 1 extra demi-part
+BILAN_DB="$PFDB" $BIN rule set 2026 ir_bareme demi_parts 3 >/dev/null
+BILAN_DB="$PFDB" $BIN rule set 2026 ir_bareme base_parts 1 >/dev/null
+r=$(BILAN_DB="$PFDB" $BIN tax --year 2026)
+# 200k - 10% frais (14555 max) = 185445 net. With 3 demi-parts the QF advantage on 1
+# extra demi-part exceeds 1791 EUR -> plafonnement caps it. qf_capped=true.
+ok "plafonnement QF triggers (célibataire+1 child, high income)" true "$(jq -r .ir.qf_capped <<<"$r")"
+rm -f "$PFDB"
+
+# --- 10% frais per salary stream (couple both earning: each gets own abattement) ---
+FRDB="$(mktemp -u /tmp/bilan-frais-XXXXXX.db)"
+BILAN_DB="$FRDB" $BIN stream add him --kind salary >/dev/null
+BILAN_DB="$FRDB" $BIN stream add her --kind salary >/dev/null
+BILAN_DB="$FRDB" $BIN tx add him 2026-06-30 30000 >/dev/null
+BILAN_DB="$FRDB" $BIN tx add her 2026-06-30 30000 >/dev/null
+r=$(BILAN_DB="$FRDB" $BIN tax --year 2026)
+# each stream: 10% of 30000 = 3000 (within 509..14555); total frais 6000, net 54000
+ok "frais per stream (2 earners)" 600000 "$(jq -r .regimes.salary.frais_abattement_cents <<<"$r")"
+ok "salary net (2 earners)" 5400000 "$(jq -r .regimes.salary.net_cents <<<"$r")"
+rm -f "$FRDB"
+
+# --- déficit foncier imputation on revenu global (10700 cap, 10y carry) ---
+FNDB="$(mktemp -u /tmp/bilan-fondef-XXXXXX.db)"
+BILAN_DB="$FNDB" $BIN stream add apt --kind rent >/dev/null
+BILAN_DB="$FNDB" $BIN tx add apt 2026-06-30 -15000 --label "travaux deficit" >/dev/null
+BILAN_DB="$FNDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$FNDB" $BIN tx add sal 2026-06-30 40000 >/dev/null
+r=$(BILAN_DB="$FNDB" $BIN tax --year 2026)
+# -15000 rent deficit: 10700 imputed on revenu global, 4300 carried 10y on foncier
+ok "foncier deficit global imputation (10700 cap)" 1070000 "$(jq -r .regimes.foncier.deficit_global_imputation_cents <<<"$r")"
+ok "foncier deficit carry 10y (excess)" 430000 "$(jq -r .regimes.foncier.deficit_carry_10y_cents <<<"$r")"
+rm -f "$FNDB"
 
 # --- décote (low IR: 24000 EUR salary -> 21600 net -> 1111.33 brut -> 725.20 after décote) ---
 DCDB="$(mktemp -u /tmp/bilan-decote-XXXXXX.db)"
@@ -211,7 +252,9 @@ r=$(curl -sf -H "Authorization: Bearer smoketoken" "http://127.0.0.1:$PORT/v1/br
 WANTV1=$(( $(jq -r .totals.ir_cents <<<"$($BIN tax --year 2026)") + $(jq -r .totals.flat_tax_cents <<<"$($BIN tax --year 2026)") + $(jq -r .totals.social_cents <<<"$($BIN tax --year 2026)") ))
 ok "v1 brief provision matches tax" "$WANTV1" "$(jq -r .provision.total_cents <<<"$r")"
 okre "landing page" 'pluri-actifs' "$(curl -sf http://127.0.0.1:$PORT/)"
-okre "landing links the specs" 'cli-specs.intrane.fr' "$(curl -sf http://127.0.0.1:$PORT/)"
+okre "landing hero speaks to human pain" 'découvrez votre impôt' "$(curl -sf http://127.0.0.1:$PORT/)"
+okre "landing shows worked example" '7 816,93' "$(curl -sf http://127.0.0.1:$PORT/)"
+okre "landing has agent section below" 'Pour votre agent' "$(curl -sf http://127.0.0.1:$PORT/)"
 r=$(curl -sf -X POST -H "Authorization: Bearer smoketoken" http://127.0.0.1:$PORT/_shutdown)
 ok "shutdown" true "$(jq -r .shutdown <<<"$r")"
 sleep 0.4

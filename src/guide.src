@@ -85,19 +85,29 @@ func guide_text(base) (t) {
         "                      applies when IR < ~1965 EUR (single) / 3249 EUR (couple).\n" +
         "                      Source: art. 197 CGI 4°I, BOFiP BOI-IR-LIQ-20-20-30-20250414.\n" +
         "  quotient familial:  ir_bareme parts (default 1; couple = 2, +0.5/child).\n" +
-        "                      Override: bilan rule set 2026 ir_bareme parts 2\n" +
+        "                      For fractional parts use demi_parts (couple+1 child = 5).\n" +
+        "                      base_parts = 1 (célibataire) or 2 (couple) — the base the\n" +
+        "                      plafonnement compares against. Override:\n" +
+        "                      bilan rule set 2026 ir_bareme parts 2; base_parts 2\n" +
+        "  plafonnement QF:    the tax advantage from demi-parts beyond the base is\n" +
+        "                      capped at 1,791 EUR per demi-part (2024 income).\n" +
+        "                      Source: art. 197 CGI I.2, BOFiP BOI-IR-LIQ-20-20-20.\n" +
         "  deficits:           BNC/BIC deficits carried forward 6 years (computed from\n" +
         "                      history, not stored). Source: CGI, report en avant.\n" +
+        "  déficit foncier:    rent net negative -> up to 10,700 EUR imputed on revenu\n" +
+        "                      global (reduces the IR base), excess carried 10y on foncier.\n" +
+        "                      Source: art. 156 CGI I.3°, BOFiP BOI-RFPI-BASE-30-20.\n" +
         "  Override any of them: bilan rule set 2027 micro_bnc deduction_pct_tenths 340\n" +
         "  (rates are DECIPERCENT tenths: 340 = 34.0%; all math is integer cents)\n" +
         "\n" +
         "## What the radar is NOT\n" +
-        "  It computes regime math + the progressive IR barème + décote + 10% frais on\n" +
-        "  salary + BNC/BIC deficit carry-forward (6y). It does NOT model: the 10% frais\n" +
-        "  on salary per-member (uses one abattement for the foyer), deficits beyond 6\n" +
-        "  years, the plafonnement du quotient familial, or revenus fonciers imputation\n" +
-        "  on the revenu global (10,700 EUR cap). Output is an estimate to reason from,\n" +
-        "  not tax advice — say so to the human.\n" +
+        "  It computes regime math + the progressive IR barème + plafonnement QF +\n" +
+        "  décote + 10% frais per salary stream + BNC/BIC deficit carry-forward (6y) +\n" +
+        "  déficit foncier imputation (10700 on global, 10y on foncier). It does NOT\n" +
+        "  model: deficits beyond their windows, the parent-isolé / veuf QF caps\n" +
+        "  (4224 / 1069 EUR), intérêts d'emprunt tracking separately, or TVA / PAS /\n" +
+        "  réductions d'impôt. Output is an estimate to reason from, not tax advice —\n" +
+        "  say so to the human.\n" +
         "\n" +
         "## Brian — the cheap copilote (no inference in the platform)\n" +
         "  Brian is a PERSONA, not a service: install it into the harness your human\n" +

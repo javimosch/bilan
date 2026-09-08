@@ -1,7 +1,10 @@
 // landing — GET / : one self-contained page (no external assets), the house
-// editorial style: warm monochrome, typographic contrast, no gradients. The
-// pitch for both audiences at once: the human reading it, and the agent that
-// was told to "go look at bilan" (hence the machine links up top).
+// editorial style: warm monochrome, typographic contrast, no gradients.
+//
+// The page speaks to the HUMAN first — the pluri-actif professional who lands here
+// wondering what bilan is for. The agent/CLI/architecture surface moves below the
+// fold as a secondary section ("pour votre agent"), because that audience already
+// knows to scroll for /guide and /llms.txt.
 
 func landing_html() (h) {
     h = "<!doctype html>\n" +
@@ -9,10 +12,10 @@ func landing_html() (h) {
     "<head>\n" +
     "<meta charset=\"utf-8\">\n" +
     "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n" +
-    "<title>bilan — la comptabilité déterministe pour les pluri-actifs</title>\n" +
-    "<meta name=\"description\" content=\"Le registre financier déterministe et le radar fiscal pour les professionnels pluri-actifs. Aucun LLM dedans, par principe : votre agent pilote. Un binaire, un fichier SQLite.\">\n" +
+    "<title>bilan — voyez votre impôt avant de le devoir</title>\n" +
+    "<meta name=\"description\" content=\"Le radar fiscal pour les professionnels pluri-actifs. Salaire, freelance, crypto, loyers : un seul fichier, une provision d'impôt calculée chaque mois. Pas d'abonnement, vos données chez vous.\">\n" +
     "<style>\n" +
-    ":root{--ink:#1c1a17;--paper:#faf7f2;--muted:#6f6a62;--line:#e3ddd2;--accent:#8a5a2b}\n" +
+    ":root{--ink:#1c1a17;--paper:#faf7f2;--muted:#6f6a62;--line:#e3ddd2;--accent:#8a5a2b;--good:#3d6b4a}\n" +
     "*{box-sizing:border-box;margin:0;padding:0}\n" +
     "body{background:var(--paper);color:var(--ink);font:17px/1.65 Georgia,'Times New Roman',serif;max-width:44rem;margin:0 auto;padding:4rem 1.5rem 6rem}\n" +
     "code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86em}\n" +
@@ -32,35 +35,77 @@ func landing_html() (h) {
     ".foot{margin-top:3rem;color:var(--muted);font-size:.85rem}\n" +
     ".big{font-size:1.35rem;line-height:1.5;max-width:34rem}\n" +
     ".no{font-style:italic;color:var(--muted)}\n" +
+    ".pain{font-size:1.15rem;line-height:1.6;max-width:36rem;color:var(--ink)}\n" +
+    ".pain b{font-weight:400;background:linear-gradient(transparent 62%,#e9d9b8 62%);padding:0 .1em}\n" +
+    ".example{background:#f1ece3;border:1px solid var(--line);padding:1.4rem 1.6rem;margin:1rem 0 1.5rem}\n" +
+    ".example h3{font-size:1.05rem;font-weight:400;margin-bottom:.6rem}\n" +
+    ".example .who{color:var(--muted);font-size:.92rem;margin-bottom:1rem}\n" +
+    ".lines{display:grid;grid-template-columns:1fr auto;gap:.3rem 1.2rem;font-size:.96rem}\n" +
+    ".lines .l{color:var(--muted)}\n" +
+    ".lines .n{font-variant-numeric:tabular-nums;text-align:right}\n" +
+    ".lines .total{border-top:1px solid var(--line);padding-top:.5rem;margin-top:.3rem;font-weight:400}\n" +
+    ".lines .total .l{color:var(--ink)}\n" +
+    ".lines .total .n{color:var(--accent)}\n" +
+    ".ba{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin:1rem 0}\n" +
+    ".ba .col{border-top:1px solid var(--line);padding-top:.8rem}\n" +
+    ".ba .lbl{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}\n" +
+    ".ba .before .lbl{color:#9a5a4a}\n" +
+    ".ba .after .lbl{color:var(--good)}\n" +
+    ".ba .col p{font-size:.95rem;margin:0}\n" +
+    ".cta{display:inline-block;margin-top:1rem;padding:.7rem 1.4rem;background:var(--ink);color:var(--paper);text-decoration:none;border-radius:2px;font-size:.95rem}\n" +
+    ".cta:hover{background:var(--accent);color:var(--paper)}\n" +
+    ".agent{background:#efe9df;border:1px solid var(--line);padding:1.4rem 1.6rem;margin:1rem 0}\n" +
+    ".agent h3{font-size:1rem;font-weight:400;margin-bottom:.5rem;color:var(--accent)}\n" +
     "</style>\n" +
     "</head>\n" +
     "<body>\n" +
-    "<p class=\"tag\">bilan <span class=\"no\">· la comptabilité déterministe</span></p>\n" +
-    "<h1>Vos revenus pluri-actifs, dans un seul fichier — et votre agent IA les lit.</h1>\n" +
-    "<p class=\"no\">Salaire + BNC + crypto + loyers + dividendes&nbsp;: un registre, des calculs fiscaux déterministes, zéro LLM dans la plateforme.</p>\n" +
+    "<p class=\"tag\">bilan <span class=\"no\">· le radar fiscal des pluri-actifs</span></p>\n" +
+    "<h1>Vous cumulez trois revenus. Vous découvrez votre impôt en septembre.</h1>\n" +
+    "<p class=\"big\">bilan calcule ce que vous devez à l'administration, sur les chiffres réels, <strong>avant la fin de l'année</strong> — pas après.</p>\n" +
     "<hr class=\"rule\">\n" +
-    "<h2>Le principe</h2>\n" +
-    "<p>Le calcul de l'impôt doit être <strong>déterministe et auditable</strong>. bilan ne devine rien&nbsp;: il stocke et calcule. L'intelligence est la vôtre — votre agent lit le JSON, normalise les exports banquiers, explique le radar. <span class=\"no\">La plateforme n'exécute aucune inférence et ne voit aucun prompt.</span></p>\n" +
-    "<h2>Trois commandes</h2>\n" +
-    "<pre>bilan stream add freelance --kind bnc\n" +
-    "bilan import etoro exports/2026.csv --stream crypto\n" +
-    "bilan tax --year 2026   <span class=\"c\"># abattements, PFU, exonération 2086</span></pre>\n" +
-    "<h2>Les chiffres</h2>\n" +
-    "<div class=\"grid\">\n" +
-    "<div><p class=\"k\">binaire</p><p class=\"v\">~120 kB</p></div>\n" +
-    "<div><p class=\"k\">runtime</p><p class=\"k\">aucun</p></div>\n" +
-    "<div><p class=\"k\">LLM dedans</p><p class=\"k\">0</p></div>\n" +
-    "<div><p class=\"k\">abonnement</p><p class=\"k\">aucun</p></div>\n" +
+    "<h2>Le problème</h2>\n" +
+    "<p class=\"pain\">Un salaire, un peu de freelance, de la crypto, un loyer perçu. Aucun outil n'est fait pour vous : la compta est pour les entreprises, l'assistant fiscal vous coûte <b>800 €</b> pour des trucs simples, et votre tableur ne connaît ni le barème progressif ni l'abattement de 10 % ni la décote. Résultat — vous provisionnez au doigt mouillé, et en septembre c'est la surprise.</p>\n" +
+    "<h2>Le changement</h2>\n" +
+    "<div class=\"ba\">\n" +
+    "<div class=\"col before\"><p class=\"lbl\">Avant</p><p>Vous découvrez l'impôt quand vous recevez l'avis d'imposition. Trop tard pour ajuster.</p></div>\n" +
+    "<div class=\"col after\"><p class=\"lbl\">Avec bilan</p><p>Vous savez chaque mois combien provisionner. L'argent de l'administration est séparé du vôtre.</p></div>\n" +
     "</div>\n" +
-    "<h2>Facturation</h2>\n" +
-    "<p>Local&nbsp;: gratuit, pour toujours, vos données restent chez vous. Hébergé&nbsp;: <strong>50 appels offerts</strong> par client, puis <strong>1 centime d'euro par appel</strong> via <a href=\"https://peage.intrane.fr\">peage</a> — prépayé, sans abonnement. Quand le crédit cadeau est épuisé, l'API répond 402 avec un objet <code>pay</code>&nbsp;: votre agent vous tend le lien de recharge, vous payez ce que vous consommez, rien d'autre.</p>\n" +
-    "<h2>Démarrer</h2>\n" +
-    "<pre>curl -fsSL https://raw.githubusercontent.com/javimosch/bilan/master/install.sh | sh\n" +
-    "bilan guide          # le manuel opérateur complet, embarqué dans le binaire\n" +
-    "bilan stream add freelance --kind bnc\n" +
-    "bilan tax --year 2026</pre>\n" +
-    "<p class=\"no\">Les estimations du radar ne constituent pas un conseil fiscal — ce sont des calculs déterministes sur les chiffres que vous importez, à raisonner avec votre expert-comptable.</p>\n" +
+    "<h2>Concrètement — l'exemple de Marie</h2>\n" +
+    "<p>Marie est pluri-active : un salaire à temps partiel, du conseil en BNC, un peu de crypto, un appartement loué. Voici ce que bilan calcule sur ses revenus 2026, en une commande.</p>\n" +
+    "<div class=\"example\">\n" +
+    "<h3>Marie, célibataire, 1 part</h3>\n" +
+    "<p class=\"who\">Revenus 2026 · salaire 10 800 € + freelance 20 300 € + crypto 1 730 € + loyer 5 650 €</p>\n" +
+    "<div class=\"lines\">\n" +
+    "<span class=\"l\">Salaire net (après 10 % frais, art. 83 CGI)</span><span class=\"n\">9 720,00 €</span>\n" +
+    "<span class=\"l\">BNC net (abattement 34 %)</span><span class=\"n\">13 398,00 €</span>\n" +
+    "<span class=\"l\">Foncier net (abattement 30 %)</span><span class=\"n\">3 955,00 €</span>\n" +
+    "<span class=\"l\">Crypto (PFU 31,4 %)</span><span class=\"n\">543,22 €</span>\n" +
+    "<span class=\"l\">Revenu imposable → barème progressif</span><span class=\"n\">27 073,00 €</span>\n" +
+    "<span class=\"l\">IR après barème + décote</span><span class=\"n\">1 599,65 €</span>\n" +
+    "<span class=\"l\">Prélèvements sociaux (BNC + foncier)</span><span class=\"n\">5 674,06 €</span>\n" +
+    "<span class=\"l total\">À provisionner pour l'administration</span><span class=\"n total\">7 816,93 €</span>\n" +
+    "</div>\n" +
+    "<p class=\"no\" style=\"margin-top:.8rem;font-size:.85rem\">Soit 20 % de ses 38 480 € de revenus — connu en juin, pas en septembre.</p>\n" +
+    "</div>\n" +
+    "<p>Ces chiffres ne sont pas une estimation floue : ce sont des calculs déterministes sur les barèmes officiels (BOFiP, impots.gouv.fr), en centimes d'euro, sans aucune approximation. Le radar applique le barème progressif 2025 sur revenus 2024, la décote, les 10 % de frais par salaire, le plafonnement du quotient familial, les déficits reportables.</p>\n" +
+    "<a class=\"cta\" href=\"/app\">Voir la démo en direct →</a>\n" +
     "<hr class=\"rule\">\n" +
-    "<p class=\"no\"><a href=\"/guide\">guide</a> · <a href=\"/llms.txt\">llms.txt</a> · <a href=\"https://github.com/javimosch/bilan\">github</a> · <a href=\"https://cli-specs.intrane.fr\">cli-specs</a> · <a href=\"https://peage.intrane.fr\">peage</a> · <a href=\"/_health\">_health</a></p>\n" +
+    "<h2>Ce que bilan fait</h2>\n" +
+    "<p>Un seul fichier SQLite contient tous vos revenus signés (salaire, BNC, BIC, crypto, trading, loyers, dividendes). Le radar fiscal calcule, par régime : abattements forfaitaires, prélèvements sociaux, PFU sur le capital, barème progressif de l'IR, décote, quotient familial, déficits reportés. Vous importez vos exports bancaires (eToro, Revolut, générique) — c'est idempotent, vous pouvez relancer sans doublon.</p>\n" +
+    "<h2>Ce que bilan ne fait pas</h2>\n" +
+    "<p>Il ne devine rien. Il ne remplace pas votre expert-comptable. Il ne donne pas de conseil fiscal. C'est une <strong>calculatrice déterministe et auditable</strong> : ce sont des chiffres à raisonner, pas un avis. Dites-le à votre agent, dites-le à votre humain.</p>\n" +
+    "<h2>Tarif</h2>\n" +
+    "<p>En local&nbsp;: <strong>gratuit, pour toujours</strong>, vos données restent sur votre machine. En hébergé&nbsp;: <strong>50 appels offerts</strong> puis <strong>1 centime par appel</strong>, prépayé, sans abonnement. Quand le crédit cadeau est épuisé, l'API répond 402 avec un lien de recharge&nbsp;: vous payez ce que vous consommez, rien d'autre.</p>\n" +
+    "<hr class=\"rule\">\n" +
+    "<div class=\"agent\">\n" +
+    "<h3>Pour votre agent</h3>\n" +
+    "<p>bilan est conçu pour être piloté par votre agent IA (claude-code, pi, opencode) — mais <strong>aucun LLM n'est dans la plateforme</strong>. L'agent lit le JSON, normalise vos exports, explique le radar&nbsp;; bilan stocke et calcule. La surface machine&nbsp;: <code>bilan help-json</code>, <code>/llms.txt</code>, <code>/guide</code>, codes de sortie sémantiques.</p>\n" +
+    "<pre>curl -fsSL https://raw.githubusercontent.com/javimosch/bilan/master/install.sh | sh\n" +
+    "bilan demo          # un ledger démo (salaire+bnc+crypto+loyer) en une commande\n" +
+    "bilan tax --year 2026   # le radar complet, en JSON</pre>\n" +
+    "<p class=\"no\">Les estimations du radar ne constituent pas un conseil fiscal — ce sont des calculs déterministes sur les chiffres que vous importez, à raisonner avec votre expert-comptable.</p>\n" +
+    "</div>\n" +
+    "<hr class=\"rule\">\n" +
+    "<p class=\"no foot\"><a href=\"/guide\">guide</a> · <a href=\"/llms.txt\">llms.txt</a> · <a href=\"/app\">tableau de bord</a> · <a href=\"https://github.com/javimosch/bilan\">github</a> · <a href=\"https://peage.intrane.fr\">peage</a> · <a href=\"/_health\">_health</a></p>\n" +
     "</body>\n</html>"
 }
