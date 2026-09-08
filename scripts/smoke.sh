@@ -329,6 +329,75 @@ ok "pas taux personnalise 14.8%" "14.8" "$(jq -r .pas.taux_personnalise_pct <<<"
 ok "pas monthly personnalise" 55500 "$(jq -r .pas.monthly_prepayment_personnalise_cents <<<"$r")"
 rm -f "$PPDB"
 
+# --- LMNP micro-BIC meublé (art. 50 CGI): 50% abattement ---
+# 20000 loyer -> 10000 net (50% abattement); social 17.2% on gross 20000 = 3440
+LMDB="$(mktemp -u /tmp/bilan-lmnp-XXXXXX.db)"
+BILAN_DB="$LMDB" $BIN stream add meuble --kind lmnp >/dev/null
+BILAN_DB="$LMDB" $BIN tx add meuble 2026-06-30 20000 >/dev/null
+r=$(BILAN_DB="$LMDB" $BIN tax --year 2026)
+ok "lmnp micro-BIC 50% abattement" 1000000 "$(jq -r .regimes.lmnp.net_ir_cents <<<"$r")"
+ok "lmnp social 17.2% on gross" 344000 "$(jq -r .regimes.lmnp.social_cents <<<"$r")"
+rm -f "$LMDB"
+
+# --- LMNP régime réel (art. 39 CGI): net = loyer - charges, no abattement ---
+# 12000 loyer - 8000 interets = 4000 net; social 17.2% on net 4000 = 688
+LRDB="$(mktemp -u /tmp/bilan-lmnp-reel-XXXXXX.db)"
+BILAN_DB="$LRDB" $BIN stream add meuble --kind lmnp_reel >/dev/null
+BILAN_DB="$LRDB" $BIN tx add meuble 2026-06-30 12000 --label "loyer" >/dev/null
+BILAN_DB="$LRDB" $BIN tx add meuble 2026-06-30 -8000 --label "interets emprunt" >/dev/null
+r=$(BILAN_DB="$LRDB" $BIN tax --year 2026)
+ok "lmnp_reel net (no abattement)" 400000 "$(jq -r .regimes.lmnp_reel.net_ir_cents <<<"$r")"
+ok "lmnp_reel social 17.2% on net" 68800 "$(jq -r .regimes.lmnp_reel.social_cents <<<"$r")"
+rm -f "$LRDB"
+
+# --- CENSI-BOUVARD (art. 199 sexvicies): 11% cap 300000, spread 9y ---
+# 200000 investment * 11% / 9y = 2444.44 EUR/year = 244444 cents
+CBDB="$(mktemp -u /tmp/bilan-censi-XXXXXX.db)"
+BILAN_DB="$CBDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$CBDB" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$CBDB" $BIN stream add res --kind censi_bouvard >/dev/null
+BILAN_DB="$CBDB" $BIN tx add res 2026-06-30 200000 >/dev/null
+r=$(BILAN_DB="$CBDB" $BIN tax --year 2026)
+ok "censi-bouvard rate 11%" "11" "$(jq -r .reductions.censi_bouvard.rate_pct <<<"$r")"
+ok "censi-bouvard annual reduction" 244444 "$(jq -r .reductions.censi_bouvard.annual_reduction_cents <<<"$r")"
+ok "censi-bouvard ir reduction" 244444 "$(jq -r .ir.censi_bouvard_reduction_cents <<<"$r")"
+rm -f "$CBDB"
+
+# --- TVA régime simplifié eligibility (art. 302 septies A) ---
+# 50000 BNC (services) > franchise 36800, <= RSI 254000, no TVA due -> rsi_eligible true
+RSDB="$(mktemp -u /tmp/bilan-rsi-XXXXXX.db)"
+BILAN_DB="$RSDB" $BIN stream add biz --kind bnc >/dev/null
+BILAN_DB="$RSDB" $BIN tx add biz 2026-06-30 50000 >/dev/null
+r=$(BILAN_DB="$RSDB" $BIN tax --year 2026)
+ok "tva rsi eligible (services 50k)" true "$(jq -r .tva.rsi_eligible <<<"$r")"
+rm -f "$RSDB"
+
+# --- TVA collectée / déductible (art. 271): à payer = collectée - déductible ---
+# 5000 collectée - 2000 déductible = 3000 à payer
+TVDB="$(mktemp -u /tmp/bilan-tva-XXXXXX.db)"
+BILAN_DB="$TVDB" $BIN stream add col --kind tva_collectee >/dev/null
+BILAN_DB="$TVDB" $BIN tx add col 2026-06-30 5000 >/dev/null
+BILAN_DB="$TVDB" $BIN stream add ded --kind tva_deductible >/dev/null
+BILAN_DB="$TVDB" $BIN tx add ded 2026-06-30 2000 >/dev/null
+r=$(BILAN_DB="$TVDB" $BIN tax --year 2026)
+ok "tva collectee" 500000 "$(jq -r .tva.collectee_cents <<<"$r")"
+ok "tva deductible" 200000 "$(jq -r .tva.deductible_cents <<<"$r")"
+ok "tva a payer" 300000 "$(jq -r .tva.a_payer_cents <<<"$r")"
+ok "tva credit (zero when a_payer)" 0 "$(jq -r .tva.credit_cents <<<"$r")"
+ok "totals includes tva" 300000 "$(jq -r .totals.tva_cents <<<"$r")"
+rm -f "$TVDB"
+
+# --- TVA crédit (collectée < déductible) ---
+TCDB="$(mktemp -u /tmp/bilan-tva-credit-XXXXXX.db)"
+BILAN_DB="$TCDB" $BIN stream add col --kind tva_collectee >/dev/null
+BILAN_DB="$TCDB" $BIN tx add col 2026-06-30 1000 >/dev/null
+BILAN_DB="$TCDB" $BIN stream add ded --kind tva_deductible >/dev/null
+BILAN_DB="$TCDB" $BIN tx add ded 2026-06-30 3000 >/dev/null
+r=$(BILAN_DB="$TCDB" $BIN tax --year 2026)
+ok "tva credit (collectee < deductible)" 200000 "$(jq -r .tva.credit_cents <<<"$r")"
+ok "tva a payer (zero when credit)" 0 "$(jq -r .tva.a_payer_cents <<<"$r")"
+rm -f "$TCDB"
+
 # --- deficits carried forward (BNC: prior-year loss offsets current-year gross) ---
 DFDB="$(mktemp -u /tmp/bilan-deficit-XXXXXX.db)"
 BILAN_DB="$DFDB" $BIN stream add biz --kind bnc >/dev/null

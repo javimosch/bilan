@@ -142,10 +142,12 @@ func llms_txt() (t) {
         "5. demo data: bilan demo (deterministic salary+bnc+crypto+rent ledger, idempotent)\n" +
         "6. the radar: bilan stats --year 2026 && bilan tax --year 2026\n" +
         "   (radar = regime math + progressive IR barème + plafonnement QF (situation-aware)\n" +
-        "    + décote + 10% frais per salary stream + BNC/BIC deficit carry-forward 6y\n" +
+        "    + décote + 10% frais per salary stream + BNC/BIC/LMNP deficit carry-forward 6y\n" +
         "    + déficit foncier 10700 on global / 10y on foncier (micro + réel) + TVA franchise\n" +
+        "    + TVA régime simplifié eligibility + TVA collectée/déductible (à payer / crédit)\n" +
         "    + PAS taux neutre + taux personnalisé + dons art. 200 + PINEL/DENORMANDIE\n" +
-        "    art. 199 novovicies + MALRAUX art. 199 tervicies + emploi à domicile\n" +
+        "    art. 199 novovicies + MALRAUX art. 199 tervicies + CENSI-BOUVARD art. 199\n" +
+        "    sexvicies + LMNP micro-BIC + LMNP régime réel + emploi à domicile\n" +
         "    art. 199 sexdecies; 2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

@@ -197,6 +197,43 @@ func seed_rules(db) {
     // deficit (net negative) is imputed on global income up to 10,700 EUR (already
     // seeded) and excess carried 10y on foncier. Source: BOFiP BOI-RFPI-BASE-20-80.
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'foncier_reel', 'social_pct_tenths', '172')", []string{y})
+    // LMNP micro-BIC meublé (art. 50 CGI + art. 293 B). Location meublée non
+    // professionnelle: micro-BIC with 50% abattement, threshold 77,700 EUR (2024
+    // income / 2025 barème). Different from the 36,800 services threshold. LMNP is
+    // excluded from TVA franchise for location meublée (it's a "prestation de
+    // services" with the 36,800 threshold for TVA, but micro-BIC uses 77,700).
+    // Source: BOFiP BOI-BIC-DECLA-10, service-public.gouv.fr.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'lmnp', 'deduction_pct_tenths', '500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'lmnp', 'social_pct_tenths', '172')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'lmnp', 'micro_threshold_cents', '7770000')", []string{y})
+    // LMNP régime réel (art. 39 CGI). net = loyer (positive txs) - charges (negative
+    // txs: intérêts d'emprunt, taxe foncière, frais de gestion, amortissement) with
+    // NO 50% abattement. The deficit carries forward 6y (like BNC/BIC, NOT 10y like
+    // foncier). Source: BOFiP BOI-BIC-DECLA-10, BOI-BIC-BASE-10.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'lmnp_reel', 'social_pct_tenths', '172')", []string{y})
+    // Réduction d'impôt CENSI-BOUVARD (art. 199 sexvicies CGI). 11% of investment,
+    // capped at 300,000 EUR, spread over 9 years. For LMNP in résidences de services
+    // (EHPAD, étudiants). Dispositif ended 31/12/2022 but existing engagements
+    // continue. Record the investment as a positive tx in a 'censi_bouvard' stream.
+    // Source: BOFiP BOI-IR-RICI-220-10, service-public.gouv.fr.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'censi_bouvard', 'rate_pct_tenths', '110')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'censi_bouvard', 'cap_investment_cents', '30000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'censi_bouvard', 'engagement_years', '9')", []string{y})
+    // TVA régime simplifié (art. 302 septies A CGI / L. 162-1 CIBS). Eligibility:
+    // CA HT between franchise threshold and RSI threshold, AND TVA due < 15,000 EUR.
+    // Seuils 2023-2025: services 254,000 / 287,000 (majoré), vente 840,000 / 925,000.
+    // Source: BOFiP BOI-BAREME-000036, service-public.gouv.fr F23566.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tva_rsi', 'threshold_services_cents', '25400000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tva_rsi', 'threshold_services_majore_cents', '28700000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tva_rsi', 'threshold_vente_cents', '84000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tva_rsi', 'threshold_vente_majore_cents', '92500000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tva_rsi', 'tva_due_cap_cents', '1500000')", []string{y})
+    // TVA taux (art. 278-278 bis CGI). Normal 20%, réduit 10%, super réduit 5.5%,
+    // particulier 2.1%. Used to compute TVA collectée / déductible from HT amounts.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tva', 'rate_normal_pct_tenths', '200')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tva', 'rate_reduit_pct_tenths', '100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tva', 'rate_super_reduit_pct_tenths', '55')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tva', 'rate_particulier_pct_tenths', '21')", []string{y})
 }
 
 type Rulevalrow struct { value string }

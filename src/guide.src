@@ -171,21 +171,49 @@ func guide_text(base) (t) {
         "                      tenths of a percent. This is a v1 simplification of the\n" +
         "                      BOFiP formula (which weights revenus in the PAS champ vs\n" +
         "                      RNI). It gives a taux moyen d'imposition, not a TMI.\n" +
+        "  LMNP micro-BIC:      art. 50 CGI — location meublée non professionnelle.\n" +
+        "                      A 'lmnp' stream uses micro-BIC with 50% abattement,\n" +
+        "                      threshold 77,700 EUR (2024 income). Deficit carry 6y\n" +
+        "                      (like BNC/BIC). Source: BOFiP BOI-BIC-DECLA-10.\n" +
+        "  LMNP régime réel:    art. 39 CGI — a 'lmnp_reel' stream computes net = loyer\n" +
+        "                      (positive txs) - charges (negative txs: intérêts\n" +
+        "                      d'emprunt, taxe foncière, frais de gestion, amortissement)\n" +
+        "                      with NO 50% abattement. Deficit carries 6y (NOT 10y like\n" +
+        "                      foncier, and NO 10,700 global imputation — that's\n" +
+        "                      foncier-only). Source: BOFiP BOI-BIC-BASE-10.\n" +
+        "  CENSI-BOUVARD:       art. 199 sexvicies CGI — réduction d'impôt for LMNP in\n" +
+        "                      résidences de services (EHPAD, étudiants). 11% of\n" +
+        "                      investment, capped at 300,000 EUR, spread over 9 years.\n" +
+        "                      Dispositif ended 31/12/2022 but existing engagements\n" +
+        "                      continue. Record the investment as a positive tx in a\n" +
+        "                      'censi_bouvard' stream. Source: BOFiP BOI-IR-RICI-220-10.\n" +
+        "  TVA régime simplifié: art. 302 septies A CGI / L. 162-1 CIBS — eligibility:\n" +
+        "                      CA HT between franchise threshold and RSI threshold\n" +
+        "                      (services 254,000 / vente 840,000 EUR), AND TVA due <\n" +
+        "                      15,000 EUR. The radar reports rsi_eligible. Source: BOFiP\n" +
+        "                      BOI-BAREME-000036, service-public.gouv.fr F23566.\n" +
+        "  TVA collectée /      art. 271 CGI — record TVA facturée aux clients as\n" +
+        "  déductible:          positive txs in a 'tva_collectee' stream and TVA payée\n" +
+        "                      aux fournisseurs as positive txs in a 'tva_deductible'\n" +
+        "                      stream. TVA à payer = collectée - déductible. If\n" +
+        "                      negative, crédit de TVA (reportable ou remboursable).\n" +
         "  Override any of them: bilan rule set 2027 micro_bnc deduction_pct_tenths 340\n" +
         "  (rates are DECIPERCENT tenths: 340 = 34.0%; all math is integer cents)\n" +
         "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
-        "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC deficit\n" +
-        "  carry-forward (6y) + déficit foncier imputation (10700 on global, 10y on\n" +
-        "  foncier, micro + réel) + TVA franchise check + PAS taux neutre + taux\n" +
+        "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
+        "  deficit carry-forward (6y) + déficit foncier imputation (10700 on global,\n" +
+        "  10y on foncier, micro + réel) + TVA franchise + régime simplifié eligibility\n" +
+        "  + TVA collectée/déductible (à payer / crédit) + PAS taux neutre + taux\n" +
         "  personnalisé + dons reduction (art. 200) + PINEL/DENORMANDIE (art. 199\n" +
-        "  novovicies) + MALRAUX (art. 199 tervicies) + emploi à domicile crédit\n" +
+        "  novovicies) + MALRAUX (art. 199 tervicies) + CENSI-BOUVARD (art. 199\n" +
+        "  sexvicies) + LMNP micro-BIC + LMNP régime réel + emploi à domicile crédit\n" +
         "  (art. 199 sexdecies). It does NOT model: deficits beyond their windows,\n" +
-        "  other réductions/crédits d'impôt (LMNP réel, Censi-Bouvard, DENORMANDIE\n" +
-        "  report), TVA régime simplifié/normal, TVA collectée, or the full BOFiP\n" +
-        "  PAS formula. Output is an estimate to reason from, not tax advice — say so\n" +
-        "  to the human.\n" +
+        "  other réductions/crédits d'impôt, TVA régime normal (CA3 mensuel/trimestriel),\n" +
+        "  the full BOFiP PAS formula, or LMNP amortissement tables (record the\n" +
+        "  amortissement as a negative tx in the 'lmnp_reel' stream). Output is an\n" +
+        "  estimate to reason from, not tax advice — say so to the human.\n" +
         "\n" +
         "## Brian — the cheap copilote (no inference in the platform)\n" +
         "  Brian is a PERSONA, not a service: install it into the harness your human\n" +
