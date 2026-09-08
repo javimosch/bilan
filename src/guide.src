@@ -146,6 +146,31 @@ func guide_text(base) (t) {
         "                      Dispositif ended 31/12/2024 but existing engagements\n" +
         "                      continue. Source: service-public.gouv.fr F31151, BOFiP\n" +
         "                      BOI-IR-RICI-360.\n" +
+        "  DENORMANDIE:         réduction d'impôt (art. 199 novovicies IV bis CGI) —\n" +
+        "                      same rates as PINEL (12/18/21% by engagement, cap 300,000\n" +
+        "                      EUR) but for ANCien with works (≥25% of total cost).\n" +
+        "                      Open until 31/12/2027. Record the operation cost as a\n" +
+        "                      positive tx in a 'denormandie' stream. Source:\n" +
+        "                      service-public.gouv.fr F35011, BOFiP BOI-IR-RICI-360.\n" +
+        "  MALRAUX:            réduction d'impôt (art. 199 tervicies CGI) — restoration\n" +
+        "                      of immeubles in sites patrimoniaux remarquables. Rate:\n" +
+        "                      30% (PSMV approved) or 22% (PVAP approved), cap 400,000\n" +
+        "                      EUR of dépenses. NOT subject to plafonnement niches.\n" +
+        "                      Record dépenses as positive txs in a 'malraux' stream;\n" +
+        "                      set the zone via 'zone' rule (psmv / pvap). Source: BOFiP\n" +
+        "                      BOI-IR-RICI-200-30.\n" +
+        "  Régime réel foncier: art. 29-31 CGI — if a 'foncier_reel' stream exists,\n" +
+        "                      the radar computes net = loyer (positive txs) - charges\n" +
+        "                      (negative txs: intérêts d'emprunt, travaux, assurances,\n" +
+        "                      taxe foncière) with NO 30% abattement. Combined with the\n" +
+        "                      micro-foncier 'rent' stream. The net réel deficit uses the\n" +
+        "                      same 10,700 imputation + 10y carry. Source: BOFiP\n" +
+        "                      BOI-RFPI-BASE-20-80.\n" +
+        "  PAS taux personnalisé: art. 204 H CGI — the personalized rate = IR (before\n" +
+        "                      reductions/crédits) / revenu imposable, expressed in\n" +
+        "                      tenths of a percent. This is a v1 simplification of the\n" +
+        "                      BOFiP formula (which weights revenus in the PAS champ vs\n" +
+        "                      RNI). It gives a taux moyen d'imposition, not a TMI.\n" +
         "  Override any of them: bilan rule set 2027 micro_bnc deduction_pct_tenths 340\n" +
         "  (rates are DECIPERCENT tenths: 340 = 34.0%; all math is integer cents)\n" +
         "\n" +
@@ -153,13 +178,14 @@ func guide_text(base) (t) {
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC deficit\n" +
         "  carry-forward (6y) + déficit foncier imputation (10700 on global, 10y on\n" +
-        "  foncier) + TVA franchise check + PAS taux neutre estimate + dons reduction\n" +
-        "  (art. 200) + PINEL reduction (art. 199 novovicies) + emploi à domicile\n" +
-        "  crédit (art. 199 sexdecies). It does NOT model: deficits beyond their\n" +
-        "  windows, intérêts d'emprunt tracking separately, other réductions/crédits\n" +
-        "  d'impôt (DENORMANDIE, MALRAUX, LMNP réel, etc.), or the personalized PAS\n" +
-        "  rate. Output is an estimate to reason from, not tax advice — say so to the\n" +
-        "  human.\n" +
+        "  foncier, micro + réel) + TVA franchise check + PAS taux neutre + taux\n" +
+        "  personnalisé + dons reduction (art. 200) + PINEL/DENORMANDIE (art. 199\n" +
+        "  novovicies) + MALRAUX (art. 199 tervicies) + emploi à domicile crédit\n" +
+        "  (art. 199 sexdecies). It does NOT model: deficits beyond their windows,\n" +
+        "  other réductions/crédits d'impôt (LMNP réel, Censi-Bouvard, DENORMANDIE\n" +
+        "  report), TVA régime simplifié/normal, TVA collectée, or the full BOFiP\n" +
+        "  PAS formula. Output is an estimate to reason from, not tax advice — say so\n" +
+        "  to the human.\n" +
         "\n" +
         "## Brian — the cheap copilote (no inference in the platform)\n" +
         "  Brian is a PERSONA, not a service: install it into the harness your human\n" +

@@ -265,6 +265,70 @@ ok "pinel annual reduction 4000" 400000 "$(jq -r .reductions.pinel.annual_reduct
 ok "pinel reduces IR" 266548 "$(jq -r .ir.ir_after_reductions_cents <<<"$r")"
 rm -f "$PNDB"
 
+# --- DENORMANDIE réduction (art. 199 novovicies IV bis: 18% 9y, cap 300000) ---
+DNDB="$(mktemp -u /tmp/bilan-dn-XXXXXX.db)"
+BILAN_DB="$DNDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$DNDB" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$DNDB" $BIN stream add denorm --kind denormandie >/dev/null
+BILAN_DB="$DNDB" $BIN tx add denorm 2026-06-30 200000 >/dev/null
+r=$(BILAN_DB="$DNDB" $BIN tax --year 2026)
+# 200000 investment, 9y -> 18% / 9 = 2% per year = 4000
+ok "denormandie investment" 20000000 "$(jq -r .reductions.denormandie.investment_cents <<<"$r")"
+ok "denormandie engagement 9y" 9 "$(jq -r .reductions.denormandie.engagement_years <<<"$r")"
+ok "denormandie rate 18%" "18" "$(jq -r .reductions.denormandie.rate_pct <<<"$r")"
+ok "denormandie annual reduction 4000" 400000 "$(jq -r .reductions.denormandie.annual_reduction_cents <<<"$r")"
+ok "denormandie reduces IR" 266548 "$(jq -r .ir.ir_after_reductions_cents <<<"$r")"
+rm -f "$DNDB"
+
+# --- MALRAUX réduction (art. 199 tervicies: 30% PSMV, cap 400000) ---
+MLDB="$(mktemp -u /tmp/bilan-ml-XXXXXX.db)"
+BILAN_DB="$MLDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$MLDB" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$MLDB" $BIN stream add restau --kind malraux >/dev/null
+BILAN_DB="$MLDB" $BIN tx add restau 2026-06-30 100000 >/dev/null
+r=$(BILAN_DB="$MLDB" $BIN tax --year 2026)
+# 100000 depenses, PSMV -> 30% = 30000
+ok "malraux depenses" 10000000 "$(jq -r .reductions.malraux.depenses_cents <<<"$r")"
+ok "malraux zone psmv" psmv "$(jq -r .reductions.malraux.zone <<<"$r")"
+ok "malraux rate 30%" "30" "$(jq -r .reductions.malraux.rate_pct <<<"$r")"
+ok "malraux reduction 30000" 3000000 "$(jq -r .reductions.malraux.reduction_cents <<<"$r")"
+# IR was 666548; after 30000 EUR (3000000 cents) reduction -> 0 (floored)
+ok "malraux floors IR at 0" 0 "$(jq -r .ir.ir_after_reductions_cents <<<"$r")"
+# PVAP zone -> 22%
+BILAN_DB="$MLDB" $BIN rule set 2026 malraux zone pvap >/dev/null
+r=$(BILAN_DB="$MLDB" $BIN tax --year 2026)
+ok "malraux pvap rate 22%" "22" "$(jq -r .reductions.malraux.rate_pct <<<"$r")"
+ok "malraux pvap reduction 22000" 2200000 "$(jq -r .reductions.malraux.reduction_cents <<<"$r")"
+rm -f "$MLDB"
+
+# --- Régime réel foncier (art. 29-31: net = loyer - charges, no abattement) ---
+FRDB="$(mktemp -u /tmp/bilan-fr-XXXXXX.db)"
+BILAN_DB="$FRDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$FRDB" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$FRDB" $BIN stream add immeuble --kind foncier_reel >/dev/null
+BILAN_DB="$FRDB" $BIN tx add immeuble 2026-06-30 10000 --label "loyer" >/dev/null
+BILAN_DB="$FRDB" $BIN tx add immeuble 2026-06-30 -8000 --label "interets emprunt" >/dev/null
+r=$(BILAN_DB="$FRDB" $BIN tax --year 2026)
+# net = 10000 - 8000 = 2000 (no 30% abattement)
+ok "foncier_reel net (no abattement)" 200000 "$(jq -r .regimes.foncier.reel_net_cents <<<"$r")"
+ok "foncier_reel note" "régime réel foncier (art. 29-31 CGI): net = loyer - charges, no abattement" "$(jq -r .regimes.foncier.reel_note <<<"$r")"
+# net_fon includes reel_net (200000) + micro (0) = 200000
+ok "foncier net_ir includes reel" 200000 "$(jq -r .regimes.foncier.net_ir_cents <<<"$r")"
+# social 17.2% on 2000 = 344
+ok "foncier social on reel net" 34400 "$(jq -r .regimes.foncier.social_cents <<<"$r")"
+rm -f "$FRDB"
+
+# --- PAS taux personnalisé (art. 204 H: IR / revenu imposable) ---
+# 50k salary -> 45000 net; IR = 666548; base = 4500000; taux = 666548/4500000 = 14.8%
+PPDB="$(mktemp -u /tmp/bilan-pp-XXXXXX.db)"
+BILAN_DB="$PPDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$PPDB" $BIN tx add sal 2026-06-30 50000 >/dev/null
+r=$(BILAN_DB="$PPDB" $BIN tax --year 2026)
+ok "pas taux personnalise 14.8%" "14.8" "$(jq -r .pas.taux_personnalise_pct <<<"$r")"
+# monthly = 4500000 * 148 / 1000000 / 12 = 55500 cents = 555 EUR
+ok "pas monthly personnalise" 55500 "$(jq -r .pas.monthly_prepayment_personnalise_cents <<<"$r")"
+rm -f "$PPDB"
+
 # --- deficits carried forward (BNC: prior-year loss offsets current-year gross) ---
 DFDB="$(mktemp -u /tmp/bilan-deficit-XXXXXX.db)"
 BILAN_DB="$DFDB" $BIN stream add biz --kind bnc >/dev/null

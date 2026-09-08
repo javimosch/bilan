@@ -44,14 +44,17 @@ func kind_ok(k) (ok) {
     if k == "dons" { ok = 1  return ok }
     if k == "emploi_domicile" { ok = 1  return ok }
     if k == "pinel" { ok = 1  return ok }
+    if k == "denormandie" { ok = 1  return ok }
+    if k == "malraux" { ok = 1  return ok }
+    if k == "foncier_reel" { ok = 1  return ok }
     if k == "other" { ok = 1  return ok }
 }
 
 // ── stream ──────────────────────────────────────────────────────────────────
 
 func stream_add(db, name, kind, cur) (out, code, err) {
-    if name == "" || kind == "" { return "", 80, "usage: bilan stream add <name> --kind salary|bnc|bic|rent|crypto|trading|dividends|dons|emploi_domicile|pinel|other [--currency EUR]" }
-    if kind_ok(kind) == 0 { return "", 80, "unknown kind: " + kind + " (salary|bnc|bic|rent|crypto|trading|dividends|dons|emploi_domicile|pinel|other)" }
+    if name == "" || kind == "" { return "", 80, "usage: bilan stream add <name> --kind salary|bnc|bic|rent|crypto|trading|dividends|dons|emploi_domicile|pinel|denormandie|malraux|foncier_reel|other [--currency EUR]" }
+    if kind_ok(kind) == 0 { return "", 80, "unknown kind: " + kind + " (salary|bnc|bic|rent|crypto|trading|dividends|dons|emploi_domicile|pinel|denormandie|malraux|foncier_reel|other)" }
     if stream_ref(db, name) != "" { return "", 93, "stream already exists: " + name }
     id := to_hex(rand_bytes(8))
     sqlite_exec(db, "INSERT INTO streams(id,name,kind,currency,created) VALUES(?,?,?,?,?)", []string{id, name, kind, cur, str(now_ms())})
@@ -409,6 +412,7 @@ func tax_json(db, year) (out, code, err) {
     g_bnc := kind_get(kinds, "bnc")
     g_bic := kind_get(kinds, "bic")
     g_rent := kind_get(kinds, "rent")
+    g_rent_reel := kind_get(kinds, "foncier_reel")
     g_crypto := kind_get(kinds, "crypto")
     g_trade := kind_get(kinds, "trading")
     g_div := kind_get(kinds, "dividends")
@@ -438,21 +442,48 @@ func tax_json(db, year) (out, code, err) {
     // revenu global (art. 156 CGI I.3°) when negative — up to 10,700 EUR/year reduces
     // the IR base, the excess carries 10y on revenus fonciers. Régime réel feature
     // applied to the micro base as a v1 simplification.
+    // RÉGIME RÉEL FONCIER (art. 29-31 CGI): if a 'foncier_reel' stream exists, the
+    // radar combines micro + réel: micro-foncier (rent stream) with 30% abattement,
+    // PLUS réel (foncier_reel stream) = loyer - charges (intérêts d'emprunt, travaux,
+    // etc.) with NO abattement. The net réel can be negative (deficit) — same 10,700
+    // imputation + 10y carry. Source: BOFiP BOI-RFPI-BASE-20-80.
     foncier_global_imputation := 0
     foncier_carry_excess := 0
     ab_fon := 0
     net_fon := 0
     soc_fon := 0
+    foncier_reel_net := 0
+    foncier_reel_note := ""
+    if g_rent_reel != 0 {
+        // Régime réel: net = signed sum (positive loyer - negative charges). No
+        // abattement. Social 17.2% on net if positive.
+        foncier_reel_net = g_rent_reel
+        rate_soc_fon_reel := rule_int(db, year, "foncier_reel", "social_pct_tenths", 172)
+        if foncier_reel_net >= 0 {
+            soc_fon = soc_fon + foncier_reel_net * rate_soc_fon_reel / 1000
+            net_fon = net_fon + foncier_reel_net
+            foncier_reel_note = "régime réel foncier (art. 29-31 CGI): net = loyer - charges, no abattement"
+        } else {
+            // Déficit foncier réel: same 10,700 imputation + 10y carry as micro.
+            deficit_reel := -foncier_reel_net
+            foncier_cap := rule_int(db, year, "micro_foncier", "deficit_global_cap_cents", 1070000)
+            imputation_reel := deficit_reel
+            if imputation_reel > foncier_cap { imputation_reel = foncier_cap }
+            foncier_global_imputation = foncier_global_imputation + imputation_reel
+            foncier_carry_excess = foncier_carry_excess + (deficit_reel - imputation_reel)
+            foncier_reel_note = "régime réel foncier (art. 29-31 CGI): déficit — 10700 on global + 10y carry"
+        }
+    }
     if g_rent >= 0 {
         ab_fon = g_rent * rate_ded_fon / 1000
-        net_fon = g_rent - ab_fon
-        soc_fon = net_fon * rate_soc_fon / 1000
+        net_fon = net_fon + g_rent - ab_fon
+        soc_fon = soc_fon + (g_rent - ab_fon) * rate_soc_fon / 1000
     } else {
         deficit_fon := -g_rent
         foncier_cap := rule_int(db, year, "micro_foncier", "deficit_global_cap_cents", 1070000)
-        foncier_global_imputation = deficit_fon
+        foncier_global_imputation = foncier_global_imputation + deficit_fon
         if foncier_global_imputation > foncier_cap { foncier_global_imputation = foncier_cap }
-        foncier_carry_excess = deficit_fon - foncier_global_imputation
+        foncier_carry_excess = foncier_carry_excess + (deficit_fon - foncier_cap)
     }
     crypto_exempt := 0
     if g_crypto >= 0 && g_crypto < thr { crypto_exempt = 1 }
@@ -532,7 +563,40 @@ func tax_json(db, year) (out, code, err) {
         pinel_rate = rule_int(db, year, "pinel", "rate_12y_pct_tenths", 210)
     }
     pinel_reduction := pinel_base * pinel_rate / 1000 / pinel_years
-    ir_after_reductions := ir_cents - dons_reduction - pinel_reduction
+    // Réduction d'impôt DENORMANDIE (art. 199 novovicies IV bis CGI). Same structure
+    // as PINEL (12/18/21% by engagement, cap 300,000 EUR) but for ancien with works.
+    g_denorm := kind_get(kinds, "denormandie")
+    if g_denorm < 0 { g_denorm = 0 }
+    denorm_cap := rule_int(db, year, "denormandie", "cap_investment_cents", 30000000)
+    denorm_years := rule_int(db, year, "denormandie", "engagement_years", 9)
+    if denorm_years < 1 { denorm_years = 1 }
+    denorm_base := g_denorm
+    if denorm_base > denorm_cap { denorm_base = denorm_cap }
+    denorm_rate := 0
+    if denorm_years <= 6 {
+        denorm_rate = rule_int(db, year, "denormandie", "rate_6y_pct_tenths", 120)
+    } else if denorm_years <= 9 {
+        denorm_rate = rule_int(db, year, "denormandie", "rate_9y_pct_tenths", 180)
+    } else {
+        denorm_rate = rule_int(db, year, "denormandie", "rate_12y_pct_tenths", 210)
+    }
+    denorm_reduction := denorm_base * denorm_rate / 1000 / denorm_years
+    // Réduction d'impôt MALRAUX (art. 199 tervicies CGI). Restoration of immeubles in
+    // sites patrimoniaux remarquables. Rate: 30% (PSMV) or 22% (PVAP), cap 400,000 EUR
+    // of dépenses. NOT subject to plafonnement niches fiscales. Record dépenses as
+    // positive txs in a 'malraux' stream.
+    g_malraux := kind_get(kinds, "malraux")
+    if g_malraux < 0 { g_malraux = 0 }
+    malraux_cap := rule_int(db, year, "malraux", "cap_depenses_cents", 40000000)
+    malraux_zone := rule_str(db, year, "malraux", "zone", "psmv")
+    malraux_rate := rule_int(db, year, "malraux", "rate_psmv_pct_tenths", 300)
+    if malraux_zone == "pvap" {
+        malraux_rate = rule_int(db, year, "malraux", "rate_pvap_pct_tenths", 220)
+    }
+    malraux_base := g_malraux
+    if malraux_base > malraux_cap { malraux_base = malraux_cap }
+    malraux_reduction := malraux_base * malraux_rate / 1000
+    ir_after_reductions := ir_cents - dons_reduction - pinel_reduction - denorm_reduction - malraux_reduction
     if ir_after_reductions < 0 { ir_after_reductions = 0 }
     // Emploi à domicile is a CRÉDIT (refundable) — it reduces the final tax even below
     // zero. The radar reports it in totals as a negative tax (credit to receive).
@@ -567,23 +631,32 @@ func tax_json(db, year) (out, code, err) {
         pi = pi - 1
     }
     pas_monthly := pas_monthly_base * pas_rate / 1000
+    // PAS taux personnalisé (art. 204 H CGI). The personalized rate = IR (before
+    // reductions/crédits) / revenu imposable, expressed in tenths of a percent.
+    // This is a v1 simplification of the BOFiP formula (which weights revenus in the
+    // PAS champ vs RNI). It gives a taux moyen d'imposition, not a TMI.
+    pas_personnalise_tenths := 0
+    if ir_base > 0 {
+        pas_personnalise_tenths = ir_cents * 1000 / ir_base
+    }
+    pas_personnalise_monthly := net_salary * pas_personnalise_tenths / 12000
     out = "{\"ok\":true,\"year\":" + year
     out = out + ",\"rates\":{\"pfu_pct\":" + pct_str(rate_pfu) + ",\"micro_bnc_abattement_pct\":" + pct_str(rate_ded_bnc) + ",\"micro_bnc_social_pct\":" + pct_str(rate_soc_bnc) + ",\"micro_bic_abattement_pct\":" + pct_str(rate_ded_bic) + ",\"micro_bic_social_pct\":" + pct_str(rate_soc_bic) + ",\"micro_foncier_abattement_pct\":" + pct_str(rate_ded_fon) + ",\"micro_foncier_social_pct\":" + pct_str(rate_soc_fon) + "}"
     out = out + ",\"regimes\":{"
     out = out + "\"bnc\":{\"gross_cents\":" + str(g_bnc) + ",\"gross_eur\":\"" + fmt_cents(g_bnc) + "\",\"deficit_carried_cents\":" + str(def_bnc) + ",\"adjusted_gross_cents\":" + str(adj_bnc) + ",\"abattement_cents\":" + str(ab_bnc) + ",\"net_ir_cents\":" + str(net_bnc) + ",\"social_cents\":" + str(soc_bnc) + "}"
     out = out + ",\"bic\":{\"gross_cents\":" + str(g_bic) + ",\"gross_eur\":\"" + fmt_cents(g_bic) + "\",\"deficit_carried_cents\":" + str(def_bic) + ",\"adjusted_gross_cents\":" + str(adj_bic) + ",\"abattement_cents\":" + str(ab_bic) + ",\"net_ir_cents\":" + str(net_bic) + ",\"social_cents\":" + str(soc_bic) + "}"
-    out = out + ",\"foncier\":{\"gross_cents\":" + str(g_rent) + ",\"gross_eur\":\"" + fmt_cents(g_rent) + "\",\"abattement_cents\":" + str(ab_fon) + ",\"net_ir_cents\":" + str(net_fon) + ",\"social_cents\":" + str(soc_fon) + ",\"deficit_global_imputation_cents\":" + str(foncier_global_imputation) + ",\"deficit_carry_10y_cents\":" + str(foncier_carry_excess) + "}"
+    out = out + ",\"foncier\":{\"gross_cents\":" + str(g_rent) + ",\"gross_eur\":\"" + fmt_cents(g_rent) + "\",\"abattement_cents\":" + str(ab_fon) + ",\"net_ir_cents\":" + str(net_fon) + ",\"social_cents\":" + str(soc_fon) + ",\"deficit_global_imputation_cents\":" + str(foncier_global_imputation) + ",\"deficit_carry_10y_cents\":" + str(foncier_carry_excess) + ",\"reel_net_cents\":" + str(foncier_reel_net) + ",\"reel_note\":\"" + esc(foncier_reel_note) + "\"}"
     out = out + ",\"salary\":{\"gross_cents\":" + str(g_salary) + ",\"gross_eur\":\"" + fmt_cents(g_salary) + "\",\"frais_abattement_cents\":" + str(salary_frais) + ",\"net_cents\":" + str(net_salary) + ",\"net_eur\":\"" + fmt_cents(net_salary) + "\",\"note\":\"10% frais per salary stream (per member of the foyer)\"}"
     out = out + "}"
-    out = out + ",\"ir\":{\"base_cents\":" + str(ir_base) + ",\"base_eur\":\"" + fmt_cents(ir_base) + "\",\"situation\":\"" + rule_str(db, year, "ir_bareme", "situation", "default") + "\",\"demi_parts\":" + str(ir_demi_parts) + ",\"qf_capped\":" + json(ir_qf_capped == 1) + ",\"ir_before_decote_cents\":" + str(ir_cents+ir_decote) + ",\"decote_cents\":" + str(ir_decote) + ",\"ir_cents\":" + str(ir_cents) + ",\"ir_eur\":\"" + fmt_cents(ir_cents) + "\",\"dons_reduction_cents\":" + str(dons_reduction) + ",\"pinel_reduction_cents\":" + str(pinel_reduction) + ",\"ir_after_reductions_cents\":" + str(ir_after_reductions) + ",\"emploi_credit_cents\":" + str(emploi_credit) + ",\"ir_after_credit_cents\":" + str(ir_after_credit) + ",\"marginal_rate_pct\":" + pct_str(ir_marginal) + ",\"note\":\"progressive barème + plafonnement QF (situation-aware) + décote; 10% frais per salary stream; foncier deficit 10700 cap; dons art. 200 + pinel art. 199 novovicies; emploi à domicile art. 199 sexdecies (crédit)\"}"
+    out = out + ",\"ir\":{\"base_cents\":" + str(ir_base) + ",\"base_eur\":\"" + fmt_cents(ir_base) + "\",\"situation\":\"" + rule_str(db, year, "ir_bareme", "situation", "default") + "\",\"demi_parts\":" + str(ir_demi_parts) + ",\"qf_capped\":" + json(ir_qf_capped == 1) + ",\"ir_before_decote_cents\":" + str(ir_cents+ir_decote) + ",\"decote_cents\":" + str(ir_decote) + ",\"ir_cents\":" + str(ir_cents) + ",\"ir_eur\":\"" + fmt_cents(ir_cents) + "\",\"dons_reduction_cents\":" + str(dons_reduction) + ",\"pinel_reduction_cents\":" + str(pinel_reduction) + ",\"denormandie_reduction_cents\":" + str(denorm_reduction) + ",\"malraux_reduction_cents\":" + str(malraux_reduction) + ",\"ir_after_reductions_cents\":" + str(ir_after_reductions) + ",\"emploi_credit_cents\":" + str(emploi_credit) + ",\"ir_after_credit_cents\":" + str(ir_after_credit) + ",\"marginal_rate_pct\":" + pct_str(ir_marginal) + ",\"note\":\"progressive barème + plafonnement QF (situation-aware) + décote; 10% frais per salary stream; foncier deficit 10700 cap; dons art. 200 + pinel/denormandie art. 199 novovicies + malraux art. 199 tervicies; emploi à domicile art. 199 sexdecies (crédit)\"}"
     out = out + ",\"tva\":{\"ca_cents\":" + str(tva_ca) + ",\"ca_eur\":\"" + fmt_cents(tva_ca) + "\",\"franchise_eligible\":" + json(tva_eligible == 1) + ",\"threshold_services_cents\":" + str(tva_franchise_services) + ",\"threshold_services_majore_cents\":" + str(tva_franchise_services_maj) + ",\"threshold_vente_cents\":" + str(tva_franchise_vente) + ",\"threshold_vente_majore_cents\":" + str(tva_franchise_vente_maj) + ",\"note\":\"franchise en base art. 293 B CGI — uses services threshold (conservative); override if you sell goods\"}"
-    out = out + ",\"pas\":{\"monthly_base_cents\":" + str(pas_monthly_base) + ",\"monthly_base_eur\":\"" + fmt_cents(pas_monthly_base) + "\",\"taux_neutre_pct\":" + pct_str(pas_rate) + ",\"monthly_prepayment_cents\":" + str(pas_monthly) + ",\"monthly_prepayment_eur\":\"" + fmt_cents(pas_monthly) + "\",\"annual_estimate_cents\":" + str(pas_monthly*12) + ",\"note\":\"taux neutre art. 204 H CGI — estimate for monthly provisioning; personalized rate may differ\"}"
-    out = out + ",\"reductions\":{\"dons\":{\"gross_cents\":" + str(g_dons) + ",\"base_75_cents\":" + str(dons_75_base) + ",\"base_66_cents\":" + str(dons_66_base) + ",\"reduction_cents\":" + str(dons_reduction) + ",\"note\":\"art. 200 CGI — 75% to 1000 EUR, 66% to 20% of revenu imposable\"},\"pinel\":{\"investment_cents\":" + str(g_pinel) + ",\"engagement_years\":" + str(pinel_years) + ",\"rate_pct\":" + pct_str(pinel_rate) + ",\"annual_reduction_cents\":" + str(pinel_reduction) + ",\"note\":\"art. 199 novovicies CGI — 12% 6y / 18% 9y / 21% 12y, cap 300000 EUR, spread over engagement\"},\"emploi_domicile\":{\"depenses_cents\":" + str(g_emploi) + ",\"base_cents\":" + str(ed_base) + ",\"credit_cents\":" + str(emploi_credit) + ",\"note\":\"art. 199 sexdecies CGI — 50% crédit, cap 12000 EUR (refundable if > IR)\"}}"
+    out = out + ",\"pas\":{\"monthly_base_cents\":" + str(pas_monthly_base) + ",\"monthly_base_eur\":\"" + fmt_cents(pas_monthly_base) + "\",\"taux_neutre_pct\":" + pct_str(pas_rate) + ",\"monthly_prepayment_cents\":" + str(pas_monthly) + ",\"monthly_prepayment_eur\":\"" + fmt_cents(pas_monthly) + "\",\"annual_estimate_cents\":" + str(pas_monthly*12) + ",\"taux_personnalise_pct\":" + pct_str(pas_personnalise_tenths) + ",\"monthly_prepayment_personnalise_cents\":" + str(pas_personnalise_monthly) + ",\"note\":\"taux neutre + taux personnalisé (art. 204 H CGI) — estimate for monthly provisioning; v1 simplification of the BOFiP formula\"}"
+    out = out + ",\"reductions\":{\"dons\":{\"gross_cents\":" + str(g_dons) + ",\"base_75_cents\":" + str(dons_75_base) + ",\"base_66_cents\":" + str(dons_66_base) + ",\"reduction_cents\":" + str(dons_reduction) + ",\"note\":\"art. 200 CGI — 75% to 1000 EUR, 66% to 20% of revenu imposable\"},\"pinel\":{\"investment_cents\":" + str(g_pinel) + ",\"engagement_years\":" + str(pinel_years) + ",\"rate_pct\":" + pct_str(pinel_rate) + ",\"annual_reduction_cents\":" + str(pinel_reduction) + ",\"note\":\"art. 199 novovicies CGI — 12% 6y / 18% 9y / 21% 12y, cap 300000 EUR, spread over engagement\"},\"denormandie\":{\"investment_cents\":" + str(g_denorm) + ",\"engagement_years\":" + str(denorm_years) + ",\"rate_pct\":" + pct_str(denorm_rate) + ",\"annual_reduction_cents\":" + str(denorm_reduction) + ",\"note\":\"art. 199 novovicies IV bis CGI — ancien with works (≥25%), 12/18/21% by engagement, cap 300000 EUR\"},\"malraux\":{\"depenses_cents\":" + str(g_malraux) + ",\"zone\":\"" + malraux_zone + "\",\"rate_pct\":" + pct_str(malraux_rate) + ",\"reduction_cents\":" + str(malraux_reduction) + ",\"note\":\"art. 199 tervicies CGI — 30% PSMV / 22% PVAP, cap 400000 EUR, hors plafonnement niches\"},\"emploi_domicile\":{\"depenses_cents\":" + str(g_emploi) + ",\"base_cents\":" + str(ed_base) + ",\"credit_cents\":" + str(emploi_credit) + ",\"note\":\"art. 199 sexdecies CGI — 50% crédit, cap 12000 EUR (refundable if > IR)\"}}"
     out = out + ",\"crypto\":{\"net_cents\":" + str(g_crypto) + ",\"net_eur\":\"" + fmt_cents(g_crypto) + "\",\"exempt\":" + json(crypto_exempt == 1) + ",\"threshold_cents\":" + str(thr) + "}"
     out = out + ",\"capital\":{\"taxable_cents\":" + str(taxable) + ",\"taxable_eur\":\"" + fmt_cents(taxable) + "\",\"tax_cents\":" + str(cap_tax) + ",\"tax_eur\":\"" + fmt_cents(cap_tax) + "\"}"
     out = out + ",\"dividends\":{\"gross_cents\":" + str(g_div) + ",\"tax_cents\":" + str(div_tax) + "}"
     out = out + ",\"totals\":{\"ir_cents\":" + str(ir_after_credit) + ",\"ir_eur\":\"" + fmt_cents(ir_after_credit) + "\",\"flat_tax_cents\":" + str(cap_tax+div_tax) + ",\"flat_tax_eur\":\"" + fmt_cents(cap_tax+div_tax) + "\",\"social_cents\":" + str(soc_bnc+soc_bic+soc_fon) + ",\"social_eur\":\"" + fmt_cents(soc_bnc+soc_bic+soc_fon) + "\",\"total_tax_cents\":" + str(ir_after_credit+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon) + ",\"total_tax_eur\":\"" + fmt_cents(ir_after_credit+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon) + "\"}"
-    out = out + ",\"notes\":[\"estimates on the seeded rate card (2025 barème on 2024 income) — override with bilan rule set\",\"IR = progressive barème + plafonnement QF (situation-aware: default 1791/demi-part, parent_isole 4262 total, veuf 1807/demi-part+2011, personne_seule_invalide 3608) + décote; 10% frais per salary stream; BNC/BIC deficits 6y; foncier deficit 10700 EUR on global + 10y on foncier\",\"dons reduction (art. 200 CGI): 75% to 1000 EUR, 66% to 20% of revenu imposable — reduces IR\",\"pinel reduction (art. 199 novovicies): 12/18/21% by engagement, cap 300000 EUR, spread over years — reduces IR\",\"emploi à domicile (art. 199 sexdecies): 50% crédit, cap 12000 EUR — refundable (crédit, not réduction)\",\"TVA franchise en base (art. 293 B): services 36800 / vente 91900 EUR — informational\",\"PAS taux neutre (art. 204 H): monthly estimate for provisioning — personalized rate may differ\",\"micro-BNC/BIC/foncier cannot legally generate deficits (forfaitaire) — deficit carry-forward is a régime-réel feature applied to the micro base as a v1 simplification\",\"crypto exemption per form 2086: net gains under the threshold are not declarable\"]}"
+    out = out + ",\"notes\":[\"estimates on the seeded rate card (2025 barème on 2024 income) — override with bilan rule set\",\"IR = progressive barème + plafonnement QF (situation-aware: default 1791/demi-part, parent_isole 4262 total, veuf 1807/demi-part+2011, personne_seule_invalide 3608) + décote; 10% frais per salary stream; BNC/BIC deficits 6y; foncier deficit 10700 EUR on global + 10y on foncier (micro + réel)\",\"dons reduction (art. 200 CGI): 75% to 1000 EUR, 66% to 20% of revenu imposable — reduces IR\",\"pinel/denormandie reduction (art. 199 novovicies): 12/18/21% by engagement, cap 300000 EUR, spread over years — reduces IR\",\"malraux reduction (art. 199 tervicies): 30% PSMV / 22% PVAP, cap 400000 EUR, hors plafonnement niches — reduces IR\",\"emploi à domicile (art. 199 sexdecies): 50% crédit, cap 12000 EUR — refundable (crédit, not réduction)\",\"TVA franchise en base (art. 293 B): services 36800 / vente 91900 EUR — informational\",\"PAS taux neutre + personnalisé (art. 204 H): monthly estimate for provisioning — v1 simplification of the BOFiP formula\",\"régime réel foncier (art. 29-31): net = loyer - charges (intérêts d'emprunt, travaux), no abattement — combined with micro-foncier\",\"micro-BNC/BIC/foncier cannot legally generate deficits (forfaitaire) — deficit carry-forward is a régime-réel feature applied to the micro base as a v1 simplification\",\"crypto exemption per form 2086: net gains under the threshold are not declarable\"]}"
     code = 0
     err = ""
 }

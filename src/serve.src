@@ -143,9 +143,10 @@ func llms_txt() (t) {
         "6. the radar: bilan stats --year 2026 && bilan tax --year 2026\n" +
         "   (radar = regime math + progressive IR barème + plafonnement QF (situation-aware)\n" +
         "    + décote + 10% frais per salary stream + BNC/BIC deficit carry-forward 6y\n" +
-        "    + déficit foncier 10700 on global / 10y on foncier + TVA franchise check\n" +
-        "    + PAS taux neutre + dons art. 200 + PINEL art. 199 novovicies\n" +
-        "    + emploi à domicile art. 199 sexdecies; 2025 barème on 2024 income)\n" +
+        "    + déficit foncier 10700 on global / 10y on foncier (micro + réel) + TVA franchise\n" +
+        "    + PAS taux neutre + taux personnalisé + dons art. 200 + PINEL/DENORMANDIE\n" +
+        "    art. 199 novovicies + MALRAUX art. 199 tervicies + emploi à domicile\n" +
+        "    art. 199 sexdecies; 2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +
         "bilan ships a persona: `bilan brian` prints it — install into your harness\n" +

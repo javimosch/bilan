@@ -183,9 +183,11 @@ func tax_text(db, year) (t, code, err) {
     t = t + hrule() + "\n\n"
     t = t + "  VOS REVENUS " + year + "\n\n"
     if x.regimes.salary.gross_cents != 0 {
-        t = t + hline("salaire encaissé", eur(x.regimes.salary.gross_cents)) + "\n"
+        t = t + hline("salaire net imposable (1AJ)", eur(x.regimes.salary.gross_cents)) + "\n"
         t = t + hline("  − 10 % frais professionnels", "-" + eur(x.regimes.salary.frais_abattement_cents)) + "\n"
-        t = t + hline("  = net imposable", eur(x.regimes.salary.net_cents)) + "\n\n"
+        t = t + hline("  = net imposable", eur(x.regimes.salary.net_cents)) + "\n"
+        t = t + "  (le chiffre attendu est celui de la ligne 1AJ de votre 2042 — le net\n"
+        t = t + "   imposable, pas le brut ni le net versé sur votre compte)\n\n"
     }
     if x.regimes.bnc.gross_cents != 0 {
         t = t + hline("BNC (conseil, prestations)", eur(x.regimes.bnc.gross_cents)) + "\n"
