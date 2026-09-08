@@ -582,6 +582,109 @@ ok "plafonnement excess 6750" 675000 "$(jq -r .reductions.plafonnement_global.ex
 ok "plafonnement ir excess" 675000 "$(jq -r .ir.plafonnement_global_excess_cents <<<"$r")"
 rm -f "$PGDB"
 
+# --- TVA régime normal (art. 287): rn_eligible when CA > RSI threshold ---
+# BNC 300000 EUR > 254000 services threshold -> rn_eligible
+RNDB="$(mktemp -u /tmp/bilan-rn-XXXXXX.db)"
+BILAN_DB="$RNDB" $BIN stream add biz --kind bnc >/dev/null
+BILAN_DB="$RNDB" $BIN tx add biz 2026-06-30 300000 >/dev/null
+r=$(BILAN_DB="$RNDB" $BIN tax --year 2026)
+ok "tva rn eligible (CA > 254k)" "true" "$(jq -r .tva.rn_eligible <<<"$r")"
+ok "tva rn threshold services" 25400000 "$(jq -r .tva.rn_threshold_services_cents <<<"$r")"
+rm -f "$RNDB"
+
+# --- TVA régime normal not eligible when CA < RSI threshold ---
+RNDB2="$(mktemp -u /tmp/bilan-rn2-XXXXXX.db)"
+BILAN_DB="$RNDB2" $BIN stream add biz --kind bnc >/dev/null
+BILAN_DB="$RNDB2" $BIN tx add biz 2026-06-30 100000 >/dev/null
+r=$(BILAN_DB="$RNDB2" $BIN tax --year 2026)
+ok "tva rn not eligible (CA < 254k)" "false" "$(jq -r .tva.rn_eligible <<<"$r")"
+rm -f "$RNDB2"
+
+# --- Plus-values immobilières (art. 150 VC): 19% IR + 17.2% social, no abattement ---
+# PV brute 10000, detention 0 -> no abattement -> IR 1900 + social 1720 = 3620 EUR
+PVDB="$(mktemp -u /tmp/bilan-pv-XXXXXX.db)"
+BILAN_DB="$PVDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$PVDB" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$PVDB" $BIN stream add pvi --kind plus_value_immo >/dev/null
+BILAN_DB="$PVDB" $BIN tx add pvi 2026-06-30 10000 >/dev/null
+r=$(BILAN_DB="$PVDB" $BIN tax --year 2026)
+ok "pv_immo brute" 1000000 "$(jq -r .plus_values.immo.brute_cents <<<"$r")"
+ok "pv_immo ir tax 19%" 190000 "$(jq -r .plus_values.immo.ir_tax_cents <<<"$r")"
+ok "pv_immo social tax 17.2%" 172000 "$(jq -r .plus_values.immo.social_tax_cents <<<"$r")"
+ok "pv_immo total 36.2%" 362000 "$(jq -r .plus_values.immo.total_tax_cents <<<"$r")"
+ok "pv_immo in totals" 362000 "$(jq -r .totals.pv_immo_cents <<<"$r")"
+rm -f "$PVDB"
+
+# --- Plus-values immobilières with abattement: detention 10y ---
+# PV brute 10000, detention 10 -> IR abattement 5y × 6% = 30% -> IR base 7000
+# IR 19% of 7000 = 1330; social abattement 5y × 1.65% = 8.25% -> social base 9175
+# social 17.2% of 9175 = 1578.1 -> 157810 cents
+PVDB2="$(mktemp -u /tmp/bilan-pv2-XXXXXX.db)"
+BILAN_DB="$PVDB2" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$PVDB2" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$PVDB2" $BIN stream add pvi --kind plus_value_immo >/dev/null
+BILAN_DB="$PVDB2" $BIN tx add pvi 2026-06-30 10000 >/dev/null
+BILAN_DB="$PVDB2" $BIN rule set 2026 plus_value_immo detention_years 10 >/dev/null
+r=$(BILAN_DB="$PVDB2" $BIN tax --year 2026)
+ok "pv_immo 10y ir abattement 30%" "30" "$(jq -r .plus_values.immo.ir_abattement_pct <<<"$r")"
+ok "pv_immo 10y ir base 7000" 700000 "$(jq -r .plus_values.immo.ir_base_cents <<<"$r")"
+ok "pv_immo 10y ir tax" 133000 "$(jq -r .plus_values.immo.ir_tax_cents <<<"$r")"
+rm -f "$PVDB2"
+
+# --- Plus-values immobilières full exoneration: detention 22y (IR) / 30y (social) ---
+PVDB3="$(mktemp -u /tmp/bilan-pv3-XXXXXX.db)"
+BILAN_DB="$PVDB3" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$PVDB3" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$PVDB3" $BIN stream add pvi --kind plus_value_immo >/dev/null
+BILAN_DB="$PVDB3" $BIN tx add pvi 2026-06-30 10000 >/dev/null
+BILAN_DB="$PVDB3" $BIN rule set 2026 plus_value_immo detention_years 22 >/dev/null
+r=$(BILAN_DB="$PVDB3" $BIN tax --year 2026)
+ok "pv_immo 22y ir abattement 100%" "100" "$(jq -r .plus_values.immo.ir_abattement_pct <<<"$r")"
+ok "pv_immo 22y ir tax 0" 0 "$(jq -r .plus_values.immo.ir_tax_cents <<<"$r")"
+rm -f "$PVDB3"
+
+# --- IFI (art. 977): below seuil -> not eligible ---
+IFIDB="$(mktemp -u /tmp/bilan-ifi-XXXXXX.db)"
+BILAN_DB="$IFIDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$IFIDB" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$IFIDB" $BIN stream add pat --kind ifi_patrimoine >/dev/null
+BILAN_DB="$IFIDB" $BIN tx add pat 2026-06-30 1000000 >/dev/null
+r=$(BILAN_DB="$IFIDB" $BIN tax --year 2026)
+ok "ifi below seuil not eligible" "false" "$(jq -r .ifi.eligible <<<"$r")"
+ok "ifi below seuil 0" 0 "$(jq -r .ifi.ifi_cents <<<"$r")"
+rm -f "$IFIDB"
+
+# --- IFI above seuil: patrimoine 1.5M ---
+# Barème from 800k: 500k @ 0.5% = 2500 + 200k @ 0.7% = 1400 = 3900 EUR
+# Décote: 1.5M > 1.4M -> no décote. IFI = 3900 EUR = 390000 cents
+IFIDB2="$(mktemp -u /tmp/bilan-ifi2-XXXXXX.db)"
+BILAN_DB="$IFIDB2" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$IFIDB2" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$IFIDB2" $BIN stream add pat --kind ifi_patrimoine >/dev/null
+BILAN_DB="$IFIDB2" $BIN tx add pat 2026-06-30 1500000 >/dev/null
+r=$(BILAN_DB="$IFIDB2" $BIN tax --year 2026)
+ok "ifi 1.5M eligible" "true" "$(jq -r .ifi.eligible <<<"$r")"
+ok "ifi 1.5M bareme" 390000 "$(jq -r .ifi.bareme_cents <<<"$r")"
+ok "ifi 1.5M no decote" 0 "$(jq -r .ifi.decote_cents <<<"$r")"
+ok "ifi 1.5M ifi" 390000 "$(jq -r .ifi.ifi_cents <<<"$r")"
+ok "ifi in totals" 390000 "$(jq -r .totals.ifi_cents <<<"$r")"
+rm -f "$IFIDB2"
+
+# --- IFI with décote: patrimoine 1.35M (between 1.3M and 1.4M) ---
+# Barème: 500k @ 0.5% = 2500 + 50k @ 0.7% = 350 = 2850 EUR = 285000 cents
+# Décote: 17500 - 1.25% × 1350000 = 17500 - 16875 = 625 EUR = 62500 cents
+# IFI = 2850 - 625 = 2225 EUR = 222500 cents
+IFIDB3="$(mktemp -u /tmp/bilan-ifi3-XXXXXX.db)"
+BILAN_DB="$IFIDB3" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$IFIDB3" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$IFIDB3" $BIN stream add pat --kind ifi_patrimoine >/dev/null
+BILAN_DB="$IFIDB3" $BIN tx add pat 2026-06-30 1350000 >/dev/null
+r=$(BILAN_DB="$IFIDB3" $BIN tax --year 2026)
+ok "ifi 1.35M bareme" 285000 "$(jq -r .ifi.bareme_cents <<<"$r")"
+ok "ifi 1.35M decote 625" 62500 "$(jq -r .ifi.decote_cents <<<"$r")"
+ok "ifi 1.35M ifi 2225" 222500 "$(jq -r .ifi.ifi_cents <<<"$r")"
+rm -f "$IFIDB3"
+
 # --- deficits carried forward (BNC: prior-year loss offsets current-year gross) ---
 DFDB="$(mktemp -u /tmp/bilan-deficit-XXXXXX.db)"
 BILAN_DB="$DFDB" $BIN stream add biz --kind bnc >/dev/null

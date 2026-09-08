@@ -261,28 +261,56 @@ func guide_text(base) (t) {
         "  the cap, the excess is added back to ir_after_credit (the advantage is\n" +
         "  capped). Source: BOFiP BOI-IR-LIQ-20-20-10, service-public.gouv.fr F31179.\n" +
         "\n" +
+        "## TVA régime normal (art. 287 CGI)\n" +
+        "  When CA > RSI upper threshold (254,000 EUR services / 840,000 EUR vente),\n" +
+        "  the business must declare TVA via CA3 mensuel (or trimestriel if TVA <\n" +
+        "  4,000 EUR/year). The TVA math (collectée - déductible) is the same as RSI;\n" +
+        "  only the declaration frequency changes. The radar reports rn_eligible +\n" +
+        "  rn_threshold_* in the tva block. Source: BOFiP BOI-TVA-DECLA-20.\n" +
+        "\n" +
+        "## Plus-values immobilières (art. 150 U à 150 VH CGI)\n" +
+        "  Record the plus-value BRUTE as a positive tx in a 'plus_value_immo' stream.\n" +
+        "  Flat tax: 19% IR + 17.2% prélèvements sociaux = 36.2% total. Abattement for\n" +
+        "  durée de détention: IR 6%/year years 6-21, 4% year 22 → 100% after 22y;\n" +
+        "  social 1.65%/year years 6-21, 1.6% year 22, 9%/year years 23-30 → 100%\n" +
+        "  after 30y. Set detention years: bilan rule set 2026 plus_value_immo\n" +
+        "  detention_years 10. Exonération if cession price ≤ 15,000 EUR (don't record).\n" +
+        "  New plus_values.immo JSON block + totals.pv_immo_cents.\n" +
+        "  Source: BOFiP BOI-RFPI-PVI-20.\n" +
+        "\n" +
+        "## IFI — impôt sur la fortune immobilière (art. 977 CGI)\n" +
+        "  Record the net taxable patrimoine value as a positive tx in an\n" +
+        "  'ifi_patrimoine' stream. Barème progressif: 0-800k: 0%, 800k-1.3M: 0.5%,\n" +
+        "  1.3M-2.57M: 0.7%, 2.57M-5M: 1%, 5M-10M: 1.25%, >10M: 1.5%. Seuil\n" +
+        "  déclenchement: 1.3M (but taxation starts at 800k). Décote for 1.3M-1.4M:\n" +
+        "  17,500 - 1.25% × P. New ifi JSON block + totals.ifi_cents.\n" +
+        "  Source: BOFiP BOI-PAT-ISF-40.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
         "  deficit carry-forward (6y) + déficit foncier imputation (10700 on global,\n" +
         "  10y on foncier, micro + réel) + pension alimentaire deduction (art. 156)\n" +
         "  + PER deduction (art. 163 quatervicies) + TVA franchise + régime\n" +
-        "  simplifié eligibility + TVA collectée/déductible (à payer / crédit) + PAS\n" +
-        "  taux neutre + taux personnalisé + dons reduction (art. 200) +\n" +
-        "  PINEL/DENORMANDIE (art. 199 novovicies) + MALRAUX (art. 199 tervicies)\n" +
+        "  simplifié + régime normal (CA3) + TVA collectée/déductible (à payer /\n" +
+        "  crédit) + PAS taux neutre + taux personnalisé + dons reduction (art. 200)\n" +
+        "  + PINEL/DENORMANDIE (art. 199 novovicies) + MALRAUX (art. 199 tervicies)\n" +
         "  + CENSI-BOUVARD (art. 199 sexvicies) + scolarité (art. 199 quater F)\n" +
         "  + IR-PME (art. 199 terdecies) + FCPI/FIP (art. 199 terdecies-0 A VI)\n" +
         "  + SOFICA (art. 199 quater E) + FOREST (art. 199 decies HA) + LMNP\n" +
         "  micro-BIC + LMNP régime réel + emploi à domicile crédit (art. 199\n" +
         "  sexdecies) + frais de garde crédit (art. 200 quater B) + plafonnement\n" +
-        "  global des avantages fiscaux (art. 200-0 A, 10k / 18k SOFICA cap). It\n" +
-        "  does NOT model: deficits beyond their windows, TVA régime normal (CA3\n" +
-        "  mensuel/trimestriel), the full BOFiP PAS formula, the article 154 bis TNS\n" +
-        "  PER plafond (10% bénéfice + 15% between 1-8 PASS — record versements in\n" +
-        "  'per' and the radar applies the 163 quatervicies cap), or LMNP amortissement\n" +
-        "  tables (record the amortissement as a negative tx in the 'lmnp_reel'\n" +
-        "  stream). Output is an estimate to reason from, not tax advice — say so to\n" +
-        "  the human.\n" +
+        "  global des avantages fiscaux (art. 200-0 A, 10k / 18k SOFICA cap)\n" +
+        "  + plus-values immobilières (art. 150 U à 150 VH, 19% IR + 17.2% social,\n" +
+        "  abattement détention 22y IR / 30y social) + IFI (art. 977, barème 0.5%-1.5%,\n" +
+        "  seuil 1.3M, décote 1.3M-1.4M). It does NOT model: deficits beyond their\n" +
+        "  windows, the full BOFiP PAS formula, the article 154 bis TNS PER plafond\n" +
+        "  (10% bénéfice + 15% between 1-8 PASS — record versements in 'per' and the\n" +
+        "  radar applies the 163 quatervicies cap), plus-values sur autres actifs\n" +
+        "  (métaux précieux, meubles), surtaxe sur plus-values immobilières élevées,\n" +
+        "  or LMNP amortissement tables (record the amortissement as a negative tx\n" +
+        "  in the 'lmnp_reel' stream). Output is an estimate to reason from, not tax\n" +
+        "  advice — say so to the human.\n" +
         "\n" +
         "## Brian — the cheap copilote (no inference in the platform)\n" +
         "  Brian is a PERSONA, not a service: install it into the harness your human\n" +

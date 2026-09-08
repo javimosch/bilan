@@ -299,6 +299,43 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'forest', 'rate_pct_tenths', '220')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'forest', 'cap_single_cents', '570000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'forest', 'cap_couple_cents', '625000')", []string{y})
+    // TVA régime normal (art. 287 CGI). CA3 mensuel (or trimestriel if TVA <
+    // 4,000 EUR/year). Applies when CA > RSI upper thresholds. The TVA math
+    // (collectée - déductible) is the same; only the declaration frequency
+    // changes. Source: BOFiP BOI-TVA-DECLA-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tva', 'rn_threshold_services_cents', '25400000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tva', 'rn_threshold_vente_cents', '84000000')", []string{y})
+    // Plus-values immobilières (art. 150 U à 150 VH CGI). Flat tax: 19% IR +
+    // 17.2% prélèvements sociaux = 36.2% total. Abattement for durée de
+    // détention: IR 6%/year years 6-21, 4% year 22 → 100% after 22y; social
+    // 1.65%/year years 6-21, 1.6% year 22, 9%/year years 23-30 → 100% after 30y.
+    // Exonération if cession price ≤ 15,000 EUR (user just doesn't record it).
+    // Record the plus-value BRUTE as a positive tx in a 'plus_value_immo'
+    // stream. Set detention years: bilan rule set 2026 plus_value_immo
+    // detention_years 10. Source: BOFiP BOI-RFPI-PVI-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'plus_value_immo', 'ir_rate_pct_tenths', '190')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'plus_value_immo', 'social_rate_pct_tenths', '172')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'plus_value_immo', 'detention_years', '0')", []string{y})
+    // IFI — impôt sur la fortune immobilière (art. 977 CGI). Barème progressif
+    // on net taxable patrimoine: 0-800k: 0%, 800k-1.3M: 0.5%, 1.3M-2.57M: 0.7%,
+    // 2.57M-5M: 1%, 5M-10M: 1.25%, >10M: 1.5%. Seuil déclenchement: 1.3M (but
+    // taxation starts at 800k). Décote for 1.3M-1.4M: 17500 - 1.25% × P.
+    // Record the net taxable patrimoine value as a positive tx in an
+    // 'ifi_patrimoine' stream. Source: BOFiP BOI-PAT-ISF-40.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'seuil_cents', '130000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'bareme1_threshold_cents', '80000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'bareme1_rate_pct_hundredths', '50')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'bareme2_threshold_cents', '130000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'bareme2_rate_pct_hundredths', '70')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'bareme3_threshold_cents', '257000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'bareme3_rate_pct_hundredths', '100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'bareme4_threshold_cents', '500000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'bareme4_rate_pct_hundredths', '125')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'bareme5_threshold_cents', '1000000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'bareme5_rate_pct_hundredths', '150')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'decote_threshold_cents', '140000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'decote_base_cents', '1750000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'decote_rate_pct_hundredths', '125')", []string{y})
 }
 
 type Rulevalrow struct { value string }

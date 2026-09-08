@@ -145,14 +145,16 @@ func llms_txt() (t) {
         "    + décote + 10% frais per salary stream + BNC/BIC/LMNP deficit carry-forward 6y\n" +
         "    + déficit foncier 10700 on global / 10y on foncier (micro + réel) + pension\n" +
         "    alimentaire deduction (art. 156) + PER deduction (art. 163 quatervicies) +\n" +
-        "    TVA franchise + TVA régime simplifié eligibility + TVA collectée/déductible\n" +
-        "    (à payer / crédit) + PAS taux neutre + taux personnalisé + dons art. 200\n" +
-        "    + PINEL/DENORMANDIE art. 199 novovicies + MALRAUX art. 199 tervicies\n" +
-        "    + CENSI-BOUVARD art. 199 sexvicies + scolarité art. 199 quater F + IR-PME\n" +
-        "    art. 199 terdecies + FCPI/FIP art. 199 terdecies-0 A VI + SOFICA art. 199\n" +
-        "    quater E + FOREST art. 199 decies HA + LMNP micro-BIC + LMNP régime réel\n" +
-        "    + emploi à domicile art. 199 sexdecies + frais de garde art. 200 quater B\n" +
-        "    (crédits) + plafonnement global art. 200-0 A (10k / 18k SOFICA cap);\n" +
+        "    TVA franchise + TVA régime simplifié + régime normal (CA3) + TVA\n" +
+        "    collectée/déductible (à payer / crédit) + PAS taux neutre + taux personnalisé\n" +
+        "    + dons art. 200 + PINEL/DENORMANDIE art. 199 novovicies + MALRAUX art. 199\n" +
+        "    tervicies + CENSI-BOUVARD art. 199 sexvicies + scolarité art. 199 quater F\n" +
+        "    + IR-PME art. 199 terdecies + FCPI/FIP art. 199 terdecies-0 A VI + SOFICA\n" +
+        "    art. 199 quater E + FOREST art. 199 decies HA + LMNP micro-BIC + LMNP\n" +
+        "    régime réel + emploi à domicile art. 199 sexdecies + frais de garde art.\n" +
+        "    200 quater B (crédits) + plafonnement global art. 200-0 A (10k / 18k SOFICA\n" +
+        "    cap) + plus-values immobilières art. 150 U-VH (19% IR + 17.2% social,\n" +
+        "    abattement 22y/30y) + IFI art. 977 (barème 0.5%-1.5%, seuil 1.3M);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +
