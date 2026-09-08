@@ -286,6 +286,21 @@ func guide_text(base) (t) {
         "  17,500 - 1.25% × P. New ifi JSON block + totals.ifi_cents.\n" +
         "  Source: BOFiP BOI-PAT-ISF-40.\n" +
         "\n" +
+        "## Heures supplémentaires (art. 81 quater CGI)\n" +
+        "  Record the net imposable amount of heures supplémentaires as a positive\n" +
+        "  tx in a 'heures_sup' stream. Exonération d'IR up to 7,500 EUR/year (cap\n" +
+        "  overridable: bilan rule set 2026 heures_sup cap_cents <cents>). The radar\n" +
+        "  subtracts the exempt amount (capped) from net_salary before ir_base.\n" +
+        "  Source: BOFiP BOI-RSA-CHAMP-20-50-20.\n" +
+        "\n" +
+        "## CFE — cotisation foncière des entreprises (art. 1647 D CGI)\n" +
+        "  The radar estimates the CFE cotisation minimum from the BNC + BIC gross\n" +
+        "  CA. Base minimum by CA bracket (midpoint of the legal range, overridable\n" +
+        "  via cfe.bracket*_base_cents). Communal rate default 20% (overridable via\n" +
+        "  bilan rule set 2026 cfe rate_pct_tenths <val>). Exonération if CA ≤ 5,000\n" +
+        "  EUR. CFE = base × rate / 1000. New cfe JSON block + totals.cfe_cents.\n" +
+        "  Source: BOFiP BOI-IF-CFE-20-20-40-10.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
@@ -303,7 +318,9 @@ func guide_text(base) (t) {
         "  global des avantages fiscaux (art. 200-0 A, 10k / 18k SOFICA cap)\n" +
         "  + plus-values immobilières (art. 150 U à 150 VH, 19% IR + 17.2% social,\n" +
         "  abattement détention 22y IR / 30y social) + IFI (art. 977, barème 0.5%-1.5%,\n" +
-        "  seuil 1.3M, décote 1.3M-1.4M). It does NOT model: deficits beyond their\n" +
+        "  seuil 1.3M, décote 1.3M-1.4M) + heures supplémentaires exonération (art. 81\n" +
+        "  quater, 7500 EUR cap) + CFE cotisation minimum (art. 1647 D, base × communal\n" +
+        "  rate, exonération CA ≤ 5000). It does NOT model: deficits beyond their\n" +
         "  windows, the full BOFiP PAS formula, the article 154 bis TNS PER plafond\n" +
         "  (10% bénéfice + 15% between 1-8 PASS — record versements in 'per' and the\n" +
         "  radar applies the 163 quatervicies cap), plus-values sur autres actifs\n" +

@@ -94,7 +94,8 @@ func landing_html() (h) {
     "<span class=\"l\">Revenu imposable → barème progressif</span><span class=\"n\">27 073,00 €</span>\n" +
     "<span class=\"l\">IR après barème + décote</span><span class=\"n\">1 599,65 €</span>\n" +
     "<span class=\"l\">Prélèvements sociaux (BNC + foncier)</span><span class=\"n\">5 674,06 €</span>\n" +
-    "<span class=\"l total\">À provisionner pour l'administration</span><span class=\"n total\">7 816,93 €</span>\n" +
+    "<span class=\"l\">CFE (cotisation foncière)</span><span class=\"n\">136,80 €</span>\n" +
+    "<span class=\"l total\">À provisionner pour l'administration</span><span class=\"n total\">7 953,73 €</span>\n" +
     "</div>\n" +
     "<p class=\"no\" style=\"margin-top:.8rem;font-size:.85rem\">Soit 20 % de ses 38 480 € de revenus — connu en juin, pas en septembre.</p>\n" +
     "</div>\n" +

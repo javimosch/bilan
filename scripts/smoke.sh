@@ -685,6 +685,65 @@ ok "ifi 1.35M decote 625" 62500 "$(jq -r .ifi.decote_cents <<<"$r")"
 ok "ifi 1.35M ifi 2225" 222500 "$(jq -r .ifi.ifi_cents <<<"$r")"
 rm -f "$IFIDB3"
 
+# --- heures supplémentaires (art. 81 quater, 7500 EUR cap) ---
+HSDB1="$(mktemp -u /tmp/bilan-hs1-XXXXXX.db)"
+BILAN_DB="$HSDB1" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$HSDB1" $BIN stream add hs --kind heures_sup >/dev/null
+BILAN_DB="$HSDB1" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$HSDB1" $BIN tx add hs 2026-06-30 5000 >/dev/null
+r=$(BILAN_DB="$HSDB1" $BIN tax --year 2026)
+# salary 50000 - 10% frais (5000) = 45000 net; heures_sup 5000 < 7500 cap → exempt 5000
+# net_salary = 45000 + 5000 - 5000 = 45000 (heures sup fully exempt, no IR impact)
+ok "heures_sup exemption 5000 (under cap)" 500000 "$(jq -r .ir.heures_sup_exemption_cents <<<"$r")"
+ok "heures_sup net_salary 45000" 4500000 "$(jq -r .regimes.salary.net_cents <<<"$r")"
+rm -f "$HSDB1"
+# heures sup above cap: 10000 hs → exempt 7500, 2500 stays taxable
+HSDB2="$(mktemp -u /tmp/bilan-hs2-XXXXXX.db)"
+BILAN_DB="$HSDB2" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$HSDB2" $BIN stream add hs --kind heures_sup >/dev/null
+BILAN_DB="$HSDB2" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$HSDB2" $BIN tx add hs 2026-06-30 10000 >/dev/null
+r=$(BILAN_DB="$HSDB2" $BIN tax --year 2026)
+# salary 45000 net + hs 10000 → exempt 7500 → net_salary = 45000 + 10000 - 7500 = 47500
+ok "heures_sup exemption capped at 7500" 750000 "$(jq -r .ir.heures_sup_exemption_cents <<<"$r")"
+ok "heures_sup net_salary 47500" 4750000 "$(jq -r .regimes.salary.net_cents <<<"$r")"
+rm -f "$HSDB2"
+
+# --- CFE cotisation minimum (art. 1647 D, CA brackets) ---
+# CA ≤ 5000 → exonération, cfe 0
+CFEDB1="$(mktemp -u /tmp/bilan-cfe1-XXXXXX.db)"
+BILAN_DB="$CFEDB1" $BIN stream add biz --kind bnc >/dev/null
+BILAN_DB="$CFEDB1" $BIN tx add biz 2026-06-30 4000 >/dev/null
+r=$(BILAN_DB="$CFEDB1" $BIN tax --year 2026)
+ok "cfe exoneration CA 4000" 0 "$(jq -r .cfe.cfe_cents <<<"$r")"
+ok "cfe bracket 0 (exonéré)" 0 "$(jq -r .cfe.bracket <<<"$r")"
+rm -f "$CFEDB1"
+# CA 30000 (bracket 1: ≤ 10000? no, 10000-32600) → bracket 2 base 68400 × 20% = 13680
+CFEDB2="$(mktemp -u /tmp/bilan-cfe2-XXXXXX.db)"
+BILAN_DB="$CFEDB2" $BIN stream add biz --kind bic >/dev/null
+BILAN_DB="$CFEDB2" $BIN tx add biz 2026-06-30 30000 >/dev/null
+r=$(BILAN_DB="$CFEDB2" $BIN tax --year 2026)
+ok "cfe CA 30000 bracket 2" 2 "$(jq -r .cfe.bracket <<<"$r")"
+ok "cfe CA 30000 base 68400" 68400 "$(jq -r .cfe.base_cents <<<"$r")"
+ok "cfe CA 30000 cfe 13680" 13680 "$(jq -r .cfe.cfe_cents <<<"$r")"
+rm -f "$CFEDB2"
+# CA 200000 (bracket 3: 32600-100000? no, 100000-250000) → bracket 4 base 218300 × 20% = 43660
+CFEDB3="$(mktemp -u /tmp/bilan-cfe3-XXXXXX.db)"
+BILAN_DB="$CFEDB3" $BIN stream add biz --kind bnc >/dev/null
+BILAN_DB="$CFEDB3" $BIN tx add biz 2026-06-30 200000 >/dev/null
+r=$(BILAN_DB="$CFEDB3" $BIN tax --year 2026)
+ok "cfe CA 200000 bracket 4" 4 "$(jq -r .cfe.bracket <<<"$r")"
+ok "cfe CA 200000 cfe 43660" 43660 "$(jq -r .cfe.cfe_cents <<<"$r")"
+rm -f "$CFEDB3"
+# CA 600000 (>500000) → bracket 6 base 395300 × 20% = 79060
+CFEDB4="$(mktemp -u /tmp/bilan-cfe4-XXXXXX.db)"
+BILAN_DB="$CFEDB4" $BIN stream add biz --kind bic >/dev/null
+BILAN_DB="$CFEDB4" $BIN tx add biz 2026-06-30 600000 >/dev/null
+r=$(BILAN_DB="$CFEDB4" $BIN tax --year 2026)
+ok "cfe CA 600000 bracket 6" 6 "$(jq -r .cfe.bracket <<<"$r")"
+ok "cfe CA 600000 cfe 79060" 79060 "$(jq -r .cfe.cfe_cents <<<"$r")"
+rm -f "$CFEDB4"
+
 # --- deficits carried forward (BNC: prior-year loss offsets current-year gross) ---
 DFDB="$(mktemp -u /tmp/bilan-deficit-XXXXXX.db)"
 BILAN_DB="$DFDB" $BIN stream add biz --kind bnc >/dev/null
@@ -728,7 +787,7 @@ okre "start (empty ledger) welcomes"  'registre est vide'        "$(BILAN_DB="$(
 okre "start (empty) shows demo path"  'bilan demo'               "$(BILAN_DB="$(mktemp -u /tmp/bilan-fresh2-XXXXXX.db)" $BIN start)"
 okre "start (seeded) shows next cmds" 'bilan tax --text'         "$(BILAN_DB="$DEMODB" $BIN start)"
 okre "tax --text is prose"            'A PROVISIONNER|PROVISIONNER POUR'  "$(BILAN_DB="$DEMODB" $BIN tax --text --year 2026)"
-okre "tax --text prints the total"    '7 816,93'                 "$(BILAN_DB="$DEMODB" $BIN tax --text --year 2026)"
+okre "tax --text prints the total"    '7 953,73'                 "$(BILAN_DB="$DEMODB" $BIN tax --text --year 2026)"
 okre "tax --text says not advice"     'conseil fiscal'       "$(BILAN_DB="$DEMODB" $BIN tax --text --year 2026)"
 okre "brief --text is prose"          "l'image du jour"          "$(BILAN_DB="$DEMODB" $BIN brief --text --year 2026)"
 okre "stats --text is prose"          'net encaissé'             "$(BILAN_DB="$DEMODB" $BIN stats --text --year 2026)"
@@ -784,7 +843,7 @@ WANTV1=$(( $(jq -r .totals.ir_cents <<<"$($BIN tax --year 2026)") + $(jq -r .tot
 ok "v1 brief provision matches tax" "$WANTV1" "$(jq -r .provision.total_cents <<<"$r")"
 okre "landing page" 'pluri-actifs' "$(curl -sf http://127.0.0.1:$PORT/)"
 okre "landing hero speaks to human pain" 'découvrez votre impôt' "$(curl -sf http://127.0.0.1:$PORT/)"
-okre "landing shows worked example" '7 816,93' "$(curl -sf http://127.0.0.1:$PORT/)"
+okre "landing shows worked example" '7 953,73' "$(curl -sf http://127.0.0.1:$PORT/)"
 okre "landing has agent section below" 'Pour votre agent' "$(curl -sf http://127.0.0.1:$PORT/)"
 okre "landing has why-over-LLM section" 'Pourquoi pas juste' "$(curl -sf http://127.0.0.1:$PORT/)"
 okre "landing comparison table" 'cmp-row' "$(curl -sf http://127.0.0.1:$PORT/)"

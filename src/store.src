@@ -336,6 +336,31 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'decote_threshold_cents', '140000000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'decote_base_cents', '1750000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'decote_rate_pct_hundredths', '125')", []string{y})
+    // Heures supplémentaires (art. 81 quater CGI). Exonération d'IR up to 7,500
+    // EUR/year (rémunération nette imposable). Record the net imposable amount
+    // of heures sup as a positive tx in a 'heures_sup' stream. The radar
+    // subtracts the exempt amount (capped at 7,500 EUR) from net_salary before
+    // ir_base. Source: BOFiP BOI-RSA-CHAMP-20-50-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'heures_sup', 'cap_cents', '750000')", []string{y})
+    // CFE — cotisation foncière des entreprises (art. 1647 D CGI). Cotisation
+    // minimum based on CA brackets. The base minimum is set by the commune
+    // within a legal range; we use the bracket midpoint as the default
+    // estimate (overridable via cfe.base_cents). The communal rate varies;
+    // default 20% (overridable via cfe.rate_pct_tenths). Exonération if CA ≤
+    // 5,000 EUR. CFE = base × rate / 1000. Source: BOFiP BOI-IF-CFE-20-20-40-10.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cfe', 'rate_pct_tenths', '200')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cfe', 'exoneration_ca_cents', '500000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cfe', 'bracket1_ca_cents', '1000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cfe', 'bracket1_base_cents', '40100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cfe', 'bracket2_ca_cents', '3260000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cfe', 'bracket2_base_cents', '68400')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cfe', 'bracket3_ca_cents', '10000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cfe', 'bracket3_base_cents', '135700')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cfe', 'bracket4_ca_cents', '25000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cfe', 'bracket4_base_cents', '218300')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cfe', 'bracket5_ca_cents', '50000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cfe', 'bracket5_base_cents', '306700')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cfe', 'bracket6_base_cents', '395300')", []string{y})
 }
 
 type Rulevalrow struct { value string }
