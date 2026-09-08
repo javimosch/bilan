@@ -55,6 +55,12 @@ func dash_html(db, year) (h) {
     dn := donesafe(sqlite_query(db, "SELECT COUNT(*) AS n FROM moves WHERE status='done'", []string{}))
     h = "<!doctype html>\n<html lang=\"fr\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>bilan — l'image du jour</title>\n<style>" + dash_css() + "</style>\n</head>\n<body>\n"
     h = h + "<p class=\"tag\">bilan <em>· l'image du jour</em></p>\n"
+    // Empty ledger: the dashboard would be a wall of zeros, which tells a first-time
+    // human nothing. Show them the three commands that fill it instead.
+    if len(pulses) == 0 && len(txs_any(db)) == 0 {
+        h = h + dash_empty_html(year) + "</body>\n</html>"
+        return h
+    }
     h = h + "<h1>" + today_str() + "</h1>\n"
     h = h + "<div class=\"cards\">"
     h = h + "<div class=\"card\"><p class=\"k\">provision impôts " + year + "</p><p class=\"big\">" + fmt_cents(prov) + " €</p><p class=\"sub\">flat tax " + fmt_cents(flat) + " + sociales " + fmt_cents(soc) + " — l'argent de l'administration, pas le tien</p></div>"
@@ -97,6 +103,29 @@ func dash_html(db, year) (h) {
     }
     h = h + "</table>\n"
     h = h + "<hr class=\"rule\"><p class=\"sub\"><a href=\"/guide\">guide</a> · <a href=\"/llms.txt\">llms.txt</a> · <a href=\"/\">accueil</a> · chiffres déterministes du registre — pas un conseil financier</p>\n</body>\n</html>"
+}
+
+// txs_any — one row if the ledger holds any transaction at all (the emptiness test
+// is "nothing ever recorded", not "nothing this year" — a human who imported 2025
+// and is looking at 2026 should still get the dashboard, not the welcome mat).
+func txs_any(db) (rows) {
+    rows = parse(sqlite_query(db, "SELECT COUNT(*) AS n FROM txs HAVING n > 0", []string{}), []Countrow{})
+}
+
+// dash_empty_html — the first-run panel. Same editorial voice as the landing:
+// say what this page will show once there is something to show, then the exact
+// commands, in order, with the zero-risk one first.
+func dash_empty_html(year) (h) {
+    h = "<h1>Votre registre est vide</h1>\n"
+    h = h + "<p>Cette page affichera, dès que vous aurez des revenus enregistrés&nbsp;: ce que vous devrez à l'administration pour " + year + ", d'où vient votre argent, quels revenus se sont tus, et les <em>moves</em> que votre agent propose.</p>\n"
+    h = h + "<h2>Voir à quoi ça ressemble</h2>\n<p>Un profil pluri-actif d'exemple (salaire + freelance + crypto + loyer), puis rechargez cette page&nbsp;:</p>\n"
+    h = h + "<div class=\"card\"><p class=\"mono\">bilan demo</p></div>\n"
+    h = h + "<h2>Avec vos propres chiffres</h2>\n<p>Un «&nbsp;stream&nbsp;» est une source de revenu. Créez-en un par activité, puis enregistrez les encaissements — ou importez un export de votre banque ou de votre broker (relançable sans doublon).</p>\n"
+    h = h + "<div class=\"card\"><p class=\"mono\">bilan stream add conseil --kind bnc</p>"
+    h = h + "<p class=\"mono\">bilan tx add conseil " + year + "-03-15 1200.50 --label \"mission A\"</p>"
+    h = h + "<p class=\"mono\">bilan import etoro releve.csv --stream crypto</p></div>\n"
+    h = h + "<h2>En ligne de commande</h2>\n<p><code class=\"mono\">bilan start</code> vous guide pas à pas · <code class=\"mono\">bilan tax --text</code> imprime le radar en français.</p>\n"
+    h = h + "<hr class=\"rule\"><p class=\"sub\">Vos données restent dans un seul fichier SQLite sur votre machine. <a href=\"/guide\">guide</a> · <a href=\"/\">accueil</a></p>\n"
 }
 
 // donesafe — the done-count query, tolerant of an empty ledger.

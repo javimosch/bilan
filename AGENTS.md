@@ -40,6 +40,7 @@ command surface — an agent running an old binary must not discover a stale sur
 | `src/ledger.src` | domain logic — every op is a `*_json(db, …) (out, code, err)` core shared by CLI and HTTP |
 | `src/serve.src` | HTTP API (machweb): /v1/* Bearer-gated, /_health + /guide + /llms.txt open, /_shutdown token-gated |
 | `src/main.src` | CLI dispatch + cmd_* wrappers + feedback dual-write + update + help surfaces |
+| `src/human.src` | the prose surface — `bilan start` (guided first run) and the `--text` rendering of tax/brief/stats. Reads the `*_json` cores and formats; computes no money |
 | `src/guide.src` | `bilan guide` — the complete operator reference (cli-guide-spec) |
 | `test/core_test.src` | unit tests for core (machin test) |
 | `scripts/smoke.sh` | offline end-to-end: every command, the error contract, idempotent import, serve lifecycle |
@@ -55,6 +56,9 @@ command surface — an agent running an old binary must not discover a stale sur
   When a rule is wrong, fix the seed in store.src AND document the override path.
 - **Imports are idempotent**: (stream, ext_id) UNIQUE, ext_id derived from row
   content. Never break this — agents retry.
+- **Two audiences, one number.** JSON is the contract (agents); `--text` and `/app`
+  are renderings of that same JSON for the human who owns the money. A renderer may
+  never compute — if the prose shows a number the JSON does not, that is a bug.
 - **New command checklist**: *_json core in ledger.src → cmd_* wrapper in main.src →
   HTTP route in serve.src → entry in help_text() + help_json() + guide.src →
   smoke.sh case → test if pure logic.

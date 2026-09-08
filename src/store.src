@@ -84,6 +84,56 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'salary', 'frais_abattement_pct_tenths', '100')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'salary', 'frais_abattement_min_cents', '50900')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'salary', 'frais_abattement_max_cents', '1455500')", []string{y})
+    // TVA franchise en base (art. 293 B CGI — seuils 2024-2025). Two thresholds:
+    // vente/fourniture de logement vs prestations de services. The radar checks
+    // whether the year's BNC/BIC gross falls under the franchise threshold (N-1
+    // value); the seuil majoré (N) is informational. Source: BOFiP BOI-TVA-DECLA-40-10-10.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tva', 'franchise_vente_cents', '9190000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tva', 'franchise_vente_majore_cents', '10100000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tva', 'franchise_services_cents', '3680000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tva', 'franchise_services_majore_cents', '3910000')", []string{y})
+    // Prélèvement à la source — taux neutre mensuel 2024 (art. 204 H CGI, métropole).
+    // Used to estimate the monthly prepayment when the taxpayer opts for the taux
+    // neutre (confidentiality). The radar projects the annual IR / 12 and applies
+    // the grid. Source: BOFiP BOI-BAREME-000037-20240228, loi de finances 2024.
+    // Grid stored as bracket pairs: pas_threshold_N_cents + pas_rate_N_tenths.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_1_threshold_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_1_rate_tenths', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_2_threshold_cents', '159100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_2_rate_tenths', '5')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_3_threshold_cents', '165300')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_3_rate_tenths', '13')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_4_threshold_cents', '175900')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_4_rate_tenths', '21')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_5_threshold_cents', '187700')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_5_rate_tenths', '29')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_6_threshold_cents', '200600')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_6_rate_tenths', '35')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_7_threshold_cents', '211300')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_7_rate_tenths', '41')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_8_threshold_cents', '225300')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_8_rate_tenths', '53')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_9_threshold_cents', '266600')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_9_rate_tenths', '75')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_10_threshold_cents', '305200')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_10_rate_tenths', '99')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_11_threshold_cents', '347600')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_11_rate_tenths', '119')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_12_threshold_cents', '391300')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_12_rate_tenths', '138')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_13_threshold_cents', '456600')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_13_rate_tenths', '158')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_14_threshold_cents', '547500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_14_rate_tenths', '179')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_15_threshold_cents', '685100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas', 'bracket_15_rate_tenths', '200')", []string{y})
+    // Réductions d'impôt — dons (art. 200 CGI). 75% up to 1000 EUR (aide aux
+    // personnes en difficulté, plafond dérogatoire 2024-2026), then 66% up to 20%
+    // of revenu imposable. Source: BOFiP BOI-IR-RICI-250-30, impots.gouv.fr.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dons', 'rate_75_pct_tenths', '750')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dons', 'rate_75_cap_cents', '100000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dons', 'rate_66_pct_tenths', '660')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dons', 'rate_66_cap_revenu_pct_tenths', '200')", []string{y})
 }
 
 type Rulevalrow struct { value string }

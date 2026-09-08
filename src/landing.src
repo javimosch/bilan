@@ -56,6 +56,17 @@ func landing_html() (h) {
     ".cta:hover{background:var(--accent);color:var(--paper)}\n" +
     ".agent{background:#efe9df;border:1px solid var(--line);padding:1.4rem 1.6rem;margin:1rem 0}\n" +
     ".agent h3{font-size:1rem;font-weight:400;margin-bottom:.5rem;color:var(--accent)}\n" +
+    ".cmp{margin:1rem 0 1.5rem;border:1px solid var(--line);border-radius:2px;overflow:hidden}\n" +
+    ".cmp-row{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:0;border-top:1px solid var(--line);align-items:stretch}\n" +
+    ".cmp-row:first-child{border-top:0}\n" +
+    ".cmp-row span{padding:.6rem .8rem;font-size:.9rem;line-height:1.4}\n" +
+    ".cmp-h span{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:#efe9df;font-weight:400}\n" +
+    ".cmp-h .cmp-a{color:#9a5a4a}\n" +
+    ".cmp-h .cmp-b{color:var(--good)}\n" +
+    ".cmp-l{color:var(--ink);font-size:.88rem}\n" +
+    ".cmp-a{color:#9a5a4a;background:#faf2ee}\n" +
+    ".cmp-b{color:var(--good);background:#f0f5ee}\n" +
+    ".cmp .c{font-style:italic}\n" +
     "</style>\n" +
     "</head>\n" +
     "<body>\n" +
@@ -94,6 +105,18 @@ func landing_html() (h) {
     "<p>Un seul fichier SQLite contient tous vos revenus signés (salaire, BNC, BIC, crypto, trading, loyers, dividendes). Le radar fiscal calcule, par régime : abattements forfaitaires, prélèvements sociaux, PFU sur le capital, barème progressif de l'IR, décote, quotient familial, déficits reportés. Vous importez vos exports bancaires (eToro, Revolut, générique) — c'est idempotent, vous pouvez relancer sans doublon.</p>\n" +
     "<h2>Ce que bilan ne fait pas</h2>\n" +
     "<p>Il ne devine rien. Il ne remplace pas votre expert-comptable. Il ne donne pas de conseil fiscal. C'est une <strong>calculatrice déterministe et auditable</strong> : ce sont des chiffres à raisonner, pas un avis. Dites-le à votre agent, dites-le à votre humain.</p>\n" +
+    "<h2>Pourquoi pas juste demander à Claude ou ChatGPT ?</h2>\n" +
+    "<p>Vous pouvez coller vos chiffres dans un LLM. Il vous donnera un nombre. Le problème : il ne peut pas prouver qu'il est juste. bilan le peut.</p>\n" +
+    "<div class=\"cmp\">\n" +
+    "<div class=\"cmp-row cmp-h\"><span></span><span class=\"cmp-a\">LLM seul</span><span class=\"cmp-b\">bilan + agent</span></div>\n" +
+    "<div class=\"cmp-row\"><span class=\"cmp-l\">Taux 2025 sur revenus 2024</span><span class=\"cmp-a c\">peut halluciner</span><span class=\"cmp-b\">dans tax_rules, sourcé BOFiP</span></div>\n" +
+    "<div class=\"cmp-row\"><span class=\"cmp-l\">Barème + décote + QF + déficits</span><span class=\"cmp-a c\">oublie un morceau</span><span class=\"cmp-b\">appliqué en entier, chaque fois</span></div>\n" +
+    "<div class=\"cmp-row\"><span class=\"cmp-l\">Reproductible</span><span class=\"cmp-a c\">jamais deux fois pareil</span><span class=\"cmp-b\">même entrée = même sortie</span></div>\n" +
+    "<div class=\"cmp-row\"><span class=\"cmp-l\">Vos données financières</span><span class=\"cmp-a c\">parties chez OpenAI</span><span class=\"cmp-b\">restent chez vous (SQLite)</span></div>\n" +
+    "<div class=\"cmp-row\"><span class=\"cmp-l\">Historique des revenus</span><span class=\"cmp-a c\">perdu à la fermeture</span><span class=\"cmp-b\">persistant, idempotent</span></div>\n" +
+    "<div class=\"cmp-row\"><span class=\"cmp-l\">TVA, PAS, réductions d'impôt</span><span class=\"cmp-a c\">à re-demander</span><span class=\"cmp-b\">dans le radar par défaut</span></div>\n" +
+    "</div>\n" +
+    "<p class=\"no\">L'agent reste l'interface : il lit le JSON, explique les chiffres, propose les actions. Mais le calcul est à bilan — déterministe, auditable, reproductible. L'LLM explique ; bilan prouve.</p>\n" +
     "<h2>Tarif</h2>\n" +
     "<p>En local&nbsp;: <strong>gratuit, pour toujours</strong>, vos données restent sur votre machine. En hébergé&nbsp;: <strong>50 appels offerts</strong> puis <strong>1 centime par appel</strong>, prépayé, sans abonnement. Quand le crédit cadeau est épuisé, l'API répond 402 avec un lien de recharge&nbsp;: vous payez ce que vous consommez, rien d'autre.</p>\n" +
     "<hr class=\"rule\">\n" +

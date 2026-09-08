@@ -16,6 +16,26 @@ base="https://github.com/${REPO}/releases/latest/download"
 url="${base}/${asset}"
 sums_url="${base}/SHA256SUMS.txt"
 
+# next_steps — what a human does the second the binary lands. An installer that
+# ends at "installed: …" leaves the reader with a binary and no idea what to type;
+# `bilan start` is the guided first run, so point at it and warn about PATH.
+next_steps() {
+    case ":$PATH:" in
+        *":$BIN_DIR:"*) cmd="bilan" ;;
+        *) cmd="$BIN_DIR/bilan"
+           echo ""
+           echo "note: $BIN_DIR is not on your PATH — add it to your shell profile:"
+           echo "      export PATH=\"$BIN_DIR:\$PATH\"" ;;
+    esac
+    echo ""
+    echo "Next:"
+    echo "  $cmd start          what bilan is, and your first command (French, guided)"
+    echo "  $cmd demo           an example pluri-actif ledger, then: $cmd tax --text"
+    echo "  $cmd guide          the full reference (agents: read this first)"
+    echo ""
+    echo "Your ledger is one SQLite file (\$BILAN_DB, default ~/.bilan.db) on this machine."
+}
+
 tmp=$(mktemp)
 if curl -fsSL "$url" -o "$tmp" 2>/dev/null && [ -s "$tmp" ]; then
     # verify the sha256 against the release's SHA256SUMS.txt (supply-chain hygiene)
@@ -37,6 +57,7 @@ if curl -fsSL "$url" -o "$tmp" 2>/dev/null && [ -s "$tmp" ]; then
     mv "$tmp" "$BIN_DIR/bilan"
     echo "installed: $BIN_DIR/bilan ($asset)"
     "$BIN_DIR/bilan" version || true
+    next_steps
     exit 0
 fi
 rm -f "$tmp"
@@ -46,3 +67,4 @@ srcdir=$(mktemp -d)
 curl -fsSL "https://github.com/${REPO}/archive/refs/heads/master.tar.gz" | tar xz -C "$srcdir"
 cd "$srcdir"/*/ && ./build.sh && mkdir -p "$BIN_DIR" && cp bilan "$BIN_DIR/bilan"
 echo "installed: $BIN_DIR/bilan (from source)"
+next_steps

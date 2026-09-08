@@ -114,6 +114,17 @@ ok "ir demi_parts default 2 (1 part)" 2 "$(jq -r .ir.demi_parts <<<"$r")"
 ok "ir qf not capped (1 part = base)" false "$(jq -r .ir.qf_capped <<<"$r")"
 ok "ir in totals" 666548 "$(jq -r .totals.ir_cents <<<"$r")"
 ok "total_tax = ir + flat + social" 666548 "$(jq -r .totals.total_tax_cents <<<"$r")"
+# TVA franchise en base: 0 BNC+BIC -> eligible (under 36800 services threshold)
+ok "tva franchise eligible (no turnover)" true "$(jq -r .tva.franchise_eligible <<<"$r")"
+ok "tva services threshold" 3680000 "$(jq -r .tva.threshold_services_cents <<<"$r")"
+ok "tva vente threshold" 9190000 "$(jq -r .tva.threshold_vente_cents <<<"$r")"
+# PAS taux neutre: 4500000/12=375000 monthly -> bracket 347600-391300 at 11.9%
+ok "pas monthly base" 375000 "$(jq -r .pas.monthly_base_cents <<<"$r")"
+ok "pas taux neutre 11.9%" "11.9" "$(jq -r .pas.taux_neutre_pct <<<"$r")"
+ok "pas monthly prepayment" 44625 "$(jq -r .pas.monthly_prepayment_cents <<<"$r")"
+# Réductions: no dons -> 0 reduction
+ok "dons reduction 0 (no dons)" 0 "$(jq -r .reductions.dons.reduction_cents <<<"$r")"
+ok "ir_after_reductions = ir (no dons)" 666548 "$(jq -r .ir.ir_after_reductions_cents <<<"$r")"
 # quotient familial: couple (2 parts = 4 demi-parts, base_parts=2) halves the quotient.
 # Set base_parts=2 so the 2 base parts are NOT capped by plafonnement.
 BILAN_DB="$IRDB" $BIN rule set 2026 ir_bareme parts 2 >/dev/null
@@ -171,6 +182,23 @@ ok "décote: amount" 38613 "$(jq -r .ir.decote_cents <<<"$r")"
 ok "décote: ir after décote" 72520 "$(jq -r .ir.ir_cents <<<"$r")"
 rm -f "$DCDB"
 
+# --- dons reduction (art. 200 CGI: 75% to 1000, 66% to 20% of revenu) ---
+DONDB="$(mktemp -u /tmp/bilan-dons-XXXXXX.db)"
+BILAN_DB="$DONDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$DONDB" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$DONDB" $BIN stream add charities --kind dons >/dev/null
+BILAN_DB="$DONDB" $BIN tx add charities 2026-06-30 -1500 >/dev/null
+r=$(BILAN_DB="$DONDB" $BIN tax --year 2026)
+# 1500 dons: 75% on 1000 = 75000 + 66% on 500 = 33000 -> 108000 reduction
+ok "dons gross" 150000 "$(jq -r .reductions.dons.gross_cents <<<"$r")"
+ok "dons base_75 capped at 1000" 100000 "$(jq -r .reductions.dons.base_75_cents <<<"$r")"
+ok "dons base_66 = 500" 50000 "$(jq -r .reductions.dons.base_66_cents <<<"$r")"
+ok "dons reduction = 750+330" 108000 "$(jq -r .reductions.dons.reduction_cents <<<"$r")"
+# IR was 666548 (50k salary); after 108000 dons reduction -> 558548
+ok "ir after dons reduction" 558548 "$(jq -r .ir.ir_after_reductions_cents <<<"$r")"
+ok "totals ir = ir_after_reductions" 558548 "$(jq -r .totals.ir_cents <<<"$r")"
+rm -f "$DONDB"
+
 # --- deficits carried forward (BNC: prior-year loss offsets current-year gross) ---
 DFDB="$(mktemp -u /tmp/bilan-deficit-XXXXXX.db)"
 BILAN_DB="$DFDB" $BIN stream add biz --kind bnc >/dev/null
@@ -206,6 +234,23 @@ ok "demo stats has salary" 1080000 "$(jq -r .by_kind.salary.cents <<<"$(BILAN_DB
 ok "demo stats has bnc" 2030000 "$(jq -r .by_kind.bnc.cents <<<"$(BILAN_DB="$DEMODB" $BIN stats --year 2026)")"
 ok "demo stats has crypto" 173000 "$(jq -r .by_kind.crypto.cents <<<"$(BILAN_DB="$DEMODB" $BIN stats --year 2026)")"
 ok "demo stats has rent" 565000 "$(jq -r .by_kind.rent.cents <<<"$(BILAN_DB="$DEMODB" $BIN stats --year 2026)")"
+
+# --- the human surface: start + --text renderings ---------------------------
+# The contract these guard: --text NEVER changes the JSON (agents keep parsing it),
+# and the prose never invents a number the radar did not produce.
+okre "start (empty ledger) welcomes"  'registre est vide'        "$(BILAN_DB="$(mktemp -u /tmp/bilan-fresh-XXXXXX.db)" $BIN start)"
+okre "start (empty) shows demo path"  'bilan demo'               "$(BILAN_DB="$(mktemp -u /tmp/bilan-fresh2-XXXXXX.db)" $BIN start)"
+okre "start (seeded) shows next cmds" 'bilan tax --text'         "$(BILAN_DB="$DEMODB" $BIN start)"
+okre "tax --text is prose"            'A PROVISIONNER|PROVISIONNER POUR'  "$(BILAN_DB="$DEMODB" $BIN tax --text --year 2026)"
+okre "tax --text prints the total"    '7 816,93'                 "$(BILAN_DB="$DEMODB" $BIN tax --text --year 2026)"
+okre "tax --text says not advice"     'conseil fiscal'       "$(BILAN_DB="$DEMODB" $BIN tax --text --year 2026)"
+okre "brief --text is prose"          "l'image du jour"          "$(BILAN_DB="$DEMODB" $BIN brief --text --year 2026)"
+okre "stats --text is prose"          'net encaissé'             "$(BILAN_DB="$DEMODB" $BIN stats --text --year 2026)"
+ok  "tax JSON unchanged by --text"    "$(BILAN_DB="$DEMODB" $BIN tax --year 2026)" "$(BILAN_DB="$DEMODB" $BIN tax --year 2026)"
+ok  "tax --text exits 0"              0 "$(code_of env BILAN_DB="$DEMODB" $BIN tax --text --year 2026)"
+okre "tax --text on empty ledger"     'registre est vide'        "$(BILAN_DB="$(mktemp -u /tmp/bilan-fresh3-XXXXXX.db)" $BIN tax --text)"
+rm -f /tmp/bilan-fresh*.db
+
 rm -f "$DEMODB"
 
 # --- Brian: brief + moves + dashboard ---------------------------------------
@@ -255,6 +300,10 @@ okre "landing page" 'pluri-actifs' "$(curl -sf http://127.0.0.1:$PORT/)"
 okre "landing hero speaks to human pain" 'découvrez votre impôt' "$(curl -sf http://127.0.0.1:$PORT/)"
 okre "landing shows worked example" '7 816,93' "$(curl -sf http://127.0.0.1:$PORT/)"
 okre "landing has agent section below" 'Pour votre agent' "$(curl -sf http://127.0.0.1:$PORT/)"
+okre "landing has why-over-LLM section" 'Pourquoi pas juste' "$(curl -sf http://127.0.0.1:$PORT/)"
+okre "landing comparison table" 'cmp-row' "$(curl -sf http://127.0.0.1:$PORT/)"
+okre "landing comparison LLM column" 'peut halluciner' "$(curl -sf http://127.0.0.1:$PORT/)"
+okre "landing comparison bilan column" 'sourcé BOFiP' "$(curl -sf http://127.0.0.1:$PORT/)"
 r=$(curl -sf -X POST -H "Authorization: Bearer smoketoken" http://127.0.0.1:$PORT/_shutdown)
 ok "shutdown" true "$(jq -r .shutdown <<<"$r")"
 sleep 0.4

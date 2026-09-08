@@ -63,10 +63,25 @@ func guide_text(base) (t) {
         "        (salary+bnc+crypto+rent) so a cold agent can run the radar in one command (idempotent)\n" +
         "  telemetry                                       aggregate usage + errors across tenants\n" +
         "        (hosted operator only; local mode records none — usage + errors only, NO financial data)\n" +
+        "  start                                           the HUMAN first run: what bilan is\n" +
+        "        and the exact next command, branching on whether the ledger is empty. Prose,\n" +
+        "        not JSON — point your human at it, then go back to help-json yourself.\n" +
         "  guide                                           this document\n" +
         "  feedback <message> [--kind bug|idea|praise]     report a bug/idea (never fails)\n" +
         "  version | update                                release info / self-update\n" +
         "  serve [--port N]                                HTTP JSON API (see below)\n" +
+        "\n" +
+        "## The human surface (--text)\n" +
+        "  stats, tax and brief accept --text: the SAME numbers rendered as French prose\n" +
+        "  for the human who owns the money, instead of JSON. Nothing is recomputed — the\n" +
+        "  text is a rendering of the JSON core, so the two can never disagree.\n" +
+        "    bilan tax --text --year 2026    the radar, line by line, in euros\n" +
+        "    bilan brief --text              the morning image\n" +
+        "    bilan stats --text              where the money came from\n" +
+        "  Use them when your human asks to SEE something. Keep parsing the JSON form\n" +
+        "  yourself — --text is display, not a contract, and its layout may change.\n" +
+        "  The dashboard (GET /app) is the same image as a page, and shows a first-run\n" +
+        "  panel instead of a wall of zeros while the ledger is empty.\n" +
         "\n" +
         "## The rate card (seeded for the current year; override per year)\n" +
         "  Sources: BOFiP (bofip.impots.gouv.fr), impots.gouv.fr, legifiscal.fr — see notes.\n" +
@@ -97,17 +112,31 @@ func guide_text(base) (t) {
         "  déficit foncier:    rent net negative -> up to 10,700 EUR imputed on revenu\n" +
         "                      global (reduces the IR base), excess carried 10y on foncier.\n" +
         "                      Source: art. 156 CGI I.3°, BOFiP BOI-RFPI-BASE-30-20.\n" +
+        "  TVA franchise:      franchise en base art. 293 B CGI — services 36,800 EUR,\n" +
+        "                      vente 91,900 EUR (2024-2025). The radar checks whether\n" +
+        "                      the year's BNC+BIC gross falls under the threshold.\n" +
+        "                      Source: BOFiP BOI-TVA-DECLA-40-10-10.\n" +
+        "  PAS taux neutre:    prélèvement à la source, taux neutre mensuel (art. 204 H\n" +
+        "                      CGI, métropole 2024). The radar projects net salary / 12\n" +
+        "                      and applies the grid to estimate the monthly prepayment.\n" +
+        "                      Source: BOFiP BOI-BAREME-000037-20240228.\n" +
+        "  réductions d'impôt: dons (art. 200 CGI) — 75% to 1,000 EUR (aide aux\n" +
+        "                      personnes en difficulté, plafond dérogatoire 2024-2026),\n" +
+        "                      then 66% up to 20% of revenu imposable. Record dons as\n" +
+        "                      negative txs in a 'dons' stream. Source: BOFiP\n" +
+        "                      BOI-IR-RICI-250-30, impots.gouv.fr.\n" +
         "  Override any of them: bilan rule set 2027 micro_bnc deduction_pct_tenths 340\n" +
         "  (rates are DECIPERCENT tenths: 340 = 34.0%; all math is integer cents)\n" +
         "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF +\n" +
         "  décote + 10% frais per salary stream + BNC/BIC deficit carry-forward (6y) +\n" +
-        "  déficit foncier imputation (10700 on global, 10y on foncier). It does NOT\n" +
+        "  déficit foncier imputation (10700 on global, 10y on foncier) + TVA franchise\n" +
+        "  check + PAS taux neutre estimate + dons reduction (art. 200). It does NOT\n" +
         "  model: deficits beyond their windows, the parent-isolé / veuf QF caps\n" +
-        "  (4224 / 1069 EUR), intérêts d'emprunt tracking separately, or TVA / PAS /\n" +
-        "  réductions d'impôt. Output is an estimate to reason from, not tax advice —\n" +
-        "  say so to the human.\n" +
+        "  (4224 / 1069 EUR), intérêts d'emprunt tracking separately, emploi à domicile\n" +
+        "  / PINEL / other réductions d'impôt, or the personalized PAS rate. Output is\n" +
+        "  an estimate to reason from, not tax advice — say so to the human.\n" +
         "\n" +
         "## Brian — the cheap copilote (no inference in the platform)\n" +
         "  Brian is a PERSONA, not a service: install it into the harness your human\n" +

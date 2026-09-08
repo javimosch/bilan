@@ -1,0 +1,355 @@
+// human — the prose surface. Everything an agent reads is JSON (stdout = data);
+// everything a HUMAN reads is here: `bilan start` (the first run), and the
+// `--text` rendering of tax / brief / stats.
+//
+// Why a separate file: the JSON cores in ledger.src are the contract and must not
+// grow presentation. This file only READS (the same *_json cores, plus read-only
+// SQL) and formats. It never computes money — every number it prints came out of
+// the radar. French, tutoiement-free (vouvoiement, like the landing), no jargon
+// the reader has to look up.
+
+type HTot struct { ir_cents int  flat_tax_cents int  social_cents int  total_tax_cents int }
+type HReg struct { gross_cents int  abattement_cents int  net_ir_cents int  social_cents int }
+type HSal struct { gross_cents int  frais_abattement_cents int  net_cents int }
+type HIr struct { base_cents int  demi_parts int  ir_before_decote_cents int  decote_cents int  ir_cents int  dons_reduction_cents int  ir_after_reductions_cents int }
+type HCry struct { net_cents int  threshold_cents int }
+type HCap struct { taxable_cents int  tax_cents int }
+type HTva struct { ca_cents int  threshold_services_cents int }
+type HPas struct { monthly_prepayment_cents int }
+type HRegs struct { bnc HReg  bic HReg  foncier HReg  salary HSal }
+type HTax struct { year int  totals HTot  regimes HRegs  ir HIr  crypto HCry  capital HCap  tva HTva  pas HPas }
+
+type HKind struct { kind string  total int  n int }
+type HStream struct { name string  kind string  total int  last_date string  n int }
+type HMove struct { id string  kind string  action string  pourquoi string  impact string  horizon string }
+
+// ── formatting ──────────────────────────────────────────────────────────────
+
+// eur — integer cents -> "7 816,93 €", French convention (space thousands, comma
+// decimal). Presentation only; fmt_cents stays the machine form.
+func eur(c) (s) {
+    raw := fmt_cents(c)
+    neg := 0
+    if substr(raw, 0, 1) == "-" { neg = 1  raw = substr(raw, 1, len(raw)) }
+    dot := 0
+    i := 0
+    for i < len(raw) {
+        if substr(raw, i, i+1) == "." { dot = i }
+        i = i + 1
+    }
+    ip := substr(raw, 0, dot)
+    fp := substr(raw, dot+1, len(raw))
+    out := ""
+    n := len(ip)
+    j := 0
+    for j < n {
+        out = out + substr(ip, j, j+1)
+        left := n - j - 1
+        if left > 0 && left % 3 == 0 { out = out + " " }
+        j = j + 1
+    }
+    s = out + "," + fp + " €"
+    if neg == 1 { s = "-" + s }
+}
+
+// dwidth — display width in CHARACTERS, not bytes. The prose surface is French:
+// "€", "−" and every accent are multi-byte UTF-8, so len() would misalign every
+// column that contains one. Counts non-continuation bytes (0x80–0xBF are the
+// continuation bytes of a multi-byte sequence).
+func dwidth(s) (w) {
+    b := bytes(s)
+    w = 0
+    i := 0
+    for i < len(s) {
+        c := byte_at(b, i)
+        if c < 128 || c > 191 { w = w + 1 }
+        i = i + 1
+    }
+}
+
+// padl / padr — column alignment for the fixed-width blocks (character-aware).
+func padl(s, w) (o) {
+    o = s
+    n := dwidth(s)
+    for n < w { o = " " + o  n = n + 1 }
+}
+
+func padr(s, w) (o) {
+    o = s
+    n := dwidth(s)
+    for n < w { o = o + " "  n = n + 1 }
+}
+
+// hrule — the section separator, one width for the whole prose surface.
+func hrule() (s) { s = "  ────────────────────────────────────────────────────────────" }
+
+// hline — "  label ................ 1 234,56 €" as one aligned row.
+func hline(label, value) (s) {
+    s = "  " + padr(label, 34) + padl(value, 20)
+}
+
+// ── bilan start — the human first run ───────────────────────────────────────
+
+// start_text — what a human sees the first time they type `bilan`. Branches on
+// the state of the ledger, because "what do I do now" has a different answer
+// when the file is empty than when it already holds a year of income.
+func start_text(db, year) (t) {
+    ns := hcount(db, "SELECT COUNT(*) AS n FROM streams")
+    nt := hcount(db, "SELECT COUNT(*) AS n FROM txs")
+    t = "\n  bilan — votre radar fiscal\n"
+    t = t + "  " + version_str() + " · registre : " + dbpath() + "\n\n"
+    if ns == 0 {
+        t = t + "  Votre registre est vide. bilan calcule ce que vous devrez à\n"
+        t = t + "  l'administration — impôt sur le revenu, prélèvements sociaux, flat tax —\n"
+        t = t + "  sur vos revenus réels, avant la fin de l'année. Rien n'est deviné : ce\n"
+        t = t + "  sont les barèmes officiels appliqués en centimes d'euro.\n\n"
+        t = t + hrule() + "\n\n"
+        t = t + "  1. ESSAYER SANS RIEN SAISIR (30 secondes)\n\n"
+        t = t + "     bilan demo                 un profil pluri-actif d'exemple\n"
+        t = t + "     bilan tax --text           le radar, en français\n\n"
+        t = t + "  2. AVEC VOS PROPRES CHIFFRES\n\n"
+        t = t + "     Un « stream » = une source de revenu. Créez-en un par activité :\n\n"
+        t = t + "     bilan stream add salaire   --kind salary\n"
+        t = t + "     bilan stream add conseil   --kind bnc\n"
+        t = t + "     bilan stream add appart    --kind rent\n\n"
+        t = t + "     Puis chaque encaissement (montant en euros, signé) :\n\n"
+        t = t + "     bilan tx add conseil " + str(year) + "-03-15 1200.50 --label \"mission A\"\n\n"
+        t = t + "     Ou importez un export de votre banque / broker (sans doublon,\n"
+        t = t + "     relançable autant de fois que vous voulez) :\n\n"
+        t = t + "     bilan import etoro releve.csv --stream crypto\n\n"
+        t = t + "  3. LIRE VOTRE RADAR\n\n"
+        t = t + "     bilan tax --text           ce que vous devrez, ligne par ligne\n"
+        t = t + "     bilan brief --text         l'image du jour, à lire chaque matin\n"
+        t = t + "     bilan serve --port 8791    puis http://localhost:8791/app\n\n"
+        t = t + hrule() + "\n\n"
+        t = t + "  Vos données ne quittent pas votre machine : tout tient dans un seul\n"
+        t = t + "  fichier SQLite, que vous pouvez sauvegarder, ouvrir ou supprimer.\n\n"
+        t = t + "  Vous utilisez un agent IA (claude-code, pi, opencode) ? Donnez-lui\n"
+        t = t + "  `bilan brian` comme persona et `bilan guide` comme manuel : il pilotera\n"
+        t = t + "  bilan pour vous, sans qu'aucun modèle ne voie vos chiffres — l'agent\n"
+        t = t + "  tourne chez vous, bilan ne contient aucune IA.\n\n"
+        t = t + "  Aide : bilan guide (manuel complet) · bilan help (catalogue JSON)\n"
+        return t
+    }
+    t = t + "  Votre registre contient " + str(ns) + " stream(s) et " + str(nt) + " écriture(s).\n\n"
+    t = t + "  À FAIRE MAINTENANT\n\n"
+    t = t + "     bilan tax --text --year " + str(year) + "     ce que vous devrez à l'administration\n"
+    t = t + "     bilan brief --text            l'image du jour\n"
+    t = t + "     bilan stats --text            d'où vient l'argent\n\n"
+    t = t + "  AJOUTER DES REVENUS\n\n"
+    t = t + "     bilan tx add <stream> " + str(year) + "-03-15 1200.50 --label \"...\"\n"
+    t = t + "     bilan import <etoro|revolut|generic> <fichier> --stream <stream>\n\n"
+    t = t + "  VOIR LE TABLEAU DE BORD\n\n"
+    t = t + "     bilan serve --port 8791    puis http://localhost:8791/app\n\n"
+    t = t + "  Aide : bilan guide · bilan help\n"
+}
+
+// hcount — a single COUNT(*) as an int, tolerant of an empty/fresh ledger.
+func hcount(db, sql) (n) {
+    n = 0
+    rows := sqlite_query(db, sql, []string{})
+    if rows == "[]" || rows == "" { return n }
+    parsed := parse(rows, []Countrow{})
+    if len(parsed) > 0 { n = parsed[0].n }
+}
+
+// ── bilan tax --text — the radar, in French ─────────────────────────────────
+
+func tax_text(db, year) (t, code, err) {
+    tj := ""
+    tj, code, err = tax_json(db, year)
+    if err != "" { return "", code, err }
+    x := parse(tj, HTax{})
+    nt := hcount(db, "SELECT COUNT(*) AS n FROM txs")
+    t = "\n  bilan — radar fiscal " + year + "\n"
+    t = t + "  calculé le " + today_str() + " sur " + str(nt) + " écriture(s) du registre\n\n"
+    if nt == 0 {
+        t = t + "  Votre registre est vide pour " + year + " — il n'y a donc rien à\n"
+        t = t + "  provisionner. Ajoutez vos revenus, ou essayez le profil d'exemple :\n\n"
+        t = t + "     bilan demo && bilan tax --text\n\n"
+        t = t + "  Pour démarrer pas à pas : bilan start\n"
+        code = 0
+        err = ""
+        return t, code, err
+    }
+    prov := x.totals.total_tax_cents
+    t = t + hrule() + "\n\n"
+    t = t + "  À PROVISIONNER POUR L'ADMINISTRATION" + padl(eur(prov), 25) + "\n\n"
+    t = t + hline("impôt sur le revenu", eur(x.totals.ir_cents)) + "\n"
+    t = t + hline("prélèvements sociaux", eur(x.totals.social_cents)) + "\n"
+    t = t + hline("flat tax (PFU 31,4 % sur le capital)", eur(x.totals.flat_tax_cents)) + "\n\n"
+    t = t + "  Cet argent est celui de l'administration, pas le vôtre : mettez-le de\n"
+    t = t + "  côté au fur et à mesure plutôt qu'en septembre.\n\n"
+    t = t + hrule() + "\n\n"
+    t = t + "  VOS REVENUS " + year + "\n\n"
+    if x.regimes.salary.gross_cents != 0 {
+        t = t + hline("salaire encaissé", eur(x.regimes.salary.gross_cents)) + "\n"
+        t = t + hline("  − 10 % frais professionnels", "-" + eur(x.regimes.salary.frais_abattement_cents)) + "\n"
+        t = t + hline("  = net imposable", eur(x.regimes.salary.net_cents)) + "\n\n"
+    }
+    if x.regimes.bnc.gross_cents != 0 {
+        t = t + hline("BNC (conseil, prestations)", eur(x.regimes.bnc.gross_cents)) + "\n"
+        t = t + hline("  − abattement micro 34 %", "-" + eur(x.regimes.bnc.abattement_cents)) + "\n"
+        t = t + hline("  = net imposable", eur(x.regimes.bnc.net_ir_cents)) + "\n"
+        t = t + hline("  prélèvements sociaux 24,6 %", eur(x.regimes.bnc.social_cents)) + "\n\n"
+    }
+    if x.regimes.bic.gross_cents != 0 {
+        t = t + hline("BIC (vente, services)", eur(x.regimes.bic.gross_cents)) + "\n"
+        t = t + hline("  − abattement micro", "-" + eur(x.regimes.bic.abattement_cents)) + "\n"
+        t = t + hline("  = net imposable", eur(x.regimes.bic.net_ir_cents)) + "\n"
+        t = t + hline("  prélèvements sociaux", eur(x.regimes.bic.social_cents)) + "\n\n"
+    }
+    if x.regimes.foncier.gross_cents != 0 {
+        t = t + hline("loyers perçus", eur(x.regimes.foncier.gross_cents)) + "\n"
+        t = t + hline("  − abattement micro-foncier 30 %", "-" + eur(x.regimes.foncier.abattement_cents)) + "\n"
+        t = t + hline("  = net imposable", eur(x.regimes.foncier.net_ir_cents)) + "\n"
+        t = t + hline("  prélèvements sociaux 17,2 %", eur(x.regimes.foncier.social_cents)) + "\n\n"
+    }
+    if x.crypto.net_cents != 0 {
+        t = t + hline("plus-values crypto (nettes)", eur(x.crypto.net_cents)) + "\n"
+        if x.crypto.net_cents > 0 && x.crypto.net_cents < x.crypto.threshold_cents {
+            t = t + "  exonérées : sous le seuil de " + eur(x.crypto.threshold_cents) + " (formulaire 2086)\n\n"
+        } else {
+            t = t + hline("  flat tax 31,4 %", eur(x.capital.tax_cents)) + "\n\n"
+        }
+    }
+    t = t + hrule() + "\n\n"
+    t = t + "  IMPÔT SUR LE REVENU (barème progressif)\n\n"
+    t = t + hline("revenu net imposable", eur(x.ir.base_cents)) + "\n"
+    t = t + hline("parts fiscales (quotient familial)", halfp(x.ir.demi_parts)) + "\n"
+    t = t + hline("impôt au barème", eur(x.ir.ir_before_decote_cents)) + "\n"
+    if x.ir.decote_cents != 0 {
+        t = t + hline("  − décote (art. 197 CGI)", "-" + eur(x.ir.decote_cents)) + "\n"
+    }
+    if x.ir.dons_reduction_cents != 0 {
+        t = t + hline("  − réduction dons (art. 200 CGI)", "-" + eur(x.ir.dons_reduction_cents)) + "\n"
+    }
+    t = t + hline("= impôt sur le revenu dû", eur(x.totals.ir_cents)) + "\n\n"
+    t = t + hrule() + "\n\n"
+    t = t + "  À SURVEILLER\n\n"
+    if x.pas.monthly_prepayment_cents > 0 {
+        t = t + "  · Prélèvement à la source — pour lisser, comptez environ\n"
+        t = t + "    " + eur(x.pas.monthly_prepayment_cents) + " par mois (taux neutre, art. 204 H).\n\n"
+    }
+    if x.tva.ca_cents > 0 {
+        if x.tva.ca_cents < x.tva.threshold_services_cents {
+            t = t + "  · TVA — chiffre d'affaires " + eur(x.tva.ca_cents) + " sur un seuil de\n"
+            t = t + "    franchise de " + eur(x.tva.threshold_services_cents) + " (prestations de services) :\n"
+            t = t + "    vous restez en franchise en base.\n\n"
+        } else {
+            t = t + "  · TVA — chiffre d'affaires " + eur(x.tva.ca_cents) + " : vous dépassez le seuil\n"
+            t = t + "    de franchise (" + eur(x.tva.threshold_services_cents) + "). Parlez-en à votre\n"
+            t = t + "    expert-comptable — la TVA devient facturable.\n\n"
+        }
+    }
+    t = t + hrule() + "\n\n"
+    t = t + "  Chiffres déterministes : mêmes entrées, même sortie, calcul en centimes\n"
+    t = t + "  sur les barèmes officiels (BOFiP, impots.gouv.fr). Ce n'est pas un\n"
+    t = t + "  conseil fiscal — à raisonner avec votre expert-comptable.\n\n"
+    t = t + "  Le détail complet, pour votre agent : bilan tax --year " + year + "\n"
+    code = 0
+    err = ""
+}
+
+// halfp — demi-parts (the tax code counts halves) -> the human "1", "1,5", "2".
+func halfp(dp) (s) {
+    w := dp / 2
+    s = str(w)
+    if dp - w * 2 != 0 { s = str(w) + ",5" }
+}
+
+// ── bilan brief --text — the morning image ──────────────────────────────────
+
+func brief_text(db, year) (t, code, err) {
+    tj := ""
+    tj, code, err = tax_json(db, year)
+    if err != "" { return "", code, err }
+    x := parse(tj, HTax{})
+    t = "\n  bilan — l'image du jour · " + today_str() + "\n\n"
+    prov := x.totals.total_tax_cents
+    t = t + "  À provisionner pour " + year + " : " + eur(prov) + "\n"
+    t = t + "  (IR " + eur(x.totals.ir_cents) + " · sociales " + eur(x.totals.social_cents) + " · flat tax " + eur(x.totals.flat_tax_cents) + ")\n\n"
+    rows := sqlite_query(db, "SELECT s.name AS name, s.kind AS kind, SUM(t.cents) AS total, MAX(t.date) AS last_date, COUNT(*) AS n FROM txs t JOIN streams s ON s.id=t.stream_id WHERE t.date>=? AND t.date<=? GROUP BY s.name ORDER BY total DESC", []string{year+"-01-01", year+"-12-31"})
+    st := parse(rows, []HStream{})
+    if len(st) == 0 {
+        t = t + "  Aucun revenu enregistré pour " + year + ".\n"
+        t = t + "  Commencez ici : bilan start\n"
+        code = 0
+        err = ""
+        return t, code, err
+    }
+    t = t + hrule() + "\n\n  VOS STREAMS\n\n"
+    i := 0
+    for i < len(st) {
+        p := st[i]
+        ds := days_since(p.last_date)
+        tag := "actif"
+        if ds > 45 { tag = "silencieux depuis " + str(ds) + " j" }
+        else if ds > 14 { tag = "calme depuis " + str(ds) + " j" }
+        t = t + hline(p.name + " (" + p.kind + ")", eur(p.total)) + "\n"
+        t = t + "  " + padr("  " + str(p.n) + " écriture(s) · " + tag, 34) + "\n"
+        i = i + 1
+    }
+    t = t + "\n"
+    mrows := sqlite_query(db, "SELECT id, kind, action, pourquoi, impact, horizon FROM moves WHERE status='proposed' ORDER BY created DESC LIMIT 5", []string{})
+    mv := parse(mrows, []HMove{})
+    t = t + hrule() + "\n\n  MOVES EN ATTENTE\n\n"
+    if len(mv) == 0 {
+        t = t + "  Aucun. Votre agent en propose avec `bilan move add` après avoir lu\n"
+        t = t + "  ce brief ; vous les validez ici ou sur /app.\n\n"
+    }
+    i = 0
+    for i < len(mv) {
+        m := mv[i]
+        t = t + "  · " + m.action + "\n"
+        t = t + "    pourquoi — " + m.pourquoi + "\n"
+        t = t + "    impact   — " + m.impact + "\n"
+        t = t + "    valider  — bilan move done " + m.id + "\n\n"
+        i = i + 1
+    }
+    t = t + hrule() + "\n\n"
+    t = t + "  Chiffres déterministes du registre — pas un conseil financier.\n"
+    code = 0
+    err = ""
+}
+
+// ── bilan stats --text — where the money comes from ─────────────────────────
+
+func stats_text(db, year) (t, code, err) {
+    rows := sqlite_query(db, "SELECT s.kind AS kind, SUM(t.cents) AS total, COUNT(*) AS n FROM txs t JOIN streams s ON s.id=t.stream_id WHERE t.date>=? AND t.date<=? GROUP BY s.kind ORDER BY total DESC", []string{year+"-01-01", year+"-12-31"})
+    ks := parse(rows, []HKind{})
+    t = "\n  bilan — vos revenus " + year + "\n\n"
+    if len(ks) == 0 {
+        t = t + "  Rien d'enregistré pour " + year + ".\n"
+        t = t + "  Commencez ici : bilan start\n"
+        code = 0
+        err = ""
+        return t, code, err
+    }
+    total := 0
+    i := 0
+    for i < len(ks) {
+        k := ks[i]
+        t = t + hline(kind_fr(k.kind) + " · " + str(k.n) + " écriture(s)", eur(k.total)) + "\n"
+        total = total + k.total
+        i = i + 1
+    }
+    t = t + hrule() + "\n"
+    t = t + hline("net encaissé", eur(total)) + "\n\n"
+    t = t + "  Ce que vous devrez dessus : bilan tax --text --year " + year + "\n"
+    code = 0
+    err = ""
+}
+
+// kind_fr — the stream kinds in the reader's language.
+func kind_fr(k) (s) {
+    s = k
+    if k == "salary" { s = "salaire" }
+    if k == "bnc" { s = "BNC (prestations)" }
+    if k == "bic" { s = "BIC (vente/services)" }
+    if k == "rent" { s = "loyers" }
+    if k == "crypto" { s = "crypto" }
+    if k == "trading" { s = "trading" }
+    if k == "dividends" { s = "dividendes" }
+    if k == "other" { s = "autre" }
+}
