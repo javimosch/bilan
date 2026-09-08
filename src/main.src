@@ -36,6 +36,9 @@ func main() {
     if cmd == "stats" { cmd_stats(db, a); sqlite_close(db); return }
     if cmd == "tax" { cmd_tax(db, a); sqlite_close(db); return }
     if cmd == "rule" { cmd_rule(db, a); sqlite_close(db); return }
+    if cmd == "move" { cmd_move(db, a); sqlite_close(db); return }
+    if cmd == "brief" { cmd_brief(db, a); sqlite_close(db); return }
+    if cmd == "brian" { cmd_brian(); return }
     sqlite_close(db)
     hint := ""
     if cmd == "--help" || cmd == "-h" { hint = " (try: bilan help, or bilan help-json for the machine catalog)" }
@@ -169,6 +172,40 @@ func cmd_feedback(a) {
     say("{\"ok\":true,\"id\":\"" + id + "\",\"stored\":" + st + ",\"relayed\":" + rl + "}")
 }
 
+// ── Brian: moves + the daily brief ──────────────────────────────────────────
+
+// bilan move add --kind controle|securite|construction|patrimoine --action '...'
+//   --pourquoi '...' --impact '...' [--horizon today|week|month]
+// bilan move list [--status proposed|done|dismissed]
+// bilan move done <id> | bilan move dismiss <id>
+func cmd_move(db, a) {
+    sub := ""
+    if len(a) >= 3 { sub = a[2] }
+    if sub == "add" {
+        out, code, err := move_add(db, flagv(a, "--kind", ""), flagv(a, "--action", ""), flagv(a, "--pourquoi", ""), flagv(a, "--impact", ""), flagv(a, "--horizon", "today"))
+        if err != "" { die(code, err) }
+        say(out)
+        return
+    }
+    if sub == "list" { say(move_list_json(db, flagv(a, "--status", ""))); return }
+    if sub == "done" || sub == "dismiss" {
+        if len(a) < 4 { die(80, "usage: bilan move done <id>") }
+        out, code, err := move_close(db, a[3], sub)
+        if err != "" { die(code, err) }
+        say(out)
+        return
+    }
+    die(80, "usage: bilan move add --kind <k> --action '...' --pourquoi '...' --impact '...' | bilan move list [--status S] | bilan move done <id>")
+}
+
+func cmd_brief(db, a) {
+    year := flagv(a, "--year", str(current_year()))
+    if parse_cents_ok(year) == 0 { die(80, "bad --year: " + year) }
+    out, code, err := brief_json(db, year)
+    if err != "" { die(code, err) }
+    say(out)
+}
+
 // post_fb — best-effort feedback POST; 1 on 200. Never blocks the caller on failure.
 func post_fb(url, payload) (ok) {
     status, resp, err := http_request("POST", url, []string{"content-type: application/json"}, payload)
@@ -225,6 +262,19 @@ func hosted_forward(cmd, a) (handled) {
             body = "{\"year\":" + json(a[3]) + ",\"regime\":" + json(a[4]) + ",\"param\":" + json(a[5]) + ",\"value\":" + json(a[6]) + "}"
         } else { method = "GET"  path = "/v1/rules?year=" + url_encode(flagv(a, "--year", "")) }
     }
+    if cmd == "move" {
+        sub := ""
+        if len(a) >= 3 { sub = a[2] }
+        if sub == "add" {
+            method = "POST"  path = "/v1/moves"
+            body = "{\"kind\":" + json(flagv(a, "--kind", "")) + ",\"action\":" + json(flagv(a, "--action", "")) + ",\"pourquoi\":" + json(flagv(a, "--pourquoi", "")) + ",\"impact\":" + json(flagv(a, "--impact", "")) + ",\"horizon\":" + json(flagv(a, "--horizon", "today")) + "}"
+        } else if sub == "done" || sub == "dismiss" {
+            if len(a) < 4 { die(80, "usage: bilan move done <id>") }
+            method = "POST"  path = "/v1/moves"
+            body = "{\"close_id\":" + json(a[3]) + ",\"close_status\":\"" + sub + "\"}"
+        } else { method = "GET"  path = "/v1/moves?status=" + url_encode(flagv(a, "--status", "")) }
+    }
+    if cmd == "brief" { method = "GET"  path = "/v1/brief?year=" + url_encode(flagv(a, "--year", "")) }
     if method == "" { return handled }
     st, pbody, herr := http_request(method, base + path, hd, body)
     if herr != "" { write(2, "{\"ok\":false,\"error\":\"hosted unreachable: " + esc(herr) + "\"}\n")  exit(100) }
@@ -237,9 +287,9 @@ func hosted_forward(cmd, a) (handled) {
 // ── help surfaces ───────────────────────────────────────────────────────────
 
 func help_text() (t) {
-    t = "{\"ok\":true,\"name\":\"bilan\",\"version\":\"" + version_str() + "\",\"tagline\":\"the deterministic financial ledger + tax radar for professionnels pluri-actifs — no LLM inside, your agent drives\",\"db\":\"$BILAN_DB (default ~/.bilan.db)\",\"commands\":{\"stream\":\"stream add <name> --kind salary|bnc|bic|rent|crypto|trading|dividends|other [--currency EUR] | stream list\",\"tx\":\"tx add <stream> <YYYY-MM-DD> <amount> [--label L --source S --ext-id X] | tx list [--stream S] [--year Y] [--limit N]\",\"import\":\"import <etoro|revolut|generic> <file|-> --stream S (idempotent; - = stdin)\",\"stats\":\"stats [--year Y] (per-kind signed totals + net)\",\"tax\":\"tax [--year Y] (the radar: abattements, PFU, crypto exemption)\",\"rule\":\"rule list [--year Y] | rule set <year> <regime> <param> <value> (rates are DATA)\",\"guide\":\"the complete operator reference (agents: read this first)\",\"feedback\":\"feedback <message> [--kind bug|idea|praise]\",\"serve\":\"serve [--port N] — HTTP JSON API (Bearer-gated /v1/*)\",\"version\":\"release version\",\"update\":\"self-update via the official installer\"},\"learn_more\":\"bilan guide | bilan help-json\"}"
+    t = "{\"ok\":true,\"name\":\"bilan\",\"version\":\"" + version_str() + "\",\"tagline\":\"the deterministic financial ledger + tax radar for professionnels pluri-actifs — no LLM inside, your agent drives\",\"db\":\"$BILAN_DB (default ~/.bilan.db)\",\"commands\":{\"stream\":\"stream add <name> --kind salary|bnc|bic|rent|crypto|trading|dividends|other [--currency EUR] | stream list\",\"tx\":\"tx add <stream> <YYYY-MM-DD> <amount> [--label L --source S --ext-id X] | tx list [--stream S] [--year Y] [--limit N]\",\"import\":\"import <etoro|revolut|generic> <file|-> --stream S (idempotent; - = stdin)\",\"stats\":\"stats [--year Y] (per-kind signed totals + net)\",\"tax\":\"tax [--year Y] (the radar: abattements, PFU, crypto exemption)\",\"rule\":\"rule list [--year Y] | rule set <year> <regime> <param> <value> (rates are DATA)\",\"move\":\"move add --kind controle|securite|construction|patrimoine --action X --pourquoi X --impact X [--horizon H] | move list [--status S] | move done <id>\",\"brief\":\"brief [--year Y] — the morning digest: provision, stream momentum, moves (deterministic; the agent narrates)\",\"brian\":\"print the Brian persona — install into claude-code/pi/opencode and the agent becomes the copilote\",\"guide\":\"the complete operator reference (agents: read this first)\",\"feedback\":\"feedback <message> [--kind bug|idea|praise]\",\"serve\":\"serve [--port N] — HTTP JSON API (Bearer-gated /v1/*)\",\"version\":\"release version\",\"update\":\"self-update via the official installer\"},\"learn_more\":\"bilan guide | bilan help-json\"}"
 }
 
 func help_json() (t) {
-    t = "{\"ok\":true,\"name\":\"bilan\",\"version\":\"" + version_str() + "\",\"commands\":[{\"name\":\"stream add\",\"usage\":\"bilan stream add <name> --kind <k> [--currency EUR]\",\"description\":\"create an activity stream (kind: salary|bnc|bic|rent|crypto|trading|dividends|other)\"},{\"name\":\"stream list\",\"usage\":\"bilan stream list\",\"description\":\"all streams\"},{\"name\":\"tx add\",\"usage\":\"bilan tx add <stream> <YYYY-MM-DD> <amount> [--label L] [--source S] [--ext-id X]\",\"description\":\"record one signed money event (positive income, negative expense/loss)\"},{\"name\":\"tx list\",\"usage\":\"bilan tx list [--stream S] [--year Y] [--limit N]\",\"description\":\"transactions, latest first\"},{\"name\":\"import\",\"usage\":\"bilan import <etoro|revolut|generic> <file|-> --stream S\",\"description\":\"import a broker/bank CSV (idempotent; - reads stdin)\"},{\"name\":\"stats\",\"usage\":\"bilan stats [--year Y]\",\"description\":\"per-kind signed totals, income/expense/net\"},{\"name\":\"tax\",\"usage\":\"bilan tax [--year Y]\",\"description\":\"the tax radar: abattements, social, PFU, crypto 2086 exemption\"},{\"name\":\"rule list\",\"usage\":\"bilan rule list [--year Y]\",\"description\":\"the rate card (tax rules as data)\"},{\"name\":\"rule set\",\"usage\":\"bilan rule set <year> <regime> <param> <value>\",\"description\":\"override a rate for a year (decipercent tenths: 340 = 34.0%)\"},{\"name\":\"guide\",\"usage\":\"bilan guide\",\"description\":\"the complete operator reference\"},{\"name\":\"feedback\",\"usage\":\"bilan feedback <message> [--kind bug|idea|praise]\",\"description\":\"send feedback (dual-write, never fails)\"},{\"name\":\"serve\",\"usage\":\"bilan serve [--port N]\",\"description\":\"HTTP JSON API; /v1/* Bearer-gated, /_health + /guide + /llms.txt open\"},{\"name\":\"version\",\"usage\":\"bilan version\",\"description\":\"the release version\"},{\"name\":\"update\",\"usage\":\"bilan update\",\"description\":\"self-update via the official installer\"}],\"exit_codes\":{\"0\":\"ok\",\"80\":\"bad input\",\"93\":\"conflict\",\"94\":\"not found\",\"100\":\"upstream\",\"110\":\"internal\"},\"guide\":\"run bilan guide for the full operator reference\"}"
+    t = "{\"ok\":true,\"name\":\"bilan\",\"version\":\"" + version_str() + "\",\"commands\":[{\"name\":\"stream add\",\"usage\":\"bilan stream add <name> --kind <k> [--currency EUR]\",\"description\":\"create an activity stream (kind: salary|bnc|bic|rent|crypto|trading|dividends|other)\"},{\"name\":\"stream list\",\"usage\":\"bilan stream list\",\"description\":\"all streams\"},{\"name\":\"tx add\",\"usage\":\"bilan tx add <stream> <YYYY-MM-DD> <amount> [--label L] [--source S] [--ext-id X]\",\"description\":\"record one signed money event (positive income, negative expense/loss)\"},{\"name\":\"tx list\",\"usage\":\"bilan tx list [--stream S] [--year Y] [--limit N]\",\"description\":\"transactions, latest first\"},{\"name\":\"import\",\"usage\":\"bilan import <etoro|revolut|generic> <file|-> --stream S\",\"description\":\"import a broker/bank CSV (idempotent; - reads stdin)\"},{\"name\":\"stats\",\"usage\":\"bilan stats [--year Y]\",\"description\":\"per-kind signed totals, income/expense/net\"},{\"name\":\"tax\",\"usage\":\"bilan tax [--year Y]\",\"description\":\"the tax radar: abattements, social, PFU, crypto 2086 exemption\"},{\"name\":\"rule list\",\"usage\":\"bilan rule list [--year Y]\",\"description\":\"the rate card (tax rules as data)\"},{\"name\":\"rule set\",\"usage\":\"bilan rule set <year> <regime> <param> <value>\",\"description\":\"override a rate for a year (decipercent tenths: 340 = 34.0%)\"},{\"name\":\"move\",\"usage\":\"bilan move add --kind controle|securite|construction|patrimoine --action A --pourquoi P --impact I [--horizon H] | move list [--status S] | move done <id>\",\"description\":\"Brian moves: propose (agent) / approve (human, dashboard /app) — Action + Pourquoi + Impact\"},{\"name\":\"brief\",\"usage\":\"bilan brief [--year Y]\",\"description\":\"the morning digest: tax provision, stream momentum, moves en attente (deterministic)\"},{\"name\":\"brian\",\"usage\":\"bilan brian\",\"description\":\"print the Brian persona to install into any agent harness (the cheap copilote)\"},{\"name\":\"guide\",\"usage\":\"bilan guide\",\"description\":\"the complete operator reference\"},{\"name\":\"feedback\",\"usage\":\"bilan feedback <message> [--kind bug|idea|praise]\",\"description\":\"send feedback (dual-write, never fails)\"},{\"name\":\"serve\",\"usage\":\"bilan serve [--port N]\",\"description\":\"HTTP JSON API; /v1/* Bearer-gated, /_health + /guide + /llms.txt open\"},{\"name\":\"version\",\"usage\":\"bilan version\",\"description\":\"the release version\"},{\"name\":\"update\",\"usage\":\"bilan update\",\"description\":\"self-update via the official installer\"}],\"exit_codes\":{\"0\":\"ok\",\"80\":\"bad input\",\"93\":\"conflict\",\"94\":\"not found\",\"100\":\"upstream\",\"110\":\"internal\"},\"guide\":\"run bilan guide for the full operator reference\"}"
 }

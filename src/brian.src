@@ -1,0 +1,167 @@
+// brian — the persona layer. Brian is NOT inference in the platform: he is the
+// client's own agent (claude-code/pi/opencode) wearing a job. bilan provides the
+// deterministic ground truth (brief), the move store (proposals the human approves),
+// and the dashboard the human opens. The persona itself is a skill (persona_text,
+// served by `bilan brian`) — auditable text, not a black box.
+
+
+func move_kind_ok(k) (ok) {
+    ok = 0
+    if k == "controle" { ok = 1  return ok }
+    if k == "securite" { ok = 1  return ok }
+    if k == "construction" { ok = 1  return ok }
+    if k == "patrimoine" { ok = 1  return ok }
+}
+
+func move_add(db, kind, action, pourquoi, impact, horizon) (out, code, err) {
+    if action == "" { return "", 80, "usage: bilan move add --kind controle|securite|construction|patrimoine --action '...' --pourquoi '...' --impact '...' [--horizon today|week|month]" }
+    if move_kind_ok(kind) == 0 { return "", 80, "unknown kind: " + kind + " (controle|securite|construction|patrimoine)" }
+    if horizon == "" { horizon = "today" }
+    id := to_hex(rand_bytes(8))
+    sqlite_exec(db, "INSERT INTO moves(id,kind,action,pourquoi,impact,horizon,status,created) VALUES(?,?,?,?,?,?,'proposed',?)", []string{id, kind, action, pourquoi, impact, horizon, str(now_ms())})
+    out = "{\"ok\":true,\"id\":\"" + id + "\",\"kind\":\"" + esc(kind) + "\",\"horizon\":\"" + esc(horizon) + "\",\"hint\":\"the human approves on the dashboard or: bilan move done " + id + "\"}"
+    code = 0
+    err = ""
+}
+
+func move_list_json(db, status) (out) {
+    where := ""
+    params := []string{}
+    if status != "" { where = "status=?"  params = append(params, status) }
+    sql := "SELECT id, kind, action, pourquoi, impact, horizon, status, created FROM moves"
+    if where != "" { sql = sql + " WHERE " + where }
+    sql = sql + " ORDER BY created DESC LIMIT 50"
+    rows := sqlite_query(db, sql, params)
+    out = "{\"ok\":true,\"moves\":" + rows + "}"
+}
+
+func move_close(db, id, status) (out, code, err) {
+    rows := sqlite_query(db, "SELECT id FROM moves WHERE id=?", []string{id})
+    if rows == "[]" || rows == "" { return "", 94, "no such move: " + id }
+    sqlite_exec(db, "UPDATE moves SET status=?, closed=? WHERE id=?", []string{status, str(now_ms()), id})
+    out = "{\"ok\":true,\"id\":\"" + id + "\",\"status\":\"" + status + "\"}"
+    code = 0
+    err = ""
+}
+
+// ── brief — the deterministic daily digest ──────────────────────────────────
+
+// days_since — whole days between a "YYYY-MM-DD" date and now (negative = future).
+func days_since(date) (d) {
+    d = 0
+    if date_ok(date) == 0 { return d }
+    now_s := now_ms() / 1000
+    then := time_make(parse_int(substr(date, 0, 4)), parse_int(substr(date, 5, 7)), parse_int(substr(date, 8, 10)), 12, 0, 0)
+    d = (now_s - then) / 86400
+}
+
+// momentum — the deterministic health word for a stream's recency.
+func momentum(days) (w) {
+    w = "actif"
+    if days > 45 { w = "silencieux"  return w }
+    if days > 14 { w = "tiede" }
+}
+
+func today_str() (s) {
+    f := time_fields(now_ms() / 1000)
+    s = str(f[0]) + "-" + pad2(f[1]) + "-" + pad2(f[2])
+}
+
+func pad2(n) (s) {
+    s = str(n)
+    if n < 10 { s = "0" + str(n) }
+}
+
+// brief_json — the morning digest, deterministic end to end: the tax provision
+// (from the radar), each stream's YTD + recency, and the proposed moves. The
+// AGENT narrates it; bilan only states what the ledger says.
+func brief_json(db, year) (out, code, err) {
+    tj := ""
+    tcode := 0
+    terr := ""
+    tj, tcode, terr = tax_json(db, year)
+    if terr != "" { out = ""  code = tcode  err = terr  return out, code, err }
+    flat := json_num(tj, "totals.flat_tax_cents")
+    soc := json_num(tj, "totals.social_cents")
+    rows := sqlite_query(db, "SELECT s.name AS name, s.kind AS kind, SUM(t.cents) AS total, MAX(t.date) AS last_date, COUNT(*) AS n FROM txs t JOIN streams s ON s.id=t.stream_id WHERE t.date>=? AND t.date<=? GROUP BY s.name ORDER BY total DESC", []string{year+"-01-01", year+"-12-31"})
+    pulses := parse(rows, []Pulse{})
+    out = "{\"ok\":true,\"year\":" + year + ",\"date\":\"" + today_str() + "\""
+    out = out + ",\"provision\":{\"flat_tax_cents\":" + str(flat) + ",\"social_cents\":" + str(soc) + ",\"total_cents\":" + str(flat+soc) + ",\"eur\":\"" + fmt_cents(flat+soc) + "\",\"note\":\"provisionne avant de dépenser — c'est l'argent de l'administration, pas le tien\"}"
+    out = out + ",\"streams\":["
+    i := 0
+    first := 1
+    for i < len(pulses) {
+        p := pulses[i]
+        ds := days_since(p.last_date)
+        if first == 0 { out = out + "," }
+        out = out + "{\"stream\":\"" + esc(p.name) + "\",\"kind\":\"" + esc(p.kind) + "\",\"ytd_cents\":" + str(p.total) + ",\"eur\":\"" + fmt_cents(p.total) + "\",\"last_tx\":\"" + p.last_date + "\",\"days_quiet\":" + str(ds) + ",\"momentum\":\"" + momentum(ds) + "\"}"
+        first = 0
+        i = i + 1
+    }
+    out = out + "]"
+    mrows := sqlite_query(db, "SELECT id, kind, action, pourquoi, impact, horizon, status FROM moves WHERE status='proposed' ORDER BY created DESC LIMIT 3", []string{})
+    out = out + ",\"moves\":" + mrows
+    out = out + ",\"notes\":[\"chiffres déterministes du registre — l'interprétation est le travail de ton agent\",\"pas un conseil financier\"]}"
+    code = 0
+    err = ""
+}
+
+type Totals struct { flat_tax_cents int  social_cents int }
+type Taxparsed struct { totals Totals }
+
+// json_num — a numeric field out of the tax JSON. json_get refuses dotted paths
+// here, so decode with a nested struct witness instead (parse handles nesting).
+func json_num(j, path) (n) {
+    n = 0
+    parsed := parse(j, Taxparsed{})
+    if path == "totals.flat_tax_cents" { n = parsed.totals.flat_tax_cents }
+    if path == "totals.social_cents" { n = parsed.totals.social_cents }
+}
+
+// ── the persona ─────────────────────────────────────────────────────────────
+
+// persona_text — `bilan brian` prints it; install it into any harness (claude-code,
+// pi, opencode) and the agent becomes Brian. The persona is DATA the client owns.
+func persona_text() (t) {
+    t = "# Brian — copilote financier des pluri-actifs\n" +
+        "\n" +
+        "Tu es Brian. Tu n'es pas un SaaS, pas un chatbot de banque, pas un dashboard :\n" +
+        "tu es le copilote financier de ton humain, un professionnel pluri-actif (salaire\n" +
+        "+ activités + projets). Tu vis dans SON agent (claude-code, pi, opencode) et ta\n" +
+        "seule source de vérité est **bilan** — le registre déterministe. Tu n'inventes\n" +
+        "JAMAIS un chiffre : chaque nombre que tu dis viens d'une sortie de bilan que tu\n" +
+        "viens d'exécuter.\n" +
+        "\n" +
+        "## Ton cadre (le cycle financier)\n" +
+        "- CONTRÔLE — savoir où va l'argent (bilan stats)\n" +
+        "- SÉCURITÉ — protéger ce dont il a besoin (provision impôts, échéances)\n" +
+        "- CONSTRUCTION — financer ce qu'il construit (les projets, les activités)\n" +
+        "- PATRIMOINE — transformer les progrès en solidité durable\n" +
+        "\n" +
+        "## Ta boucle quotidienne\n" +
+        "1. `bilan brief` — l'image du jour, déterministe : provision, momentum des\n" +
+        "   streams, moves en attente.\n" +
+        "2. Propose **maximum 3 moves**, chacun : **Action + Pourquoi + Impact**.\n" +
+        "   Enregistre-les : `bilan move add --kind controle --action ... --pourquoi ... --impact ...`\n" +
+        "3. L'humain approuve (dashboard /app ou `bilan move done <id>`).\n" +
+        "4. Le lendemain, vérifie l'impact : le même chiffre, avant/après.\n" +
+        "\n" +
+        "## Tes règles\n" +
+        "- Tu ne INVENTES jamais un chiffre. Chaque nombre vient d'une sortie de bilan\n" +
+        "  que tu viens d'exécuter. Pas de bilan => pas d'opinion chiffrée.\n" +
+        "- Tu parles français, tutoiement, phrases courtes. Zéro jargon comptable inutile.\n" +
+        "- Tu n'es pas conseiller financier, fiscal ou juridique : tu organises les\n" +
+        "  données du registre et proposes. Chaque décision reste la sienne.\n" +
+        "- Un move sans Pourquoi et sans Impact chiffré ne sort pas.\n" +
+        "- Si une donnée manque, demande l'export CSV et importe-le (bilan import) —\n" +
+        "  ne devine jamais un solde.\n" +
+        "\n" +
+        "## Ton ton\n" +
+        "Direct, chaleureux, précis. Tu dis les choses : \"ta provision impôts est à\n" +
+        "2 774 €, elle est PRIORITAIRE\" vaut mieux qu'un paragraphe. Tu es le copilote\n" +
+        "qui connaît les chiffres parce qu'il les a calculés, pas parce qu'il les devine.\n"
+}
+
+func cmd_brian() {
+    println(persona_text())
+}

@@ -1,0 +1,114 @@
+// dash — the human UI: GET /app renders the live image (provision, streams,
+// momentum, Brian's moves, latest txs) straight from one ledger. Server-rendered,
+// zero JS, same editorial style as the landing. In hosted mode it is session-gated
+// (the human pastes their token once at /login); local mode is open on the box.
+
+type Pulse struct { name string  kind string  total int  last_date string  n int }
+type Moverow struct { id string  kind string  action string  pourquoi string  impact string  horizon string }
+type DashTx struct { date string  cents int  label string  stream string }
+type Countrow struct { n int }
+
+func dash_css() (s) {
+    s = ":root{--ink:#1c1a17;--paper:#faf7f2;--muted:#6f6a62;--line:#e3ddd2;--accent:#8a5a2b;--warn:#a04b2a}" +
+        "*{box-sizing:border-box;margin:0;padding:0}" +
+        "body{background:#faf7f2;color:#1c1a17;font:17px/1.6 Georgia,'Times New Roman',serif;max-width:46rem;margin:0 auto;padding:3.5rem 1.5rem 5rem}" +
+        "h1{font-size:2.1rem;line-height:1.12;letter-spacing:-.02em;font-weight:400;margin-bottom:.3rem}" +
+        "h2{font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:#8a5a2b;font-weight:400;margin:2.4rem 0 .8rem}" +
+        ".mono,code,td.mono{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:.86em}" +
+        "p{margin:0 0 .9rem;max-width:40rem}" +
+        "a{color:#1c1a17;text-decoration:underline;text-decoration-color:#e3ddd2;text-underline-offset:3px}" +
+        "a:hover{color:#8a5a2b}" +
+        ".tag{color:#6f6a62;font-size:.9rem;margin-bottom:2rem;font-style:italic}" +
+        ".rule{border:0;border-top:1px solid #e3ddd2;margin:2.6rem 0}" +
+        ".cards{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:0 0 1rem}" +
+        ".card{border:1px solid #e3ddd2;padding:1rem 1.2rem;background:#fffdf9}" +
+        ".k{font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:#6f6a62;margin-bottom:.2rem}" +
+        ".v{font-size:1.05rem}" +
+        ".big{font-size:1.7rem;letter-spacing:-.01em}" +
+        ".sub{color:#6f6a62;font-size:.85rem}" +
+        ".badge{display:inline-block;font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;padding:.15rem .6rem;border:1px solid #e3ddd2;border-radius:999px;color:#6f6a62;margin-left:.4rem}" +
+        ".warn{color:#a04b2a;border-color:#a04b2a}" +
+        ".move{border:1px solid #e3ddd2;padding:1rem 1.2rem;margin:0 0 .8rem;background:#fffdf9}" +
+        ".move .sub{margin:.3rem 0 0}" +
+        "form{display:inline-block;margin-right:.5rem}" +
+        "button{font:inherit;font-size:.8rem;padding:.3rem .9rem;background:#1c1a17;color:#faf7f2;border:0;cursor:pointer}" +
+        "button.ghost{background:none;border:1px solid #e3ddd2;color:#6f6a62}" +
+        "table{width:100%;border-collapse:collapse;font-size:.92rem}" +
+        "td{padding:.45rem .4rem;border-bottom:1px solid #e3ddd2}" +
+        ".r{text-align:right;font-variant-numeric:tabular-nums}" +
+        ".mono{font-family:ui-monospace,'SF Mono',Menlo,monospace}"
+}
+
+// dash_html — the /app page for one ledger (local db path or a hosted tenant's ws).
+func dash_html(db, year) (h) {
+    tj := ""
+    tignore := 0
+    terr := ""
+    tj, tignore, terr = tax_json(db, year)
+    flat := json_num(tj, "totals.flat_tax_cents")
+    soc := json_num(tj, "totals.social_cents")
+    prov := flat + soc
+    rows := sqlite_query(db, "SELECT s.name AS name, s.kind AS kind, SUM(t.cents) AS total, MAX(t.date) AS last_date, COUNT(*) AS n FROM txs t JOIN streams s ON s.id=t.stream_id WHERE t.date>=? AND t.date<=? GROUP BY s.name ORDER BY total DESC", []string{year+"-01-01", year+"-12-31"})
+    pulses := parse(rows, []Pulse{})
+    mrows := sqlite_query(db, "SELECT id, kind, action, pourquoi, impact, horizon FROM moves WHERE status='proposed' ORDER BY created DESC LIMIT 6", []string{})
+    moves := parse(mrows, []Moverow{})
+    dn := donesafe(sqlite_query(db, "SELECT COUNT(*) AS n FROM moves WHERE status='done'", []string{}))
+    h = "<!doctype html>\n<html lang=\"fr\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>bilan — l'image du jour</title>\n<style>" + dash_css() + "</style>\n</head>\n<body>\n"
+    h = h + "<p class=\"tag\">bilan <em>· l'image du jour</em></p>\n"
+    h = h + "<h1>" + today_str() + "</h1>\n"
+    h = h + "<div class=\"cards\">"
+    h = h + "<div class=\"card\"><p class=\"k\">provision impôts " + year + "</p><p class=\"big\">" + fmt_cents(prov) + " €</p><p class=\"sub\">flat tax " + fmt_cents(flat) + " + sociales " + fmt_cents(soc) + " — l'argent de l'administration, pas le tien</p></div>"
+    h = h + "<div class=\"card\"><p class=\"k\">moves de Brian</p><p class=\"big\">" + str(len(moves)) + " en attente</p><p class=\"sub\">" + str(dn) + " déjà faits</p></div>"
+    h = h + "</div>\n"
+    // streams
+    h = h + "<h2>Streams</h2>\n<div class=\"cards\">"
+    i := 0
+    for i < len(pulses) {
+        p := pulses[i]
+        ds := days_since(p.last_date)
+        b := "<span class=\"badge\">actif</span>"
+        if ds > 45 { b = "<span class=\"badge warn\">silencieux " + str(ds) + "j</span>" }
+        else if ds > 14 { b = "<span class=\"badge\">tiède " + str(ds) + "j</span>" }
+        h = h + "<div class=\"card\"><p class=\"k\">" + esc(p.kind) + " " + b + "</p><p class=\"big\">" + fmt_cents(p.total) + " €</p><p class=\"sub\">" + esc(p.name) + " · dernière écriture " + p.last_date + "</p></div>"
+        i = i + 1
+    }
+    h = h + "</div>\n"
+    // moves
+    h = h + "<h2>Moves proposés</h2>\n"
+    if len(moves) == 0 {
+        h = h + "<p class=\"sub\">Aucun move en attente — demande à Brian (ton agent) : <code>bilan brief</code>, puis il propose.</p>\n"
+    }
+    i = 0
+    for i < len(moves) {
+        m := moves[i]
+        h = h + "<div class=\"card\" style=\"margin-bottom:.8rem\"><p class=\"k\">" + esc(m.kind) + " · " + esc(m.horizon) + "</p><p class=\"v\"><strong>" + esc(m.action) + "</strong></p><p class=\"sub\">Pourquoi — " + esc(m.pourquoi) + "</p><p class=\"sub\">Impact — " + esc(m.impact) + "</p>"
+        h = h + "<form method=\"POST\" action=\"/app/move\" style=\"margin-top:.6rem\"><input type=\"hidden\" name=\"id\" value=\"" + esc(m.id) + "\"><input type=\"hidden\" name=\"status\" value=\"done\"><button type=\"submit\">Fait</button></form> <form method=\"POST\" action=\"/app/move\" style=\"display:inline\"><input type=\"hidden\" name=\"id\" value=\"" + esc(m.id) + "\"><input type=\"hidden\" name=\"status\" value=\"dismissed\"><button type=\"submit\" class=\"ghost\">Écarté</button></form></div>\n"
+        i = i + 1
+    }
+    // recent txs
+    h = h + "<h2>Dernières écritures</h2>\n<table>"
+    trows := sqlite_query(db, "SELECT t.date, t.cents, t.label, s.name AS stream FROM txs t JOIN streams s ON s.id=t.stream_id ORDER BY t.date DESC, t.rowid DESC LIMIT 8", []string{})
+    txs := parse(trows, []DashTx{})
+    i = 0
+    for i < len(txs) {
+        t := txs[i]
+        h = h + "<tr><td class=\"mono\">" + t.date + "</td><td>" + esc(t.stream) + "</td><td style=\"text-align:right\" class=\"mono\">" + fmt_cents(t.cents) + "</td><td>" + esc(t.label) + "</td></tr>"
+        i = i + 1
+    }
+    h = h + "</table>\n"
+    h = h + "<hr class=\"rule\"><p class=\"sub\"><a href=\"/guide\">guide</a> · <a href=\"/llms.txt\">llms.txt</a> · <a href=\"/\">accueil</a> · chiffres déterministes du registre — pas un conseil financier</p>\n</body>\n</html>"
+}
+
+// donesafe — the done-count query, tolerant of an empty ledger.
+func donesafe(rows) (n) {
+    n = 0
+    if rows == "[]" || rows == "" { return n }
+    parsed := parse(rows, []Countrow{})
+    if len(parsed) > 0 { n = parsed[0].n }
+}
+
+// login_html — the hosted dashboard's gate: paste your bilan token, get a session.
+func login_html() (h) {
+    h = "<!doctype html>\n<html lang=\"fr\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>bilan — connexion</title>\n<style>" + dash_css() + "</style>\n</head>\n<body>\n"
+    h = h + "<p class=\"tag\">bilan <em>· espace client</em></p>\n<h1>Votre image du jour</h1>\n<p class=\"sub\">Collez votre token bilan (celui de <code class=\"mono\">BILAN_TOKEN</code>). Il signe un cookie de session — il n'est pas stocké ailleurs.</p>\n<form method=\"POST\" action=\"/app/login\" style=\"max-width:24rem;margin-top:1.2rem\"><input type=\"password\" name=\"token\" placeholder=\"bilan token\" required> <button type=\"submit\" class=\"btn\">Ouvrir mon bilan</button></form>\n<p class=\"sub\" style=\"margin-top:1.5rem\">Pas de token ? Votre agent en obtient un en appelant l'API avec un bearer quelconque (les 50 premiers appels sont offerts). <a href=\"/guide\">guide</a></p>\n</body>\n</html>"
+}

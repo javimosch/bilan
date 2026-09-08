@@ -87,6 +87,20 @@ r=$(cat test/fixtures/generic-fr-2026.csv | $BIN import generic - --stream diver
 ok "fr semicolon csv rows" 3 "$(jq -r .inserted <<<"$r")"
 ok "fr amounts parse (1 234,56)" 186406 "$(jq -r .by_kind.other.cents <<<"$($BIN stats --year 2026)")"
 
+# --- Brian: brief + moves + dashboard ---------------------------------------
+okre "brian persona" 'copilote financier' "$($BIN brian)"
+r=$($BIN move add --kind securite --action "provisionner 2774 EUR" --pourquoi "flat tax + sociales YTD" --impact "couvert au prochain salaire")
+MID=$(jq -r .id <<<"$r")
+ok "move add" true "$(jq -r .ok <<<"$r")"
+ok "move list" 1 "$(jq '.moves | length' <<<"$($BIN move list --status proposed)")"
+r=$($BIN brief --year 2026)
+WANT=$(( $(jq -r .totals.flat_tax_cents <<<"$($BIN tax --year 2026)") + $(jq -r .totals.social_cents <<<"$($BIN tax --year 2026)") ))
+ok "brief provision matches tax" "$WANT" "$(jq -r .provision.total_cents <<<"$r")"
+ok "brief has moves" 1 "$(jq '.moves | length' <<<"$r")"
+okre "brief momentum field" '"momentum":"[a-z]' "$r"
+$BIN move done "$MID" >/dev/null
+ok "move done" done "$(jq -r '.moves[0].status' <<<"$($BIN move list)")"
+
 # --- feedback (relay off: never fails, reports honestly) --------------------
 r=$(FEEDBACK_RELAY=off $BIN feedback "smoke test" --kind idea)
 ok "feedback ok"      false "$(jq -r .relayed <<<"$r")"
@@ -108,6 +122,14 @@ r=$(curl -sf -X POST -H "Authorization: Bearer smoketoken" -H "content-type: app
      -d '{"name":"rent","kind":"rent"}' http://127.0.0.1:$PORT/v1/streams)
 ok "v1 stream create" true "$(jq -r .ok <<<"$r")"
 okre "guide over http" 'NO LLM inside' "$(curl -sf http://127.0.0.1:$PORT/guide)"
+okre "dashboard serves" 'image du jour' "$(curl -sf http://127.0.0.1:$PORT/app)"
+r=$(curl -sf -X POST -H "Authorization: Bearer smoketoken" -H "content-type: application/json" \
+  -d '{"kind":"controle","action":"verifier le stream muet","pourquoi":"aucune ecriture depuis 60j","impact":"visibilite"}' \
+  http://127.0.0.1:$PORT/v1/moves)
+ok "v1 move add" true "$(jq -r .ok <<<"$r")"
+r=$(curl -sf -H "Authorization: Bearer smoketoken" "http://127.0.0.1:$PORT/v1/brief?year=2026")
+WANTV1=$(( $(jq -r .totals.flat_tax_cents <<<"$($BIN tax --year 2026)") + $(jq -r .totals.social_cents <<<"$($BIN tax --year 2026)") ))
+ok "v1 brief provision matches tax" "$WANTV1" "$(jq -r .provision.total_cents <<<"$r")"
 okre "landing page" 'pluri-actifs' "$(curl -sf http://127.0.0.1:$PORT/)"
 okre "landing links the specs" 'cli-specs.intrane.fr' "$(curl -sf http://127.0.0.1:$PORT/)"
 r=$(curl -sf -X POST -H "Authorization: Bearer smoketoken" http://127.0.0.1:$PORT/_shutdown)

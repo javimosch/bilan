@@ -19,6 +19,9 @@ func open_db_at(path) (db) {
     sqlite_exec(db, "CREATE TABLE IF NOT EXISTS txs(id TEXT PRIMARY KEY, stream_id TEXT, date TEXT, cents INTEGER, label TEXT, source TEXT, ext_id TEXT, created INTEGER, UNIQUE(stream_id, ext_id))", []string{})
     sqlite_exec(db, "CREATE TABLE IF NOT EXISTS imports(id TEXT PRIMARY KEY, source TEXT, file TEXT, rows INTEGER, skipped INTEGER, ts INTEGER)", []string{})
     sqlite_exec(db, "CREATE TABLE IF NOT EXISTS tax_rules(year INTEGER, regime TEXT, param TEXT, value TEXT, PRIMARY KEY(year, regime, param))", []string{})
+    // moves — Brian's proposals (Action + Pourquoi + Impact), one row each; the human
+    // approves via the dashboard or `bilan move done`. Henry's "Moves" as data.
+    sqlite_exec(db, "CREATE TABLE IF NOT EXISTS moves(id TEXT PRIMARY KEY, kind TEXT, action TEXT, pourquoi TEXT, impact TEXT, horizon TEXT DEFAULT 'today', status TEXT DEFAULT 'proposed', created INTEGER, closed INTEGER DEFAULT 0)", []string{})
     seed_rules(db)
 }
 

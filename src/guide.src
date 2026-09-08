@@ -49,6 +49,17 @@ func guide_text(base) (t) {
         "  tax [--year Y]                                  the radar (see Tax model)\n" +
         "  rule list [--year Y]                            the rate card\n" +
         "  rule set <year> <regime> <param> <value>        override a rate (rates are DATA)\n" +
+        "  move add --kind controle|securite|construction|patrimoine\n" +
+        "        --action '...' --pourquoi '...' --impact '...' [--horizon today|week|month]\n" +
+        "        propose a move (Brian's format: Action + Pourquoi + Impact). The human\n" +
+        "        approves on the dashboard (/app) or `bilan move done <id>`.\n" +
+        "  move list [--status proposed|done|dismissed]    the move store\n" +
+        "  move done <id> | move dismiss <id>              close a move\n" +
+        "  brief [--year Y]                                the morning digest: provision,\n" +
+        "        stream momentum (actif/tiede/silencieux), moves en attente. Deterministic —\n" +
+        "        the AGENT narrates it; bilan only states what the ledger says.\n" +
+        "  brian                                           print the Brian persona — install it\n" +
+        "        into any harness (claude-code/pi/opencode) and the agent becomes the copilote\n" +
         "  guide                                           this document\n" +
         "  feedback <message> [--kind bug|idea|praise]     report a bug/idea (never fails)\n" +
         "  version | update                                release info / self-update\n" +
@@ -69,6 +80,16 @@ func guide_text(base) (t) {
         "  It computes regime math on the numbers YOU imported. It does not know about\n" +
         "  the IR progressive scale, deficits carried forward, or your quotient familial.\n" +
         "  Output is an estimate to reason from, not tax advice — say so to the human.\n" +
+        "\n" +
+        "## Brian — the cheap copilote (no inference in the platform)\n" +
+        "  Brian is a PERSONA, not a service: install it into the harness your human\n" +
+        "  already pays for (claude-code, pi, opencode) and the agent becomes the\n" +
+        "  financial copilote. Install: run `bilan brian` and paste the output into\n" +
+        "  the harness's instructions (CLAUDE.md / AGENTS.md / system prompt). The\n" +
+        "  persona's rules: never invent a number (only bilan output), max 3 moves\n" +
+        "  per day, each with Action + Pourquoi + Impact, French, not an advisor.\n" +
+        "  The human watches the moves land on the dashboard: GET /app (local: open;\n" +
+        "  hosted: /app -> paste your token once, signed session cookie).\n" +
         "\n" +
         "## Output contract (cli-output-spec)\n" +
         "  stdout = data only: one JSON object per command ({\"ok\":true,...}).\n" +

@@ -25,6 +25,42 @@ func cmd_serve(a) {
             go shutdown_soon()
             return ok_json("{\"ok\":true,\"shutdown\":true}")
         }
+        if p == "/app" && req.method == "GET" {
+            if env("BILAN_HOSTED") == "1" {
+                val, sok := get_session(req, token, "bilan_s")
+                if sok == 0 { return ok_html(login_html()) }
+                ws_d := tenant_ws_by_token(val)
+                if ws_d == "" { return ok_html(login_html()) }
+                return ok_html(dash_html(open_db_at(ws_d), str(current_year())))
+            }
+            return ok_html(dash_html(opendb(), str(current_year())))
+        }
+        if p == "/app/login" && req.method == "POST" {
+            tok_l := form_field(req.body, "token")
+            ws_l := tenant_ws_by_token(tok_l)
+            if ws_l == "" { return ok_html(login_html()) }
+            return set_session(redirect("/app"), token, "bilan_s", tok_l)
+        }
+if p == "/app/move" && req.method == "POST" {
+            mid := form_field(req.body, "id")
+            mst := form_field(req.body, "status")
+            if env("BILAN_HOSTED") == "1" {
+                val_m, mok := get_session(req, token, "bilan_s")
+                if mok == 0 { return unauthorized() }
+                ws_m := tenant_ws_by_token(val_m)
+                if ws_m == "" { return unauthorized() }
+                mdb := open_db_at(ws_m)
+                out_m, code_m, err_m := move_close(mdb, mid, mst)
+                sqlite_close(mdb)
+                if err_m != "" { return err_res(code_m, err_m) }
+                return redirect("/app")
+            }
+            mdb := opendb()
+            out_m, code_m, err_m := move_close(mdb, mid, mst)
+            sqlite_close(mdb)
+            if err_m != "" { return err_res(code_m, err_m) }
+            return redirect("/app")
+        }
         if has_prefix(p, "/v1/") {
             if env("BILAN_HOSTED") == "1" {
                 // hosted: the bearer IS the tenant; gift calls free, then 1 peage cent/call
@@ -35,6 +71,36 @@ func cmd_serve(a) {
         }
         return not_found()
     })
+}
+
+// tenant_ws_by_token — the workspace path for a tenant token, provisioning on first
+// sight (same rule as the API: a fresh bearer is a fresh tenant with its gift).
+func tenant_ws_by_token(tok) (ws) {
+    ws = ""
+    if tok == "" { return ws }
+    cdb := hosted_control_db()
+    ws, _used := tenant_ensure(cdb, tok)
+    sqlite_close(cdb)
+}
+
+// form_field — the value of name in an application/x-www-form-urlencoded body.
+func form_field(body, name) (v) {
+    v = ""
+    i := 0
+    parts := split(body, "&")
+    for i < len(parts) {
+        eq := index(parts[i], "=")
+        if eq > 0 {
+            if substr(parts[i], 0, eq) == name { v = url_decode(substr(parts[i], eq+1, len(parts[i]))) }
+        }
+        i = i + 1
+    }
+}
+
+// redirect_to — a 303 See Other to url, preserving any headers already set on res
+// (set_session adds the cookie on the response it returns).
+func redirect_to(res, url) (r) {
+    r = with_header(redirect(url), "set-cookie", cookie_lines(res))
 }
 
 // path_only — req.path is the full request-URI (machweb keeps the ?query on it);
@@ -142,6 +208,36 @@ func api(req, db_path) (res) {
         res = ok_json(out_r)
         return res
     }
+    if p == "/v1/brief" {
+        year_b := query(req, "year")
+        if year_b == "" { year_b = str(current_year()) }
+        out_b, code_b, err_b := brief_json(db, year_b)
+        sqlite_close(db)
+        if err_b != "" { return err_res(code_b, err_b) }
+        res = ok_json(out_b)
+        return res
+    }
+    if p == "/v1/moves" && req.method == "GET" {
+        rows_v := sqlite_query(db, "SELECT id, kind, action, pourquoi, impact, horizon, status FROM moves ORDER BY created DESC LIMIT 50", []string{})
+        sqlite_close(db)
+        res = ok_json("{\"ok\":true,\"moves\":" + rows_v + "}")
+        return res
+    }
+    if p == "/v1/moves" && req.method == "POST" {
+        body_m := parse(req.body, MoveIn{})
+        if body_m.close_id != "" {
+            out_c, code_c, err_c := move_close(db, body_m.close_id, body_m.close_status)
+            sqlite_close(db)
+            if err_c != "" { return err_res(code_c, err_c) }
+            res = ok_json(out_c)
+            return res
+        }
+        out_a, code_a, err_a := move_add(db, body_m.kind, body_m.action, body_m.pourquoi, body_m.impact, body_m.horizon)
+        sqlite_close(db)
+        if err_a != "" { return err_res(code_a, err_a) }
+        res = created(out_a)
+        return res
+    }
     if p == "/v1/rules" && req.method == "POST" {
         body_r := parse(req.body, RuleIn{})
         out_s, code_s, err_s := rule_set(db, body_r.year, body_r.regime, body_r.param, body_r.value)
@@ -167,3 +263,4 @@ type StreamIn struct { name string  kind string  currency string }
 type TxIn struct { stream string  date string  amount string  label string }
 type ImportIn struct { source string  csv string  stream string }
 type RuleIn struct { year string  regime string  param string  value string }
+type MoveIn struct { kind string  action string  pourquoi string  impact string  horizon string  close_id string  close_status string }
