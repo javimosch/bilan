@@ -68,7 +68,7 @@ func guide_text(base) (t) {
         "## The rate card (seeded for the current year; override per year)\n" +
         "  micro_bnc:          abattement 34%  ·  social 24.6%   (regime rows micro_bnc)\n" +
         "  micro_bic_services: abattement 50%  ·  social 21.2%\n" +
-        "  micro_foncier:      abattement 30%\n" +
+        "  micro_foncier:      abattement 30%  ·  social 17.2% (on net after abattement)\n" +
         "  capital (crypto/trading): PFU 31.4% on positive net gains\n" +
         "  crypto exemption:   net gains under 305.00 EUR -> not declarable (form 2086)\n" +
         "  dividends:          PFU on the positive sum\n" +

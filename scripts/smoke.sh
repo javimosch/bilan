@@ -88,6 +88,15 @@ r=$($BIN rule set 2027 micro_bnc deduction_pct_tenths 350)
 ok "rule set" 350 "$(jq -r .value <<<"$r")"
 ok "rule list year filter" 340 "$(jq -r '[.rules[] | select(.year==2026 and .regime=="micro_bnc" and .param=="deduction_pct_tenths") | .value][0]' <<<"$($BIN rule list --year 2026)")"
 
+# --- foncier social (micro-foncier has 17.2% social on net after abattement) ---
+$BIN stream add appart --kind rent >/dev/null
+$BIN tx add appart 2026-03-10 1000 --label "loyer mensuel" >/dev/null
+r=$($BIN tax --year 2026)
+ok "foncier abattement 30%" 30000 "$(jq -r .regimes.foncier.abattement_cents <<<"$r")"
+ok "foncier net after abattement" 70000 "$(jq -r .regimes.foncier.net_ir_cents <<<"$r")"
+ok "foncier social 17.2% on net" 12040 "$(jq -r .regimes.foncier.social_cents <<<"$r")"
+ok "foncier social in totals" 59425 "$(jq -r .totals.social_cents <<<"$r")"
+
 # --- fixtures (realistic broker exports; no real PII available on this box) --
 $BIN stream add etoro --kind crypto >/dev/null
 r=$($BIN import etoro test/fixtures/etoro-2026.csv --stream etoro)

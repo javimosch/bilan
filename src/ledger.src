@@ -284,6 +284,7 @@ func tax_json(db, year) (out, code, err) {
     rate_ded_bic := rule_int(db, year, "micro_bic_services", "deduction_pct_tenths", 500)
     rate_soc_bic := rule_int(db, year, "micro_bic_services", "social_pct_tenths", 212)
     rate_ded_fon := rule_int(db, year, "micro_foncier", "deduction_pct_tenths", 300)
+    rate_soc_fon := rule_int(db, year, "micro_foncier", "social_pct_tenths", 172)
     rate_pfu := rule_int(db, year, "capital", "pfu_pct_tenths", 314)
     thr := rule_int(db, year, "capital", "crypto_exempt_threshold_cents", 30500)
     ab_bnc := g_bnc * rate_ded_bnc / 1000
@@ -294,6 +295,7 @@ func tax_json(db, year) (out, code, err) {
     net_bic := g_bic - ab_bic
     ab_fon := g_rent * rate_ded_fon / 1000
     net_fon := g_rent - ab_fon
+    soc_fon := net_fon * rate_soc_fon / 1000
     crypto_exempt := 0
     if g_crypto >= 0 && g_crypto < thr { crypto_exempt = 1 }
     taxable := g_crypto + g_trade
@@ -302,17 +304,17 @@ func tax_json(db, year) (out, code, err) {
     div_tax := 0
     if g_div > 0 { div_tax = g_div * rate_pfu / 1000 }
     out = "{\"ok\":true,\"year\":" + year
-    out = out + ",\"rates\":{\"pfu_pct\":" + pct_str(rate_pfu) + ",\"micro_bnc_abattement_pct\":" + pct_str(rate_ded_bnc) + ",\"micro_bnc_social_pct\":" + pct_str(rate_soc_bnc) + ",\"micro_bic_abattement_pct\":" + pct_str(rate_ded_bic) + ",\"micro_bic_social_pct\":" + pct_str(rate_soc_bic) + ",\"micro_foncier_abattement_pct\":" + pct_str(rate_ded_fon) + "}"
+    out = out + ",\"rates\":{\"pfu_pct\":" + pct_str(rate_pfu) + ",\"micro_bnc_abattement_pct\":" + pct_str(rate_ded_bnc) + ",\"micro_bnc_social_pct\":" + pct_str(rate_soc_bnc) + ",\"micro_bic_abattement_pct\":" + pct_str(rate_ded_bic) + ",\"micro_bic_social_pct\":" + pct_str(rate_soc_bic) + ",\"micro_foncier_abattement_pct\":" + pct_str(rate_ded_fon) + ",\"micro_foncier_social_pct\":" + pct_str(rate_soc_fon) + "}"
     out = out + ",\"regimes\":{"
     out = out + "\"bnc\":{\"gross_cents\":" + str(g_bnc) + ",\"gross_eur\":\"" + fmt_cents(g_bnc) + "\",\"abattement_cents\":" + str(ab_bnc) + ",\"net_ir_cents\":" + str(net_bnc) + ",\"social_cents\":" + str(soc_bnc) + "}"
     out = out + ",\"bic\":{\"gross_cents\":" + str(g_bic) + ",\"gross_eur\":\"" + fmt_cents(g_bic) + "\",\"abattement_cents\":" + str(ab_bic) + ",\"net_ir_cents\":" + str(net_bic) + ",\"social_cents\":" + str(soc_bic) + "}"
-    out = out + ",\"foncier\":{\"gross_cents\":" + str(g_rent) + ",\"gross_eur\":\"" + fmt_cents(g_rent) + "\",\"abattement_cents\":" + str(ab_fon) + ",\"net_ir_cents\":" + str(net_fon) + "}"
+    out = out + ",\"foncier\":{\"gross_cents\":" + str(g_rent) + ",\"gross_eur\":\"" + fmt_cents(g_rent) + "\",\"abattement_cents\":" + str(ab_fon) + ",\"net_ir_cents\":" + str(net_fon) + ",\"social_cents\":" + str(soc_fon) + "}"
     out = out + ",\"salary\":{\"gross_cents\":" + str(g_salary) + ",\"gross_eur\":\"" + fmt_cents(g_salary) + "\",\"note\":\"progressive IR scale not computed (v0)\"}"
     out = out + "}"
     out = out + ",\"crypto\":{\"net_cents\":" + str(g_crypto) + ",\"net_eur\":\"" + fmt_cents(g_crypto) + "\",\"exempt\":" + json(crypto_exempt == 1) + ",\"threshold_cents\":" + str(thr) + "}"
     out = out + ",\"capital\":{\"taxable_cents\":" + str(taxable) + ",\"taxable_eur\":\"" + fmt_cents(taxable) + "\",\"tax_cents\":" + str(cap_tax) + ",\"tax_eur\":\"" + fmt_cents(cap_tax) + "\"}"
     out = out + ",\"dividends\":{\"gross_cents\":" + str(g_div) + ",\"tax_cents\":" + str(div_tax) + "}"
-    out = out + ",\"totals\":{\"flat_tax_cents\":" + str(cap_tax+div_tax) + ",\"flat_tax_eur\":\"" + fmt_cents(cap_tax+div_tax) + "\",\"social_cents\":" + str(soc_bnc+soc_bic) + ",\"social_eur\":\"" + fmt_cents(soc_bnc+soc_bic) + "\"}"
+    out = out + ",\"totals\":{\"flat_tax_cents\":" + str(cap_tax+div_tax) + ",\"flat_tax_eur\":\"" + fmt_cents(cap_tax+div_tax) + "\",\"social_cents\":" + str(soc_bnc+soc_bic+soc_fon) + ",\"social_eur\":\"" + fmt_cents(soc_bnc+soc_bic+soc_fon) + "\"}"
     out = out + ",\"notes\":[\"estimates on the seeded rate card — override with bilan rule set\",\"IR progressive scale not applied (v0); net figures are post-abattement only\",\"crypto exemption per form 2086: net gains under the threshold are not declarable\"]}"
     code = 0
     err = ""
