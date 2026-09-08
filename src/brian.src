@@ -83,10 +83,11 @@ func brief_json(db, year) (out, code, err) {
     if terr != "" { out = ""  code = tcode  err = terr  return out, code, err }
     flat := json_num(tj, "totals.flat_tax_cents")
     soc := json_num(tj, "totals.social_cents")
+    irc := json_num(tj, "totals.ir_cents")
     rows := sqlite_query(db, "SELECT s.name AS name, s.kind AS kind, SUM(t.cents) AS total, MAX(t.date) AS last_date, COUNT(*) AS n FROM txs t JOIN streams s ON s.id=t.stream_id WHERE t.date>=? AND t.date<=? GROUP BY s.name ORDER BY total DESC", []string{year+"-01-01", year+"-12-31"})
     pulses := parse(rows, []Pulse{})
     out = "{\"ok\":true,\"year\":" + year + ",\"date\":\"" + today_str() + "\""
-    out = out + ",\"provision\":{\"flat_tax_cents\":" + str(flat) + ",\"social_cents\":" + str(soc) + ",\"total_cents\":" + str(flat+soc) + ",\"eur\":\"" + fmt_cents(flat+soc) + "\",\"note\":\"provisionne avant de dépenser — c'est l'argent de l'administration, pas le tien\"}"
+    out = out + ",\"provision\":{\"ir_cents\":" + str(irc) + ",\"flat_tax_cents\":" + str(flat) + ",\"social_cents\":" + str(soc) + ",\"total_cents\":" + str(irc+flat+soc) + ",\"eur\":\"" + fmt_cents(irc+flat+soc) + "\",\"note\":\"provisionne avant de dépenser — c'est l'argent de l'administration, pas le tien\"}"
     out = out + ",\"streams\":["
     i := 0
     first := 1
@@ -106,7 +107,7 @@ func brief_json(db, year) (out, code, err) {
     err = ""
 }
 
-type Totals struct { flat_tax_cents int  social_cents int }
+type Totals struct { ir_cents int  flat_tax_cents int  social_cents int }
 type Taxparsed struct { totals Totals }
 
 // json_num — a numeric field out of the tax JSON. json_get refuses dotted paths
@@ -114,6 +115,7 @@ type Taxparsed struct { totals Totals }
 func json_num(j, path) (n) {
     n = 0
     parsed := parse(j, Taxparsed{})
+    if path == "totals.ir_cents" { n = parsed.totals.ir_cents }
     if path == "totals.flat_tax_cents" { n = parsed.totals.flat_tax_cents }
     if path == "totals.social_cents" { n = parsed.totals.social_cents }
 }

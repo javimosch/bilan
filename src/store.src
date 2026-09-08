@@ -41,6 +41,20 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'micro_foncier', 'social_pct_tenths', '172')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'capital', 'pfu_pct_tenths', '314')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'capital', 'crypto_exempt_threshold_cents', '30500')", []string{y})
+    // IR progressive barème (2025 barème on 2024 income — the latest published; the
+    // operator overrides when the 2026 barème lands). 5 brackets, each a
+    // threshold_cents + rate_tenths. parts = quotient familial (default 1 part).
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_1_threshold_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_1_rate_tenths', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_2_threshold_cents', '1129700')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_2_rate_tenths', '110')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_3_threshold_cents', '2879700')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_3_rate_tenths', '300')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_4_threshold_cents', '8234100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_4_rate_tenths', '410')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_5_threshold_cents', '17709500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'bracket_5_rate_tenths', '450')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'parts', '1')", []string{y})
 }
 
 type Rulevalrow struct { value string }

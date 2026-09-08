@@ -97,6 +97,25 @@ ok "foncier net after abattement" 70000 "$(jq -r .regimes.foncier.net_ir_cents <
 ok "foncier social 17.2% on net" 12040 "$(jq -r .regimes.foncier.social_cents <<<"$r")"
 ok "foncier social in totals" 59425 "$(jq -r .totals.social_cents <<<"$r")"
 
+# --- progressive IR barème (5 brackets, quotient familial) ---
+IRDB="$(mktemp -u /tmp/bilan-ir-XXXXXX.db)"
+BILAN_DB="$IRDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$IRDB" $BIN tx add sal 2026-06-30 50000 --label "salaire annuel" >/dev/null
+r=$(BILAN_DB="$IRDB" $BIN tax --year 2026)
+# 50000 EUR, 1 part: 11% on 17500 + 30% on 21203 = 1925.00 + 6360.90 = 8285.90
+ok "ir base = salary gross" 5000000 "$(jq -r .ir.base_cents <<<"$r")"
+ok "ir 11%+30% brackets" 828590 "$(jq -r .ir.ir_cents <<<"$r")"
+ok "ir marginal 30%" 30 "$(jq -r .ir.marginal_rate_pct <<<"$r")"
+ok "ir parts default 1" 1 "$(jq -r .ir.parts <<<"$r")"
+ok "ir in totals" 828590 "$(jq -r .totals.ir_cents <<<"$r")"
+ok "total_tax = ir + flat + social" 828590 "$(jq -r .totals.total_tax_cents <<<"$r")"
+# quotient familial: 2 parts halves the quotient -> IR drops
+BILAN_DB="$IRDB" $BIN rule set 2026 ir_bareme parts 2 >/dev/null
+r=$(BILAN_DB="$IRDB" $BIN tax --year 2026)
+# quotient = 5000000/2 = 2500000; 11% on (2500000-1129700)=1370300 -> 150733; x2 parts = 301466
+ok "ir QF 2 parts lowers IR" 301466 "$(jq -r .ir.ir_cents <<<"$r")"
+rm -f "$IRDB"
+
 # --- fixtures (realistic broker exports; no real PII available on this box) --
 $BIN stream add etoro --kind crypto >/dev/null
 r=$($BIN import etoro test/fixtures/etoro-2026.csv --stream etoro)
@@ -129,7 +148,7 @@ MID=$(jq -r .id <<<"$r")
 ok "move add" true "$(jq -r .ok <<<"$r")"
 ok "move list" 1 "$(jq '.moves | length' <<<"$($BIN move list --status proposed)")"
 r=$($BIN brief --year 2026)
-WANT=$(( $(jq -r .totals.flat_tax_cents <<<"$($BIN tax --year 2026)") + $(jq -r .totals.social_cents <<<"$($BIN tax --year 2026)") ))
+WANT=$(( $(jq -r .totals.ir_cents <<<"$($BIN tax --year 2026)") + $(jq -r .totals.flat_tax_cents <<<"$($BIN tax --year 2026)") + $(jq -r .totals.social_cents <<<"$($BIN tax --year 2026)") ))
 ok "brief provision matches tax" "$WANT" "$(jq -r .provision.total_cents <<<"$r")"
 ok "brief has moves" 1 "$(jq '.moves | length' <<<"$r")"
 okre "brief momentum field" '"momentum":"[a-z]' "$r"
@@ -163,7 +182,7 @@ r=$(curl -sf -X POST -H "Authorization: Bearer smoketoken" -H "content-type: app
   http://127.0.0.1:$PORT/v1/moves)
 ok "v1 move add" true "$(jq -r .ok <<<"$r")"
 r=$(curl -sf -H "Authorization: Bearer smoketoken" "http://127.0.0.1:$PORT/v1/brief?year=2026")
-WANTV1=$(( $(jq -r .totals.flat_tax_cents <<<"$($BIN tax --year 2026)") + $(jq -r .totals.social_cents <<<"$($BIN tax --year 2026)") ))
+WANTV1=$(( $(jq -r .totals.ir_cents <<<"$($BIN tax --year 2026)") + $(jq -r .totals.flat_tax_cents <<<"$($BIN tax --year 2026)") + $(jq -r .totals.social_cents <<<"$($BIN tax --year 2026)") ))
 ok "v1 brief provision matches tax" "$WANTV1" "$(jq -r .provision.total_cents <<<"$r")"
 okre "landing page" 'pluri-actifs' "$(curl -sf http://127.0.0.1:$PORT/)"
 okre "landing links the specs" 'cli-specs.intrane.fr' "$(curl -sf http://127.0.0.1:$PORT/)"

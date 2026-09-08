@@ -73,13 +73,17 @@ func guide_text(base) (t) {
         "  capital (crypto/trading): PFU 31.4% on positive net gains\n" +
         "  crypto exemption:   net gains under 305.00 EUR -> not declarable (form 2086)\n" +
         "  dividends:          PFU on the positive sum\n" +
-        "  salary:             gross reported only — progressive IR scale is v1\n" +
+        "  salary:             enters the IR base gross (10% frais abattement is v1)\n" +
+        "  IR barème:          5 progressive brackets on net imposable (0/11/30/41/45%);\n" +
+        "                      quotient familial via ir_bareme parts (default 1). Override:\n" +
+        "                      bilan rule set 2026 ir_bareme parts 2  (a couple = 2, +0.5/child)\n" +
         "  Override any of them: bilan rule set 2027 micro_bnc deduction_pct_tenths 340\n" +
         "  (rates are DECIPERCENT tenths: 340 = 34.0%; all math is integer cents)\n" +
         "\n" +
         "## What the radar is NOT\n" +
-        "  It computes regime math on the numbers YOU imported. It does not know about\n" +
-        "  the IR progressive scale, deficits carried forward, or your quotient familial.\n" +
+        "  It computes regime math + the progressive IR barème on the numbers YOU imported.\n" +
+        "  It does NOT apply the décote (low-IR reduction), the 10% frais abattement on\n" +
+        "  salary, deficits carried forward, or the quotient familial beyond `parts`.\n" +
         "  Output is an estimate to reason from, not tax advice — say so to the human.\n" +
         "\n" +
         "## Brian — the cheap copilote (no inference in the platform)\n" +

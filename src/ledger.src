@@ -259,9 +259,47 @@ func stats_json(db, year) (out, code, err) {
     err = ""
 }
 
+// ir_compute — the progressive IR barème on the net imposable. The barème is DATA
+// (5 brackets in tax_rules, regime ir_bareme). Quotient familial: base / parts,
+// apply the barème on the quotient, multiply back. Returns (ir_cents, marginal_rate_tenths, parts).
+// v0 limits: no décote, no 10% frais abattement on salary (salary enters gross), no
+// deficits carried forward. The operator overrides brackets per year via bilan rule set.
+func ir_compute(db, year, base) (ir, marginal, parts) {
+    parts = rule_int(db, year, "ir_bareme", "parts", 1)
+    if parts < 1 { parts = 1 }
+    q := base / parts
+    ir = 0
+    marginal = 0
+    // bracket 1: 0% from 0 to threshold_2
+    t2 := rule_int(db, year, "ir_bareme", "bracket_2_threshold_cents", 1129700)
+    r2 := rule_int(db, year, "ir_bareme", "bracket_2_rate_tenths", 110)
+    t3 := rule_int(db, year, "ir_bareme", "bracket_3_threshold_cents", 2879700)
+    r3 := rule_int(db, year, "ir_bareme", "bracket_3_rate_tenths", 300)
+    t4 := rule_int(db, year, "ir_bareme", "bracket_4_threshold_cents", 8234100)
+    r4 := rule_int(db, year, "ir_bareme", "bracket_4_rate_tenths", 410)
+    t5 := rule_int(db, year, "ir_bareme", "bracket_5_threshold_cents", 17709500)
+    r5 := rule_int(db, year, "ir_bareme", "bracket_5_rate_tenths", 450)
+    // bracket 2: 11% from t2 to t3
+    hi := t3
+    if q < hi { hi = q }
+    if hi > t2 { ir = ir + (hi - t2) * r2 / 1000  marginal = r2 }
+    // bracket 3: 30% from t3 to t4
+    hi = t4
+    if q < hi { hi = q }
+    if hi > t3 { ir = ir + (hi - t3) * r3 / 1000  marginal = r3 }
+    // bracket 4: 41% from t4 to t5
+    hi = t5
+    if q < hi { hi = q }
+    if hi > t4 { ir = ir + (hi - t4) * r4 / 1000  marginal = r4 }
+    // bracket 5: 45% above t5 (open-ended)
+    if q > t5 { ir = ir + (q - t5) * r5 / 1000  marginal = r5 }
+    ir = ir * parts
+}
+
 // tax_json — the tax radar: deterministic regime math over the year's sums. Every rate
 // comes from tax_rules (rule_int), never from code, so a loi de finances change is an
-// UPDATE, not a release. Estimates only — the IR barème (progressive) is out of scope.
+// UPDATE, not a release. Estimates only — the décote and the 10% frais abattement on
+// salary are v1; the progressive IR barème IS computed here (net imposable -> brackets).
 func tax_json(db, year) (out, code, err) {
     // a deterministic tool must never answer with the wrong year's rates: if no
     // rate card exists for the requested year, error instead of silently falling
@@ -303,19 +341,23 @@ func tax_json(db, year) (out, code, err) {
     cap_tax := taxable * rate_pfu / 1000
     div_tax := 0
     if g_div > 0 { div_tax = g_div * rate_pfu / 1000 }
+    // progressive IR barème on the net imposable (salary gross + BNC/BIC/foncier net)
+    ir_base := net_bnc + net_bic + net_fon + g_salary
+    ir_cents, ir_marginal, ir_parts := ir_compute(db, year, ir_base)
     out = "{\"ok\":true,\"year\":" + year
     out = out + ",\"rates\":{\"pfu_pct\":" + pct_str(rate_pfu) + ",\"micro_bnc_abattement_pct\":" + pct_str(rate_ded_bnc) + ",\"micro_bnc_social_pct\":" + pct_str(rate_soc_bnc) + ",\"micro_bic_abattement_pct\":" + pct_str(rate_ded_bic) + ",\"micro_bic_social_pct\":" + pct_str(rate_soc_bic) + ",\"micro_foncier_abattement_pct\":" + pct_str(rate_ded_fon) + ",\"micro_foncier_social_pct\":" + pct_str(rate_soc_fon) + "}"
     out = out + ",\"regimes\":{"
     out = out + "\"bnc\":{\"gross_cents\":" + str(g_bnc) + ",\"gross_eur\":\"" + fmt_cents(g_bnc) + "\",\"abattement_cents\":" + str(ab_bnc) + ",\"net_ir_cents\":" + str(net_bnc) + ",\"social_cents\":" + str(soc_bnc) + "}"
     out = out + ",\"bic\":{\"gross_cents\":" + str(g_bic) + ",\"gross_eur\":\"" + fmt_cents(g_bic) + "\",\"abattement_cents\":" + str(ab_bic) + ",\"net_ir_cents\":" + str(net_bic) + ",\"social_cents\":" + str(soc_bic) + "}"
     out = out + ",\"foncier\":{\"gross_cents\":" + str(g_rent) + ",\"gross_eur\":\"" + fmt_cents(g_rent) + "\",\"abattement_cents\":" + str(ab_fon) + ",\"net_ir_cents\":" + str(net_fon) + ",\"social_cents\":" + str(soc_fon) + "}"
-    out = out + ",\"salary\":{\"gross_cents\":" + str(g_salary) + ",\"gross_eur\":\"" + fmt_cents(g_salary) + "\",\"note\":\"progressive IR scale not computed (v0)\"}"
+    out = out + ",\"salary\":{\"gross_cents\":" + str(g_salary) + ",\"gross_eur\":\"" + fmt_cents(g_salary) + "\",\"note\":\"enters the IR base gross (10% frais abattement is v1)\"}"
     out = out + "}"
+    out = out + ",\"ir\":{\"base_cents\":" + str(ir_base) + ",\"base_eur\":\"" + fmt_cents(ir_base) + "\",\"parts\":" + str(ir_parts) + ",\"ir_cents\":" + str(ir_cents) + ",\"ir_eur\":\"" + fmt_cents(ir_cents) + "\",\"marginal_rate_pct\":" + pct_str(ir_marginal) + ",\"note\":\"progressive barème on net imposable; décote and 10% frais on salary are v1\"}"
     out = out + ",\"crypto\":{\"net_cents\":" + str(g_crypto) + ",\"net_eur\":\"" + fmt_cents(g_crypto) + "\",\"exempt\":" + json(crypto_exempt == 1) + ",\"threshold_cents\":" + str(thr) + "}"
     out = out + ",\"capital\":{\"taxable_cents\":" + str(taxable) + ",\"taxable_eur\":\"" + fmt_cents(taxable) + "\",\"tax_cents\":" + str(cap_tax) + ",\"tax_eur\":\"" + fmt_cents(cap_tax) + "\"}"
     out = out + ",\"dividends\":{\"gross_cents\":" + str(g_div) + ",\"tax_cents\":" + str(div_tax) + "}"
-    out = out + ",\"totals\":{\"flat_tax_cents\":" + str(cap_tax+div_tax) + ",\"flat_tax_eur\":\"" + fmt_cents(cap_tax+div_tax) + "\",\"social_cents\":" + str(soc_bnc+soc_bic+soc_fon) + ",\"social_eur\":\"" + fmt_cents(soc_bnc+soc_bic+soc_fon) + "\"}"
-    out = out + ",\"notes\":[\"estimates on the seeded rate card — override with bilan rule set\",\"IR progressive scale not applied (v0); net figures are post-abattement only\",\"crypto exemption per form 2086: net gains under the threshold are not declarable\"]}"
+    out = out + ",\"totals\":{\"ir_cents\":" + str(ir_cents) + ",\"ir_eur\":\"" + fmt_cents(ir_cents) + "\",\"flat_tax_cents\":" + str(cap_tax+div_tax) + ",\"flat_tax_eur\":\"" + fmt_cents(cap_tax+div_tax) + "\",\"social_cents\":" + str(soc_bnc+soc_bic+soc_fon) + ",\"social_eur\":\"" + fmt_cents(soc_bnc+soc_bic+soc_fon) + "\",\"total_tax_cents\":" + str(ir_cents+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon) + ",\"total_tax_eur\":\"" + fmt_cents(ir_cents+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon) + "\"}"
+    out = out + ",\"notes\":[\"estimates on the seeded rate card — override with bilan rule set\",\"IR progressive barème applied on net imposable (salary gross + BNC/BIC/foncier net); décote and 10% frais on salary are v1\",\"crypto exemption per form 2086: net gains under the threshold are not declarable\"]}"
     code = 0
     err = ""
 }
