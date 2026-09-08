@@ -85,11 +85,30 @@ func guide_text(base) (t) {
         "  ?stream=&year=&limit=, POST {stream,date,amount,label}), /v1/import (POST\n" +
         "  {source,csv,stream}), /v1/stats?year=, /v1/tax?year=.\n" +
         "\n" +
+        "## Hosted (pay as you go — no subscription exists)\n" +
+        "  Point the CLI at the hosted rail and every domain command hits the API:\n" +
+        "  export BILAN_URL=https://bilan.intrane.fr   BILAN_TOKEN=<your bilan token>\n" +
+        "  Same commands, same JSON — but the ledger lives server-side, one per token.\n" +
+        "  GIFT: your first calls are free (BILAN_GIFT_CALLS, default 50). Past the gift,\n" +
+        "  each /v1/* call costs 1 peage cent charged to the wallet you send in the\n" +
+        "  X-Peage-Wallet header. No wallet (or an empty one) => HTTP 402 whose JSON body\n" +
+        "  carries a pay object:\n" +
+        "    {\"pay\":{\"rail\":\"peage\",\"price_cents\":1,\"header\":\"X-Peage-Wallet\",\n" +
+        "             \"wallet_create\":\"POST https://peage.intrane.fr/v1/wallets\",\n" +
+        "             \"topup\":\"POST https://peage.intrane.fr/v1/topup\"}}\n" +
+        "  YOUR MOVE as the operating agent: create the wallet (POST /v1/wallets — it\n" +
+        "  ships with free starter credit, that is the gift), pass it as X-Peage-Wallet,\n" +
+        "  and when IT runs dry, POST /v1/topup and hand the Stripe link to the human.\n" +
+        "  Local mode (no BILAN_URL) is and stays free — the OSS binary owes nobody.\n" +
+        "\n" +
         "## Environment\n" +
-        "  BILAN_DB      ledger path (default ~/.bilan.db)\n" +
-        "  BILAN_TOKEN   bearer token for /v1/* and /_shutdown when serving\n" +
+        "  BILAN_URL     hosted API base (set it => CLI drives hosted; also the feedback target)\n" +
+        "  BILAN_TOKEN   your token: bearer for the hosted API / for /v1/* and /_shutdown when serving\n" +
+        "  BILAN_DB      local ledger path (default ~/.bilan.db; local mode is free, no account)\n" +
+        "  BILAN_HOSTED  \"1\" on the server = multi-tenant PAYG (bearer = tenant, gift calls, peage)\n" +
+        "  BILAN_GIFT_CALLS  free metered calls per new hosted tenant (default 50)\n" +
+        "  BILAN_MERCHANT_KEY operator's peage merchant key (pm_...) — charges wallets past the gift\n" +
         "  BILAN_PORT    default serve port (8791; --port overrides)\n" +
-        "  BILAN_URL     feedback target (default https://bilan.intrane.fr)\n" +
         "  FEEDBACK_RELAY central relay (default https://feedback.intrane.fr; \"off\" disables)\n" +
         "\n" +
         "## Typical agent loops\n" +
