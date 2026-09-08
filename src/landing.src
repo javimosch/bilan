@@ -1,0 +1,66 @@
+// landing — GET / : one self-contained page (no external assets), the house
+// editorial style: warm monochrome, typographic contrast, no gradients. The
+// pitch for both audiences at once: the human reading it, and the agent that
+// was told to "go look at bilan" (hence the machine links up top).
+
+func landing_html() (h) {
+    h = "<!doctype html>\n" +
+    "<html lang=\"fr\">\n" +
+    "<head>\n" +
+    "<meta charset=\"utf-8\">\n" +
+    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n" +
+    "<title>bilan — la comptabilité déterministe pour les pluri-actifs</title>\n" +
+    "<meta name=\"description\" content=\"Le registre financier déterministe et le radar fiscal pour les professionnels pluri-actifs. Aucun LLM dedans, par principe : votre agent pilote. Un binaire, un fichier SQLite.\">\n" +
+    "<style>\n" +
+    ":root{--ink:#1c1a17;--paper:#faf7f2;--muted:#6f6a62;--line:#e3ddd2;--accent:#8a5a2b}\n" +
+    "*{box-sizing:border-box;margin:0;padding:0}\n" +
+    "body{background:var(--paper);color:var(--ink);font:17px/1.65 Georgia,'Times New Roman',serif;max-width:44rem;margin:0 auto;padding:4rem 1.5rem 6rem}\n" +
+    "code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86em}\n" +
+    "h1{font-size:clamp(2.2rem,6vw,3.4rem);line-height:1.08;letter-spacing:-.02em;font-weight:400}\n" +
+    "h2{font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:400;margin:3rem 0 .8rem}\n" +
+    "p{margin:0 0 1rem;max-width:38rem}\n" +
+    "a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}\n" +
+    "a:hover{color:var(--accent)}\n" +
+    ".tag{color:var(--muted);font-size:.9rem;margin-bottom:2.5rem}\n" +
+    ".rule{border:0;border-top:1px solid var(--line);margin:3rem 0}\n" +
+    "code,pre{font-family:ui-monospace,'SF Mono',Menlo,monospace}\n" +
+    "pre{background:#f1ece3;border:1px solid var(--line);padding:1rem 1.2rem;overflow-x:auto;margin:0 0 1rem;font-size:.82rem;line-height:1.6}\n" +
+    ".grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;border-top:1px solid var(--line);padding-top:1.2rem}\n" +
+    ".k{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}\n" +
+    ".c{color:var(--muted)}\n" +
+    ".v{font-size:1.05rem}\n" +
+    ".foot{margin-top:3rem;color:var(--muted);font-size:.85rem}\n" +
+    ".big{font-size:1.35rem;line-height:1.5;max-width:34rem}\n" +
+    ".no{font-style:italic;color:var(--muted)}\n" +
+    "</style>\n" +
+    "</head>\n" +
+    "<body>\n" +
+    "<p class=\"tag\">bilan <span class=\"no\">· la comptabilité déterministe</span></p>\n" +
+    "<h1>Vos revenus pluri-actifs, dans un seul fichier — et votre agent IA les lit.</h1>\n" +
+    "<p class=\"no\">Salaire + BNC + crypto + loyers + dividendes&nbsp;: un registre, des calculs fiscaux déterministes, zéro LLM dans la plateforme.</p>\n" +
+    "<hr class=\"rule\">\n" +
+    "<h2>Le principe</h2>\n" +
+    "<p>Le calcul de l'impôt doit être <strong>déterministe et auditable</strong>. bilan ne devine rien&nbsp;: il stocke et calcule. L'intelligence est la vôtre — votre agent lit le JSON, normalise les exports banquiers, explique le radar. <span class=\"no\">La plateforme n'exécute aucune inférence et ne voit aucun prompt.</span></p>\n" +
+    "<h2>Trois commandes</h2>\n" +
+    "<pre>bilan stream add freelance --kind bnc\n" +
+    "bilan import etoro exports/2026.csv --stream crypto\n" +
+    "bilan tax --year 2026   <span class=\"c\"># abattements, PFU, exonération 2086</span></pre>\n" +
+    "<h2>Les chiffres</h2>\n" +
+    "<div class=\"grid\">\n" +
+    "<div><p class=\"k\">binaire</p><p class=\"v\">~120 kB</p></div>\n" +
+    "<div><p class=\"k\">runtime</p><p class=\"k\">aucun</p></div>\n" +
+    "<div><p class=\"k\">LLM dedans</p><p class=\"k\">0</p></div>\n" +
+    "<div><p class=\"k\">abonnement</p><p class=\"k\">aucun</p></div>\n" +
+    "</div>\n" +
+    "<h2>Facturation</h2>\n" +
+    "<p>Local&nbsp;: gratuit, pour toujours, vos données restent chez vous. Hébergé&nbsp;: <strong>50 appels offerts</strong> par client, puis <strong>1 centime d'euro par appel</strong> via <a href=\"https://peage.intrane.fr\">peage</a> — prépayé, sans abonnement. Quand le crédit cadeau est épuisé, l'API répond 402 avec un objet <code>pay</code>&nbsp;: votre agent vous tend le lien de recharge, vous payez ce que vous consommez, rien d'autre.</p>\n" +
+    "<h2>Démarrer</h2>\n" +
+    "<pre>curl -fsSL https://raw.githubusercontent.com/javimosch/bilan/master/install.sh | sh\n" +
+    "bilan guide          # le manuel opérateur complet, embarqué dans le binaire\n" +
+    "bilan stream add freelance --kind bnc\n" +
+    "bilan tax --year 2026</pre>\n" +
+    "<p class=\"no\">Les estimations du radar ne constituent pas un conseil fiscal — ce sont des calculs déterministes sur les chiffres que vous importez, à raisonner avec votre expert-comptable.</p>\n" +
+    "<hr class=\"rule\">\n" +
+    "<p class=\"no\"><a href=\"/guide\">guide</a> · <a href=\"/llms.txt\">llms.txt</a> · <a href=\"https://github.com/javimosch/bilan\">github</a> · <a href=\"https://cli-specs.intrane.fr\">cli-specs</a> · <a href=\"https://peage.intrane.fr\">peage</a> · <a href=\"/_health\">_health</a></p>\n" +
+    "</body>\n</html>"
+}

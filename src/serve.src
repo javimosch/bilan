@@ -15,6 +15,7 @@ func cmd_serve(a) {
     say("{\"ok\":true,\"serving\":\"bilan\",\"port\":" + str(port) + ",\"open\":[\"GET /_health\",\"GET /guide\",\"GET /llms.txt\"],\"gated\":[\"/v1/*\",\"POST /_shutdown\"]}")
     serve(port, func(req) {
         p := path_only(req.path)
+        if p == "/" && req.method == "GET" { return ok_html(landing_html()) }
         if p == "/_health" { return ok_json("{\"ok\":true,\"service\":\"bilan\",\"version\":\"" + version_str() + "\"}") }
         if req.method == "GET" && p == "/guide" { return ok_text(guide_text("")) }
         if req.method == "GET" && p == "/llms.txt" { return ok_text(llms_txt()) }

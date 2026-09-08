@@ -108,6 +108,8 @@ r=$(curl -sf -X POST -H "Authorization: Bearer smoketoken" -H "content-type: app
      -d '{"name":"rent","kind":"rent"}' http://127.0.0.1:$PORT/v1/streams)
 ok "v1 stream create" true "$(jq -r .ok <<<"$r")"
 okre "guide over http" 'NO LLM inside' "$(curl -sf http://127.0.0.1:$PORT/guide)"
+okre "landing page" 'pluri-actifs' "$(curl -sf http://127.0.0.1:$PORT/)"
+okre "landing links the specs" 'cli-specs.intrane.fr' "$(curl -sf http://127.0.0.1:$PORT/)"
 r=$(curl -sf -X POST -H "Authorization: Bearer smoketoken" http://127.0.0.1:$PORT/_shutdown)
 ok "shutdown" true "$(jq -r .shutdown <<<"$r")"
 sleep 0.4
