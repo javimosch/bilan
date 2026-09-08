@@ -121,7 +121,21 @@ func import_csv(db, source, body, stream_q) (out, code, err) {
     if sid == "" { return "", 94, "no such stream: " + stream_q }
     lines := split(body, "\n")
     if len(lines) < 2 { return "", 80, "no data rows (need a header line + at least one row)" }
-    head := csv_split(trim_cr(lines[0]))
+    // sniff the delimiter from the header: fr Excel exports use ";" (more of them
+    // than commas), anglo exports use ",". Wrong delimiter = every row one cell.
+    sep := ","
+    hline := trim_cr(lines[0])
+    sc := 0
+    cc := 0
+    j := 0
+    for j < len(hline) {
+        c := substr(hline, j, j+1)
+        if c == ";" { sc = sc + 1 }
+        if c == "," { cc = cc + 1 }
+        j = j + 1
+    }
+    if sc > cc { sep = ";" }
+    head := csv_split(trim_cr(lines[0]), sep)
     lower_head := to_lower(trim_cr(lines[0]))
     datecol := -1
     amtcol := -1
@@ -153,7 +167,7 @@ func import_csv(db, source, body, stream_q) (out, code, err) {
     for i < len(lines) {
         line := trim_cr(lines[i])
         if trim(line) == "" { i = i + 1  continue }
-        cells := csv_split(line)
+        cells := csv_split(line, sep)
         d := ""
         if datecol < len(cells) { d = norm_date(cells[datecol]) }
         amtc := ""

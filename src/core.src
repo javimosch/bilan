@@ -149,9 +149,10 @@ func pct_str(tenths) (s) {
 }
 
 // csv_split — one CSV line -> fields, handling double-quoted fields ("a,b" is one
-// field; "" inside quotes is a literal quote). Real broker exports quote everything;
-// a naive split(",") corrupts labels containing commas.
-func csv_split(line) (out) {
+// field; "" inside quotes is a literal quote). sep is the delimiter ("," or ";" —
+// fr Excel exports use semicolons). Real broker exports quote everything; a naive
+// split on the delimiter corrupts labels containing it.
+func csv_split(line, sep) (out) {
     out = []string{}
     cur := ""
     inq := 0
@@ -166,7 +167,7 @@ func csv_split(line) (out) {
             } else { cur = cur + ch }
         } else {
             if ch == "\"" { inq = 1 }
-            else if ch == "," { out = append(out, cur)  cur = "" }
+            else if ch == sep { out = append(out, cur)  cur = "" }
             else { cur = cur + ch }
         }
         i = i + 1

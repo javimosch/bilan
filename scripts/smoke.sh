@@ -75,6 +75,18 @@ r=$($BIN rule set 2027 micro_bnc deduction_pct_tenths 350)
 ok "rule set" 350 "$(jq -r .value <<<"$r")"
 ok "rule list year filter" 340 "$(jq -r '[.rules[] | select(.year==2026 and .regime=="micro_bnc" and .param=="deduction_pct_tenths") | .value][0]' <<<"$($BIN rule list --year 2026)")"
 
+# --- fixtures (realistic broker exports; no real PII available on this box) --
+$BIN stream add etoro --kind crypto >/dev/null
+r=$($BIN import etoro test/fixtures/etoro-2026.csv --stream etoro)
+ok "etoro fixture rows" 3 "$(jq -r .inserted <<<"$r")"
+ok "etoro net P/L (3596 from crypto + 15596 from etoro)" 19192 "$(jq -r .by_kind.crypto.cents <<<"$($BIN stats --year 2026)")"
+r=$($BIN import revolut test/fixtures/revolut-crypto-2026.csv --stream etoro)
+ok "revolut fixture rows" 2 "$(jq -r .inserted <<<"$r")"
+$BIN stream add diverse --kind other >/dev/null
+r=$(cat test/fixtures/generic-fr-2026.csv | $BIN import generic - --stream diverse)
+ok "fr semicolon csv rows" 3 "$(jq -r .inserted <<<"$r")"
+ok "fr amounts parse (1 234,56)" 186406 "$(jq -r .by_kind.other.cents <<<"$($BIN stats --year 2026)")"
+
 # --- feedback (relay off: never fails, reports honestly) --------------------
 r=$(FEEDBACK_RELAY=off $BIN feedback "smoke test" --kind idea)
 ok "feedback ok"      false "$(jq -r .relayed <<<"$r")"

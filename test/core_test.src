@@ -51,15 +51,21 @@ func test_col_find() {
 }
 
 func test_csv_split() {
-    a := csv_split("2026-01-15,54.40,BTC sale")
+    a := csv_split("2026-01-15,54.40,BTC sale", ",")
     assert_eq_int(len(a), 3, "csv_split plain")
     assert_eq_str(a[2], "BTC sale", "csv_split plain cell")
-    b := csv_split("1,\"a,b\",3")
+    b := csv_split("1,\"a,b\",3", ",")
     assert_eq_int(len(b), 3, "csv_split quoted comma stays in cell")
     assert_eq_str(b[1], "a,b", "csv_split quoted comma preserved")
-    c := csv_split("\"say \"\"hi\"\"\",2")
+    c := csv_split("\"say \"\"hi\"\"\",2", ",")
     assert_eq_str(c[0], "say \"hi\"", "csv_split escaped quotes")
     assert_eq_str(c[1], "2", "csv_split second cell")
+    // fr Excel exports: semicolon delimiter
+    d := csv_split("15/01/2026;1 234,56;Mission ACME", ";")
+    assert_eq_int(len(d), 3, "csv_split semicolon delimiter")
+    assert_eq_str(d[1], "1 234,56", "csv_split semicolon cell with comma inside")
+    e := csv_split("a;b,c", ";")
+    assert_eq_str(e[1], "b,c", "csv_split comma kept inside semicolon cell")
 }
 
 func test_esc() {
