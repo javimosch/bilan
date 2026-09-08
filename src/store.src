@@ -234,6 +234,35 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tva', 'rate_reduit_pct_tenths', '100')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tva', 'rate_super_reduit_pct_tenths', '55')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tva', 'rate_particulier_pct_tenths', '21')", []string{y})
+    // Crédit d'impôt frais de garde d'enfants (art. 200 quater B CGI). 50% of
+    // dépenses, capped at 3,500 EUR per child under 6 (1,750 in garde alternée).
+    // Credit max 1,750 EUR per child (875 in alterné). REFUNDABLE (crédit, not
+    // réduction). Record dépenses as positive txs in a 'frais_garde' stream.
+    // Source: BOFiP BOI-IR-RICI-300, service-public.gouv.fr F8.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'frais_garde', 'rate_pct_tenths', '500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'frais_garde', 'cap_per_child_cents', '350000')", []string{y})
+    // Réduction d'impôt frais de scolarité (art. 199 quater F CGI). Forfaitaire:
+    // 61 EUR collège, 153 EUR lycée, 183 EUR supérieur (per child, half in garde
+    // alternée). RÉDUCTION (non-refundable). The user records the TOTAL forfaitaire
+    // reduction as a positive tx in a 'scolarite' stream; the radar passes it
+    // through. Source: BOFiP BOI-IR-RICI-150, service-public.gouv.fr F9.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'scolarite', 'college_cents', '6100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'scolarite', 'lycee_cents', '15300')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'scolarite', 'superieur_cents', '18300')", []string{y})
+    // Pension alimentaire (art. 156 II.2° CGI). Deductible from revenu global
+    // (reduces IR base, not IR directly). Capped at 6,794 EUR per child for 2024
+    // income (declaration 2025). Record the pension versée as a positive tx in a
+    // 'pension_alimentaire' stream; the radar subtracts it (capped) from ir_base.
+    // Source: BOFiP BOI-IR-BASE-20-30-10, impots.gouv.fr.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pension_alimentaire', 'cap_per_child_cents', '679400')", []string{y})
+    // Réduction d'impôt IR-PME / Madelin (art. 199 terdecies-0 A CGI). 18% of
+    // versements au capital de PME, capped at 50,000 EUR single / 100,000 EUR
+    // couple. 25% for ESUS (until 30/09/2026). Subject to plafonnement global des
+    // avantages fiscaux (10,000 EUR). RÉDUCTION (non-refundable). Record versements
+    // as positive txs in an 'ir_pme' stream. Source: BOFiP BOI-IR-RICI-290.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_pme', 'rate_pct_tenths', '180')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_pme', 'cap_single_cents', '5000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_pme', 'cap_couple_cents', '10000000')", []string{y})
 }
 
 type Rulevalrow struct { value string }

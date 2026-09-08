@@ -197,6 +197,31 @@ func guide_text(base) (t) {
         "                      aux fournisseurs as positive txs in a 'tva_deductible'\n" +
         "                      stream. TVA à payer = collectée - déductible. If\n" +
         "                      negative, crédit de TVA (reportable ou remboursable).\n" +
+        "  Frais de garde:      art. 200 quater B CGI — crédit d'impôt for frais de\n" +
+        "                      garde d'enfants de moins de 6 ans. 50% of dépenses,\n" +
+        "                      capped at 3,500 EUR per child (1,750 in garde alternée).\n" +
+        "                      REFUNDABLE (crédit, not réduction). Record dépenses as\n" +
+        "                      positive txs in a 'frais_garde' stream. Source: BOFiP\n" +
+        "                      BOI-IR-RICI-300, service-public.gouv.fr F8.\n" +
+        "  Scolarité:           art. 199 quater F CGI — réduction d'impôt forfaitaire\n" +
+        "                      for enfants scolarisés: 61 EUR collège, 153 EUR lycée,\n" +
+        "                      183 EUR supérieur per child (half in garde alternée).\n" +
+        "                      RÉDUCTION (non-refundable). Record the TOTAL forfaitaire\n" +
+        "                      reduction as a positive tx in a 'scolarite' stream.\n" +
+        "                      Source: BOFiP BOI-IR-RICI-150, service-public.gouv.fr F9.\n" +
+        "  Pension alimentaire: art. 156 II.2° CGI — deductible from revenu global\n" +
+        "                      (reduces IR base, not IR directly). Capped at 6,794 EUR\n" +
+        "                      per child for 2024 income (declaration 2025). Record the\n" +
+        "                      pension versée as a positive tx in a 'pension_alimentaire'\n" +
+        "                      stream. Source: BOFiP BOI-IR-BASE-20-30-10.\n" +
+        "  IR-PME / Madelin:    art. 199 terdecies-0 A CGI — réduction d'impôt for\n" +
+        "                      souscriptions au capital de PME. 18% of versements,\n" +
+        "                      capped at 50,000 EUR single / 100,000 EUR couple. 25%\n" +
+        "                      for ESUS (until 30/09/2026). RÉDUCTION (non-refundable).\n" +
+        "                      Subject to plafonnement global des avantages fiscaux\n" +
+        "                      (10,000 EUR) — NOT modeled in v1. Record versements as\n" +
+        "                      positive txs in an 'ir_pme' stream. Source: BOFiP\n" +
+        "                      BOI-IR-RICI-290.\n" +
         "  Override any of them: bilan rule set 2027 micro_bnc deduction_pct_tenths 340\n" +
         "  (rates are DECIPERCENT tenths: 340 = 34.0%; all math is integer cents)\n" +
         "\n" +
@@ -204,16 +229,19 @@ func guide_text(base) (t) {
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
         "  deficit carry-forward (6y) + déficit foncier imputation (10700 on global,\n" +
-        "  10y on foncier, micro + réel) + TVA franchise + régime simplifié eligibility\n" +
-        "  + TVA collectée/déductible (à payer / crédit) + PAS taux neutre + taux\n" +
-        "  personnalisé + dons reduction (art. 200) + PINEL/DENORMANDIE (art. 199\n" +
-        "  novovicies) + MALRAUX (art. 199 tervicies) + CENSI-BOUVARD (art. 199\n" +
-        "  sexvicies) + LMNP micro-BIC + LMNP régime réel + emploi à domicile crédit\n" +
-        "  (art. 199 sexdecies). It does NOT model: deficits beyond their windows,\n" +
-        "  other réductions/crédits d'impôt, TVA régime normal (CA3 mensuel/trimestriel),\n" +
-        "  the full BOFiP PAS formula, or LMNP amortissement tables (record the\n" +
-        "  amortissement as a negative tx in the 'lmnp_reel' stream). Output is an\n" +
-        "  estimate to reason from, not tax advice — say so to the human.\n" +
+        "  10y on foncier, micro + réel) + pension alimentaire deduction (art. 156)\n" +
+        "  + TVA franchise + régime simplifié eligibility + TVA collectée/déductible\n" +
+        "  (à payer / crédit) + PAS taux neutre + taux personnalisé + dons reduction\n" +
+        "  (art. 200) + PINEL/DENORMANDIE (art. 199 novovicies) + MALRAUX (art. 199\n" +
+        "  tervicies) + CENSI-BOUVARD (art. 199 sexvicies) + scolarité (art. 199\n" +
+        "  quater F) + IR-PME (art. 199 terdecies) + LMNP micro-BIC + LMNP régime réel\n" +
+        "  + emploi à domicile crédit (art. 199 sexdecies) + frais de garde crédit\n" +
+        "  (art. 200 quater B). It does NOT model: deficits beyond their windows,\n" +
+        "  plafonnement global des avantages fiscaux (10,000 EUR niches cap), TVA\n" +
+        "  régime normal (CA3 mensuel/trimestriel), the full BOFiP PAS formula, or\n" +
+        "  LMNP amortissement tables (record the amortissement as a negative tx in\n" +
+        "  the 'lmnp_reel' stream). Output is an estimate to reason from, not tax\n" +
+        "  advice — say so to the human.\n" +
         "\n" +
         "## Brian — the cheap copilote (no inference in the platform)\n" +
         "  Brian is a PERSONA, not a service: install it into the harness your human\n" +

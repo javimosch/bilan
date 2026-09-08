@@ -143,12 +143,14 @@ func llms_txt() (t) {
         "6. the radar: bilan stats --year 2026 && bilan tax --year 2026\n" +
         "   (radar = regime math + progressive IR barème + plafonnement QF (situation-aware)\n" +
         "    + décote + 10% frais per salary stream + BNC/BIC/LMNP deficit carry-forward 6y\n" +
-        "    + déficit foncier 10700 on global / 10y on foncier (micro + réel) + TVA franchise\n" +
-        "    + TVA régime simplifié eligibility + TVA collectée/déductible (à payer / crédit)\n" +
-        "    + PAS taux neutre + taux personnalisé + dons art. 200 + PINEL/DENORMANDIE\n" +
-        "    art. 199 novovicies + MALRAUX art. 199 tervicies + CENSI-BOUVARD art. 199\n" +
-        "    sexvicies + LMNP micro-BIC + LMNP régime réel + emploi à domicile\n" +
-        "    art. 199 sexdecies; 2025 barème on 2024 income)\n" +
+        "    + déficit foncier 10700 on global / 10y on foncier (micro + réel) + pension\n" +
+        "    alimentaire deduction (art. 156) + TVA franchise + TVA régime simplifié\n" +
+        "    eligibility + TVA collectée/déductible (à payer / crédit) + PAS taux neutre\n" +
+        "    + taux personnalisé + dons art. 200 + PINEL/DENORMANDIE art. 199 novovicies\n" +
+        "    + MALRAUX art. 199 tervicies + CENSI-BOUVARD art. 199 sexvicies + scolarité\n" +
+        "    art. 199 quater F + IR-PME art. 199 terdecies + LMNP micro-BIC + LMNP régime\n" +
+        "    réel + emploi à domicile art. 199 sexdecies + frais de garde art. 200\n" +
+        "    quater B (crédits); 2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +
         "bilan ships a persona: `bilan brian` prints it — install into your harness\n" +

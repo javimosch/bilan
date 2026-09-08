@@ -398,6 +398,86 @@ ok "tva credit (collectee < deductible)" 200000 "$(jq -r .tva.credit_cents <<<"$
 ok "tva a payer (zero when credit)" 0 "$(jq -r .tva.a_payer_cents <<<"$r")"
 rm -f "$TCDB"
 
+# --- Frais de garde d'enfants (art. 200 quater B): 50% crédit, cap 3500/child ---
+# 4000 dépenses -> cap 3500 -> 50% = 1750 EUR credit = 175000 cents
+FGDB="$(mktemp -u /tmp/bilan-fg-XXXXXX.db)"
+BILAN_DB="$FGDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$FGDB" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$FGDB" $BIN stream add garde --kind frais_garde >/dev/null
+BILAN_DB="$FGDB" $BIN tx add garde 2026-06-30 4000 >/dev/null
+r=$(BILAN_DB="$FGDB" $BIN tax --year 2026)
+ok "frais_garde 50% cap 3500" 175000 "$(jq -r .reductions.frais_garde.credit_cents <<<"$r")"
+ok "frais_garde ir credit" 175000 "$(jq -r .ir.frais_garde_credit_cents <<<"$r")"
+rm -f "$FGDB"
+
+# --- Frais de garde under cap: 2000 -> 50% = 1000 ---
+FGDB2="$(mktemp -u /tmp/bilan-fg2-XXXXXX.db)"
+BILAN_DB="$FGDB2" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$FGDB2" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$FGDB2" $BIN stream add garde --kind frais_garde >/dev/null
+BILAN_DB="$FGDB2" $BIN tx add garde 2026-06-30 2000 >/dev/null
+r=$(BILAN_DB="$FGDB2" $BIN tax --year 2026)
+ok "frais_garde 50% under cap" 100000 "$(jq -r .reductions.frais_garde.credit_cents <<<"$r")"
+rm -f "$FGDB2"
+
+# --- Scolarité (art. 199 quater F): forfaitaire passthrough ---
+# 1 child collège (61) + 1 lycée (153) + 1 supérieur (183) = 397 EUR = 39700 cents
+SCDB="$(mktemp -u /tmp/bilan-scol-XXXXXX.db)"
+BILAN_DB="$SCDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$SCDB" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$SCDB" $BIN stream add ecole --kind scolarite >/dev/null
+BILAN_DB="$SCDB" $BIN tx add ecole 2026-06-30 397 >/dev/null
+r=$(BILAN_DB="$SCDB" $BIN tax --year 2026)
+ok "scolarite passthrough 397" 39700 "$(jq -r .reductions.scolarite.reduction_cents <<<"$r")"
+ok "scolarite ir reduction" 39700 "$(jq -r .ir.scolarite_reduction_cents <<<"$r")"
+rm -f "$SCDB"
+
+# --- Pension alimentaire (art. 156 II.2°): deduction from ir_base, cap 6794 ---
+# 5000 salary -> 45000 net; pension 5000 -> cap 6794 -> 5000 deducted from base
+# base = 45000 - 5000 = 40000 EUR = 4000000 cents
+PADB="$(mktemp -u /tmp/bilan-pa-XXXXXX.db)"
+BILAN_DB="$PADB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$PADB" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$PADB" $BIN stream add pens --kind pension_alimentaire >/dev/null
+BILAN_DB="$PADB" $BIN tx add pens 2026-06-30 5000 >/dev/null
+r=$(BILAN_DB="$PADB" $BIN tax --year 2026)
+ok "pension deduction 5000" 500000 "$(jq -r .ir.pension_alimentaire_deduction_cents <<<"$r")"
+ok "pension reduces ir_base" 4000000 "$(jq -r .ir.base_cents <<<"$r")"
+rm -f "$PADB"
+
+# --- Pension alimentaire above cap: 10000 -> cap 6794 ---
+PADB2="$(mktemp -u /tmp/bilan-pa2-XXXXXX.db)"
+BILAN_DB="$PADB2" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$PADB2" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$PADB2" $BIN stream add pens --kind pension_alimentaire >/dev/null
+BILAN_DB="$PADB2" $BIN tx add pens 2026-06-30 10000 >/dev/null
+r=$(BILAN_DB="$PADB2" $BIN tax --year 2026)
+ok "pension capped at 6794" 679400 "$(jq -r .ir.pension_alimentaire_deduction_cents <<<"$r")"
+rm -f "$PADB2"
+
+# --- IR-PME / Madelin (art. 199 terdecies-0 A): 18% cap 50000 ---
+# 10000 versements -> 18% = 1800 EUR = 180000 cents
+PMEDB="$(mktemp -u /tmp/bilan-pme-XXXXXX.db)"
+BILAN_DB="$PMEDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$PMEDB" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$PMEDB" $BIN stream add inv --kind ir_pme >/dev/null
+BILAN_DB="$PMEDB" $BIN tx add inv 2026-06-30 10000 >/dev/null
+r=$(BILAN_DB="$PMEDB" $BIN tax --year 2026)
+ok "ir_pme 18% rate" "18" "$(jq -r .reductions.ir_pme.rate_pct <<<"$r")"
+ok "ir_pme 18% reduction" 180000 "$(jq -r .reductions.ir_pme.reduction_cents <<<"$r")"
+ok "ir_pme ir reduction" 180000 "$(jq -r .ir.ir_pme_reduction_cents <<<"$r")"
+rm -f "$PMEDB"
+
+# --- IR-PME above cap: 100000 -> cap 50000 -> 18% = 9000 ---
+PMEDB2="$(mktemp -u /tmp/bilan-pme2-XXXXXX.db)"
+BILAN_DB="$PMEDB2" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$PMEDB2" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$PMEDB2" $BIN stream add inv --kind ir_pme >/dev/null
+BILAN_DB="$PMEDB2" $BIN tx add inv 2026-06-30 100000 >/dev/null
+r=$(BILAN_DB="$PMEDB2" $BIN tax --year 2026)
+ok "ir_pme capped at 50000" 900000 "$(jq -r .reductions.ir_pme.reduction_cents <<<"$r")"
+rm -f "$PMEDB2"
+
 # --- deficits carried forward (BNC: prior-year loss offsets current-year gross) ---
 DFDB="$(mktemp -u /tmp/bilan-deficit-XXXXXX.db)"
 BILAN_DB="$DFDB" $BIN stream add biz --kind bnc >/dev/null
