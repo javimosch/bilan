@@ -134,6 +134,43 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dons', 'rate_75_cap_cents', '100000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dons', 'rate_66_pct_tenths', '660')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dons', 'rate_66_cap_revenu_pct_tenths', '200')", []string{y})
+    // QF special caps — plafonnement par situation (art. 197 CGI). The default cap
+    // is 1,791 EUR per demi-part (seeded above). Special situations have different
+    // caps, selected by the 'situation' rule on ir_bareme:
+    //   default                -> 1791 per demi-part (the common case)
+    //   parent_isole           -> 4,262 EUR total cap on the parent-isolé majoration
+    //                             (the whole-part for the 1st child, art. 197 IV CGI)
+    //   veuf                   -> 1,807 EUR per demi-part + 2,011 EUR complementary
+    //                             reduction for the first 2 demi-parts (art. 197 V CGI)
+    //   personne_seule_invalide-> 3,608 EUR for the single demi-part (1,807 + 1,801
+    //                             complementary, anciens combattants/invalides)
+    // Source: service-public.gouv.fr F35120, F35127, F2702; BOFiP BOI-IR-LIQ-20-20-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'situation', 'default')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'qf_parent_isole_cap_cents', '426200')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'qf_veuf_cap_per_demi_part_cents', '180700')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'qf_veuf_complementary_cents', '201100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ir_bareme', 'qf_personne_seule_invalide_cap_cents', '360800')", []string{y})
+    // Crédit d'impôt emploi à domicile (art. 199 sexdecies CGI). 50% of dépenses,
+    // plafond 12,000 EUR (+1,500 EUR per child/aged member, max 15,000 EUR). This is
+    // a CRÉDIT (refundable if it exceeds IR), not a réduction. Record dépenses as
+    // negative txs in an 'emploi_domicile' stream. Source: impots.gouv.fr/particulier/
+    // emploi-domicile, BOFiP BOI-IR-RICI-150.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'emploi_domicile', 'rate_pct_tenths', '500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'emploi_domicile', 'cap_cents', '1200000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'emploi_domicile', 'majoration_per_personne_cents', '150000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'emploi_domicile', 'cap_total_cents', '1500000')", []string{y})
+    // Réduction d'impôt PINEL (art. 199 novovicies CGI). Dispositif ended 31/12/2024
+    // but existing engagements continue. Rates by engagement duration: 12% (6y),
+    // 18% (9y), 21% (12y) on the investment, capped at 300,000 EUR / 5,500 EUR per m².
+    // The reduction is spread over the duration (2% per year for 6y, etc.). Record
+    // the investment amount as a positive tx in a 'pinel' stream; the engagement
+    // duration is set via 'pinel_engagement_years' rule (default 9). Source:
+    // service-public.gouv.fr F31151, BOFiP BOI-IR-RICI-360.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pinel', 'rate_6y_pct_tenths', '120')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pinel', 'rate_9y_pct_tenths', '180')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pinel', 'rate_12y_pct_tenths', '210')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pinel', 'cap_investment_cents', '30000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pinel', 'engagement_years', '9')", []string{y})
 }
 
 type Rulevalrow struct { value string }
@@ -147,6 +184,16 @@ func rule_int(db, year, regime, param, dflt) (v) {
     if rows == "" || rows == "[]" { return v }
     parsed := parse(rows, []Rulevalrow{})
     if len(parsed) > 0 { v = parse_int(parsed[0].value) }
+}
+
+// rule_str — string-valued tax rule (e.g. situation = "parent_isole"). Same lookup
+// as rule_int but returns the raw string. dflt when absent.
+func rule_str(db, year, regime, param, dflt) (v) {
+    v = dflt
+    rows := sqlite_query(db, "SELECT value FROM tax_rules WHERE year=CAST(? AS INTEGER) AND regime=? AND param=?", []string{str(year), regime, param})
+    if rows == "" || rows == "[]" { return v }
+    parsed := parse(rows, []Rulevalrow{})
+    if len(parsed) > 0 { v = parsed[0].value }
 }
 
 // current_year — the default tax year (local time; a French filer thinks in local years).

@@ -199,6 +199,72 @@ ok "ir after dons reduction" 558548 "$(jq -r .ir.ir_after_reductions_cents <<<"$
 ok "totals ir = ir_after_reductions" 558548 "$(jq -r .totals.ir_cents <<<"$r")"
 rm -f "$DONDB"
 
+# --- QF special caps (parent_isole, veuf, personne_seule_invalide) ---
+# High income (200k salary -> 180k net), 3 demi-parts (1 part + 1 child), base_parts=1.
+# The plafonnement caps differ by situation; all should trigger qf_capped=true.
+QFDB="$(mktemp -u /tmp/bilan-qf-XXXXXX.db)"
+BILAN_DB="$QFDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$QFDB" $BIN tx add sal 2026-06-30 200000 >/dev/null
+BILAN_DB="$QFDB" $BIN rule set 2026 ir_bareme demi_parts 3 >/dev/null
+# default: cap = 1 × 1791 = 1791 -> IR = IR_base - 1791
+r=$(BILAN_DB="$QFDB" $BIN tax --year 2026)
+ok "qf default situation" default "$(jq -r .ir.situation <<<"$r")"
+ok "qf default capped" true "$(jq -r .ir.qf_capped <<<"$r")"
+ir_default=$(jq -r .ir.ir_cents <<<"$r")
+# parent_isole: cap = 4262 total -> IR = IR_base - 4262 (lower than default)
+BILAN_DB="$QFDB" $BIN rule set 2026 ir_bareme situation parent_isole >/dev/null
+r=$(BILAN_DB="$QFDB" $BIN tax --year 2026)
+ok "qf parent_isole situation" parent_isole "$(jq -r .ir.situation <<<"$r")"
+ok "qf parent_isole capped" true "$(jq -r .ir.qf_capped <<<"$r")"
+ok "qf parent_isole IR < default" true "$(jq -r '.ir.ir_cents < '$ir_default <<<"$r")"
+# diff = 4262 - 1791 = 2471 EUR = 247100 cents
+ok "qf parent_isole saves 2471 vs default" 247100 "$(( ir_default - $(jq -r .ir.ir_cents <<<"$r") ))"
+# veuf: cap = 1 × 1807 + 2011 = 3818 -> IR = IR_base - 3818
+BILAN_DB="$QFDB" $BIN rule set 2026 ir_bareme situation veuf >/dev/null
+r=$(BILAN_DB="$QFDB" $BIN tax --year 2026)
+ok "qf veuf situation" veuf "$(jq -r .ir.situation <<<"$r")"
+ok "qf veuf capped" true "$(jq -r .ir.qf_capped <<<"$r")"
+# diff = 3818 - 1791 = 2027 EUR = 202700 cents
+ok "qf veuf saves 2027 vs default" 202700 "$(( ir_default - $(jq -r .ir.ir_cents <<<"$r") ))"
+# personne_seule_invalide: cap = 3608 -> IR = IR_base - 3608
+BILAN_DB="$QFDB" $BIN rule set 2026 ir_bareme situation personne_seule_invalide >/dev/null
+r=$(BILAN_DB="$QFDB" $BIN tax --year 2026)
+ok "qf personne_seule_invalide situation" personne_seule_invalide "$(jq -r .ir.situation <<<"$r")"
+# diff = 3608 - 1791 = 1817 EUR = 181700 cents
+ok "qf invalide saves 1817 vs default" 181700 "$(( ir_default - $(jq -r .ir.ir_cents <<<"$r") ))"
+rm -f "$QFDB"
+
+# --- emploi à domicile crédit (art. 199 sexdecies: 50%, cap 12000) ---
+EDDB="$(mktemp -u /tmp/bilan-ed-XXXXXX.db)"
+BILAN_DB="$EDDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$EDDB" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$EDDB" $BIN stream add menage --kind emploi_domicile >/dev/null
+BILAN_DB="$EDDB" $BIN tx add menage 2026-06-30 -10000 >/dev/null
+r=$(BILAN_DB="$EDDB" $BIN tax --year 2026)
+# 10000 depenses, 50% -> 5000 credit (under 12000 cap)
+ok "emploi depenses" 1000000 "$(jq -r .reductions.emploi_domicile.depenses_cents <<<"$r")"
+ok "emploi credit 50%" 500000 "$(jq -r .reductions.emploi_domicile.credit_cents <<<"$r")"
+# IR was 666548; after 5000 EUR (500000 cents) credit -> 166548 (refundable credit reduces IR)
+ok "emploi credit reduces IR" 166548 "$(jq -r .ir.ir_after_credit_cents <<<"$r")"
+ok "totals ir = ir_after_credit" 166548 "$(jq -r .totals.ir_cents <<<"$r")"
+rm -f "$EDDB"
+
+# --- PINEL réduction (art. 199 novovicies: 18% 9y, cap 300000) ---
+PNDB="$(mktemp -u /tmp/bilan-pn-XXXXXX.db)"
+BILAN_DB="$PNDB" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$PNDB" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$PNDB" $BIN stream add invest --kind pinel >/dev/null
+BILAN_DB="$PNDB" $BIN tx add invest 2026-06-30 200000 >/dev/null
+r=$(BILAN_DB="$PNDB" $BIN tax --year 2026)
+# 200000 investment, 9y -> 18% / 9 = 2% per year = 4000
+ok "pinel investment" 20000000 "$(jq -r .reductions.pinel.investment_cents <<<"$r")"
+ok "pinel engagement 9y" 9 "$(jq -r .reductions.pinel.engagement_years <<<"$r")"
+ok "pinel rate 18%" "18" "$(jq -r .reductions.pinel.rate_pct <<<"$r")"
+ok "pinel annual reduction 4000" 400000 "$(jq -r .reductions.pinel.annual_reduction_cents <<<"$r")"
+# IR was 666548; after 4000 EUR (400000 cents) pinel reduction -> 266548
+ok "pinel reduces IR" 266548 "$(jq -r .ir.ir_after_reductions_cents <<<"$r")"
+rm -f "$PNDB"
+
 # --- deficits carried forward (BNC: prior-year loss offsets current-year gross) ---
 DFDB="$(mktemp -u /tmp/bilan-deficit-XXXXXX.db)"
 BILAN_DB="$DFDB" $BIN stream add biz --kind bnc >/dev/null

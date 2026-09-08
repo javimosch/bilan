@@ -125,18 +125,41 @@ func guide_text(base) (t) {
         "                      then 66% up to 20% of revenu imposable. Record dons as\n" +
         "                      negative txs in a 'dons' stream. Source: BOFiP\n" +
         "                      BOI-IR-RICI-250-30, impots.gouv.fr.\n" +
+        "  QF special caps:    plafonnement par situation (art. 197 IV/V CGI). Set the\n" +
+        "                      'situation' rule on ir_bareme: default (1,791 EUR/demi-\n" +
+        "                      part), parent_isole (4,262 EUR total cap), veuf (1,807\n" +
+        "                      EUR/demi-part + 2,011 EUR complementary), personne_seule_\n" +
+        "                      invalide (3,608 EUR for the single demi-part). Source:\n" +
+        "                      service-public.gouv.fr F35120/F35127/F2702, BOFiP\n" +
+        "                      BOI-IR-LIQ-20-20-20.\n" +
+        "  emploi à domicile:  crédit d'impôt (art. 199 sexdecies CGI) — 50% of dépenses,\n" +
+        "                      plafond 12,000 EUR (+1,500 EUR per personne à charge, max\n" +
+        "                      15,000 EUR). Record dépenses as negative txs in an\n" +
+        "                      'emploi_domicile' stream. This is a CRÉDIT (refundable if\n" +
+        "                      it exceeds IR), not a réduction. Source: impots.gouv.fr,\n" +
+        "                      BOFiP BOI-IR-RICI-150.\n" +
+        "  PINEL:              réduction d'impôt (art. 199 novovicies CGI) — 12% (6y),\n" +
+        "                      18% (9y), 21% (12y) on the investment, capped at 300,000\n" +
+        "                      EUR. The annual reduction = investment × rate / years.\n" +
+        "                      Record the investment as a positive tx in a 'pinel'\n" +
+        "                      stream; set the engagement via 'engagement_years' rule.\n" +
+        "                      Dispositif ended 31/12/2024 but existing engagements\n" +
+        "                      continue. Source: service-public.gouv.fr F31151, BOFiP\n" +
+        "                      BOI-IR-RICI-360.\n" +
         "  Override any of them: bilan rule set 2027 micro_bnc deduction_pct_tenths 340\n" +
         "  (rates are DECIPERCENT tenths: 340 = 34.0%; all math is integer cents)\n" +
         "\n" +
         "## What the radar is NOT\n" +
-        "  It computes regime math + the progressive IR barème + plafonnement QF +\n" +
-        "  décote + 10% frais per salary stream + BNC/BIC deficit carry-forward (6y) +\n" +
-        "  déficit foncier imputation (10700 on global, 10y on foncier) + TVA franchise\n" +
-        "  check + PAS taux neutre estimate + dons reduction (art. 200). It does NOT\n" +
-        "  model: deficits beyond their windows, the parent-isolé / veuf QF caps\n" +
-        "  (4224 / 1069 EUR), intérêts d'emprunt tracking separately, emploi à domicile\n" +
-        "  / PINEL / other réductions d'impôt, or the personalized PAS rate. Output is\n" +
-        "  an estimate to reason from, not tax advice — say so to the human.\n" +
+        "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
+        "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC deficit\n" +
+        "  carry-forward (6y) + déficit foncier imputation (10700 on global, 10y on\n" +
+        "  foncier) + TVA franchise check + PAS taux neutre estimate + dons reduction\n" +
+        "  (art. 200) + PINEL reduction (art. 199 novovicies) + emploi à domicile\n" +
+        "  crédit (art. 199 sexdecies). It does NOT model: deficits beyond their\n" +
+        "  windows, intérêts d'emprunt tracking separately, other réductions/crédits\n" +
+        "  d'impôt (DENORMANDIE, MALRAUX, LMNP réel, etc.), or the personalized PAS\n" +
+        "  rate. Output is an estimate to reason from, not tax advice — say so to the\n" +
+        "  human.\n" +
         "\n" +
         "## Brian — the cheap copilote (no inference in the platform)\n" +
         "  Brian is a PERSONA, not a service: install it into the harness your human\n" +
