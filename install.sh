@@ -24,11 +24,11 @@ if curl -fsSL "$url" -o "$tmp" 2>/dev/null && [ -s "$tmp" ]; then
         want=$(grep "  ${asset}\$" "$sums" | awk '{print $1}')
         got=$(sha256sum "$tmp" | awk '{print $1}')
         if [ -n "$want" ] && [ "$want" != "$got" ]; then
-            echo "✗ checksum mismatch for ${asset}: expected ${want:0:12}…, got ${got:0:12}… — refusing to install" >&2
+            echo "✗ checksum mismatch for ${asset}: expected $(echo "$want" | cut -c1-12)…, got $(echo "$got" | cut -c1-12)… — refusing to install" >&2
             rm -f "$tmp" "$sums"
             exit 1
         fi
-        echo "✓ sha256 verified (${got:0:12}…)"
+        echo "✓ sha256 verified ($(echo "$got" | cut -c1-12)…)"
     else
         echo "warning: no SHA256SUMS.txt at this release — installed without checksum verification" >&2
     fi
