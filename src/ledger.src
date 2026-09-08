@@ -72,6 +72,8 @@ func tx_add(db, stream_q, date, amount, label, source, ext_in) (out, code, err) 
     if date_ok(date) == 0 { return "", 80, "bad date \"" + date + "\" — want YYYY-MM-DD" }
     if parse_cents_ok(amount) == 0 { return "", 80, "bad amount \"" + amount + "\" — want a number, e.g. 1234.56 or -12" }
     cents := parse_cents(amount)
+    if cents == 0 { return "", 80, "zero-amount tx — a 0.00 line carries no information; skip it in the source export" }
+    if date > today_str() { return "", 80, "future-dated tx (" + date + " > today " + today_str() + ") — the ledger records realized events, not plans" }
     if source == "" { source = "manual" }
     ext := ext_in
     if ext == "" { ext = "manual:" + date + ":" + str(cents) + ":" + label }
@@ -173,9 +175,10 @@ func import_csv(db, source, body, stream_q) (out, code, err) {
         amtc := ""
         if amtcol < len(cells) { amtc = trim(cells[amtcol]) }
         if d == "" || parse_cents_ok(amtc) == 0 { skipped = skipped + 1  i = i + 1  continue }
+        cents := parse_cents(amtc)
+        if cents == 0 || d > today_str() { skipped = skipped + 1  i = i + 1  continue }
         label := ""
         if labcol >= 0 && labcol < len(cells) { label = trim(cells[labcol]) }
-        cents := parse_cents(amtc)
         ext := source + ":" + d + ":" + str(cents) + ":" + label
         sqlite_exec(db, "INSERT OR IGNORE INTO txs(id,stream_id,date,cents,label,source,ext_id,created) VALUES(?,?,?,?,?,?,?,?)", []string{to_hex(rand_bytes(8)), sid, d, str(cents), label, source, ext, str(now_ms())})
         if changes_n(db) > 0 { inserted = inserted + 1 } else { skipped = skipped + 1 }
@@ -260,6 +263,14 @@ func stats_json(db, year) (out, code, err) {
 // comes from tax_rules (rule_int), never from code, so a loi de finances change is an
 // UPDATE, not a release. Estimates only — the IR barème (progressive) is out of scope.
 func tax_json(db, year) (out, code, err) {
+    // a deterministic tool must never answer with the wrong year's rates: if no
+    // rate card exists for the requested year, error instead of silently falling
+    // back to the seeded defaults (a cold agent would trust the plausible JSON).
+    nrows := sqlite_query(db, "SELECT COUNT(*) AS n FROM tax_rules WHERE year=CAST(? AS INTEGER)", []string{year})
+    nr := parse(nrows, []Countrow{})
+    if len(nr) == 0 || nr[0].n == 0 {
+        return "", 94, "no rate card for year " + year + " (seeded: " + str(current_year()) + ") — add one first: bilan rule set " + year + " micro_bnc deduction_pct_tenths 340"
+    }
     kinds := kind_sums(db, year+"-01-01", year+"-12-31")
     g_bnc := kind_get(kinds, "bnc")
     g_bic := kind_get(kinds, "bic")

@@ -169,7 +169,9 @@ func cmd_feedback(a) {
     if stored == 1 { st = "true" }
     rl := "false"
     if relayed == 1 { rl = "true" }
-    say("{\"ok\":true,\"id\":\"" + id + "\",\"stored\":" + st + ",\"relayed\":" + rl + "}")
+    note := ""
+    if stored == 0 && relayed == 1 { note = ",\"note\":\"the app endpoint is not configured yet — your feedback reached the central relay (feedback.intrane.fr), the operator reads it there\"" }
+    say("{\"ok\":true,\"id\":\"" + id + "\",\"stored\":" + st + ",\"relayed\":" + rl + note + "}")
 }
 
 // ── Brian: moves + the daily brief ──────────────────────────────────────────

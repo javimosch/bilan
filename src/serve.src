@@ -134,10 +134,27 @@ func llms_txt() (t) {
         "Agent-first financial ledger + tax radar for professionnels pluri-actifs.\n" +
         "No LLM inside by design: bilan stores and computes; your agent reasons.\n" +
         "\n" +
+        "## Cold start (60 seconds)\n" +
+        "1. install: curl -fsSL https://raw.githubusercontent.com/javimosch/bilan/master/install.sh | sh\n" +
+        "2. learn: bilan guide (the full operator reference, also GET /guide)\n" +
+        "3. catalog: bilan help-json (18 commands, exit codes 0/80s/93/94/100/110)\n" +
+        "4. demo data: bilan stream add freelance --kind bnc; bilan tx add freelance 2026-01-15 1200 --label demo\n" +
+        "5. the radar: bilan stats --year 2026 && bilan tax --year 2026\n" +
+        "\n" +
+        "## The copilote loop (Brian)\n" +
+        "bilan ships a persona: `bilan brian` prints it — install into your harness\n" +
+        "(CLAUDE.md / AGENTS.md / system prompt) and you become the financial copilote.\n" +
+        "Rules it installs: never invent a number (only bilan output), max 3 moves/day,\n" +
+        "each Action + Pourquoi + Impact, French, not an advisor.\n" +
+        "  bilan brief  -> the morning digest: tax provision, stream momentum, pending moves\n" +
+        "  bilan move add --kind controle|securite|construction|patrimoine --action A --pourquoi P --impact I\n" +
+        "  the human approves on GET /app (hosted: paste token once at /app/login)\n" +
+        "\n" +
         "- Full operator reference: GET /guide (or run `bilan guide`)\n" +
         "- Command catalog: `bilan help-json`\n" +
         "- Output contract: stdout=JSON data, stderr=errors, exit 0/80s/90s/100s/110s\n" +
-        "- Endpoints: /v1/streams, /v1/tx, /v1/import, /v1/stats, /v1/tax (Bearer token)\n"
+        "- Endpoints: /v1/streams, /v1/tx, /v1/import, /v1/stats, /v1/tax, /v1/brief,\n" +
+        "  /v1/moves (Bearer token; 50 gift calls per tenant, then 1 peage cent/call)\n"
 }
 
 // api — the /v1/* router. GETs render the same JSON the CLI prints; POSTs parse a
