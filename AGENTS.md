@@ -71,6 +71,15 @@ command surface — an agent running an old binary must not discover a stale sur
   goroutine-per-connection).
 - `parse_int`/`read_file`/`write_file` are builtins; `sqlite_query` returns a JSON
   array string — decode with `parse(rows, []Row{})`.
+- **`sqlite_exec`'s return value is NOT "rows affected"** — it can be 0 on a successful
+  INSERT. To detect an INSERT OR IGNORE collision, query `SELECT changes() AS n`
+  immediately after (see `changes_n` in ledger.src).
+- **`time_fields` takes SECONDS** (a unix timestamp), not millis — `time_fields(now_ms()/1000)`.
+  Passing now_ms() raw yields a garbage year (58656).
+- **`req.path` is the full request-URI** — machweb keeps the `?query` on it. Route-match
+  on `path_only(req.path)` (see serve.src), and read params with `query(req, name)`.
+- MFL vars are **function-scoped** — no `:=` shadowing; every branch needs its own names.
+- `parse()` does not unescape `\uXXXX`; no `\uXXXX` in string literals (raw UTF-8 is fine).
 
 ## Release
 
