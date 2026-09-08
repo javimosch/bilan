@@ -1,6 +1,7 @@
 build/
-bilan
+/bilan
 bilan.mfl
+bilan-linux-x64
 *.db
 *.db-journal
 *.db-wal
