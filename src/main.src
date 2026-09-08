@@ -22,6 +22,13 @@ func main() {
     if cmd == "feedback" { cmd_feedback(a); return }
     if cmd == "update" || cmd == "selfupdate" { cmd_update(); return }
     if cmd == "serve" { cmd_serve(a); return }
+    // hosted mode: BILAN_URL set => domain commands hit the hosted API instead of a
+    // local ledger. A 402 carries the pay object — print it so the agent can hand
+    // the top-up link to its human.
+    if env("BILAN_URL") != "" {
+        h := hosted_forward(cmd, a)
+        if h == 1 { return }
+    }
     db := opendb()
     if cmd == "stream" { cmd_stream(db, a); sqlite_close(db); return }
     if cmd == "tx" { cmd_tx(db, a); sqlite_close(db); return }
@@ -166,6 +173,65 @@ func cmd_feedback(a) {
 func post_fb(url, payload) (ok) {
     status, resp, err := http_request("POST", url, []string{"content-type: application/json"}, payload)
     if err == "" { if status == 200 { ok = 1 } }
+}
+
+// hosted_forward — proxy one domain command to the hosted API (BILAN_URL + bearer
+// BILAN_TOKEN). Returns 1 when it handled the command (the process is done either way:
+// success prints the body on stdout, failures print JSON on stderr + exit 100).
+func hosted_forward(cmd, a) (handled) {
+    handled = 0
+    base := env("BILAN_URL")
+    tok := env("BILAN_TOKEN")
+    hd := []string{"authorization: Bearer " + tok, "content-type: application/json"}
+    method := ""
+    path := ""
+    body := ""
+    if cmd == "stream" {
+        sub := ""
+        if len(a) >= 3 { sub = a[2] }
+        if sub == "add" {
+            if len(a) < 4 { die(80, "usage: bilan stream add <name> --kind <k>") }
+            method = "POST"  path = "/v1/streams"
+            body = "{\"name\":" + json(a[3]) + ",\"kind\":" + json(flagv(a, "--kind", "")) + ",\"currency\":" + json(flagv(a, "--currency", "EUR")) + "}"
+        } else { method = "GET"  path = "/v1/streams" }
+    }
+    if cmd == "tx" {
+        sub := ""
+        if len(a) >= 3 { sub = a[2] }
+        if sub == "add" {
+            if len(a) < 6 { die(80, "usage: bilan tx add <stream> <YYYY-MM-DD> <amount> [--label L]") }
+            method = "POST"  path = "/v1/tx"
+            body = "{\"stream\":" + json(a[3]) + ",\"date\":" + json(a[4]) + ",\"amount\":" + json(a[5]) + ",\"label\":" + json(flagv(a, "--label", "")) + "}"
+        } else {
+            method = "GET"
+            path = "/v1/tx?stream=" + url_encode(flagv(a, "--stream", "")) + "&year=" + url_encode(flagv(a, "--year", "")) + "&limit=" + url_encode(flagv(a, "--limit", "50"))
+        }
+    }
+    if cmd == "import" {
+        if len(a) < 5 { die(80, "usage: bilan import <source> <file|-> --stream S") }
+        fbody := ""
+        if a[3] == "-" { fbody = read_stdin() } else { fbody = read_file(a[3]) }
+        method = "POST"  path = "/v1/import"
+        body = "{\"source\":" + json(a[2]) + ",\"csv\":" + json(fbody) + ",\"stream\":" + json(flagv(a, "--stream", "")) + "}"
+    }
+    if cmd == "stats" { method = "GET"  path = "/v1/stats?year=" + url_encode(flagv(a, "--year", "")) }
+    if cmd == "tax" { method = "GET"  path = "/v1/tax?year=" + url_encode(flagv(a, "--year", "")) }
+    if cmd == "rule" {
+        sub := ""
+        if len(a) >= 3 { sub = a[2] }
+        if sub == "set" {
+            if len(a) < 7 { die(80, "usage: bilan rule set <year> <regime> <param> <value>") }
+            method = "POST"  path = "/v1/rules"
+            body = "{\"year\":" + json(a[3]) + ",\"regime\":" + json(a[4]) + ",\"param\":" + json(a[5]) + ",\"value\":" + json(a[6]) + "}"
+        } else { method = "GET"  path = "/v1/rules?year=" + url_encode(flagv(a, "--year", "")) }
+    }
+    if method == "" { return handled }
+    st, pbody, herr := http_request(method, base + path, hd, body)
+    if herr != "" { write(2, "{\"ok\":false,\"error\":\"hosted unreachable: " + esc(herr) + "\"}\n")  exit(100) }
+    if st == 402 { write(2, pbody + "\n")  exit(100) }
+    if st >= 400 { write(2, pbody + "\n")  exit(100) }
+    say(pbody)
+    handled = 1
 }
 
 // ── help surfaces ───────────────────────────────────────────────────────────

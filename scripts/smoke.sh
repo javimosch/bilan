@@ -114,5 +114,37 @@ sleep 0.4
 if kill -0 $SPID 2>/dev/null; then F=$((F+1)); echo "FAIL: server did not exit after /_shutdown"; else P=$((P+1)); fi
 rm -f /tmp/smoke-serve.out /tmp/smoke-serve.err
 
+# --- hosted PAYG (gift credit, then 402 with the peage pay object) -----------
+HOMEDIR=$(mktemp -d)
+HPORT=$(( 12000 + RANDOM % 20000 ))
+HOME="$HOMEDIR" BILAN_HOSTED=1 BILAN_GIFT_CALLS=3 BILAN_TOKEN=optoken $BIN serve --port "$HPORT" >/tmp/smoke-hosted.out 2>/tmp/smoke-hosted.err &
+HPID=$!
+sleep 0.4
+code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer tenant-a" http://127.0.0.1:$HPORT/v1/stats)
+ok "hosted gift call 1 -> 200" 200 "$code"
+code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer tenant-a" http://127.0.0.1:$HPORT/v1/streams)
+ok "hosted gift call 2 -> 200" 200 "$code"
+code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer tenant-a" http://127.0.0.1:$HPORT/v1/tx)
+ok "hosted gift call 3 -> 200" 200 "$code"
+r=$(curl -s -H "Authorization: Bearer tenant-a" http://127.0.0.1:$HPORT/v1/stats)
+ok "gift exhausted -> 402 pay object" peage "$(jq -r .pay.rail <<<"$r")"
+ok "  ...price on the pay object" 1 "$(jq -r .pay.price_cents <<<"$r")"
+# CLI hosted mode: same agent surface against the hosted API (fresh tenant, 3 gift calls)
+export BILAN_URL=http://127.0.0.1:$HPORT BILAN_TOKEN=cli-tenant
+r=$($BIN stream add hosted --kind bnc)
+ok "cli hosted stream add" true "$(jq -r .ok <<<"$r")"
+r=$($BIN tx add hosted 2026-01-15 100 --label x)
+ok "cli hosted tx add" 10000 "$(jq -r .cents <<<"$r")"
+r=$($BIN stats --year 2026)
+okre "cli hosted stats" '"ok":true' "$r"
+code=$($BIN tax --year 2026 >/dev/null 2>/tmp/smoke-402.err; echo $?)
+ok "cli post-gift exits 100" 100 "$code"
+ok "cli 402 carries pay link" peage "$(jq -r .pay.rail </tmp/smoke-402.err)"
+unset BILAN_URL BILAN_TOKEN
+curl -sf -X POST -H "Authorization: Bearer optoken" http://127.0.0.1:$HPORT/_shutdown >/dev/null
+sleep 0.4
+if kill -0 $HPID 2>/dev/null; then F=$((F+1)); echo "FAIL: hosted server did not exit"; else P=$((P+1)); fi
+rm -rf "$HOMEDIR" /tmp/smoke-hosted.out /tmp/smoke-hosted.err /tmp/smoke-402.err
+
 echo "smoke: $P passed, $F failed"
 [ "$F" = "0" ]

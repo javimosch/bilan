@@ -1,0 +1,97 @@
+// hosted — the pay-as-you-go layer. No subscriptions: each bearer token is a tenant
+// with its own SQLite ledger; new tenants get a GIFT of free metered calls, and once
+// it expires every /v1/* call costs 1 peage cent, charged to the X-Peage-Wallet the
+// client's agent presents. No wallet (or an empty one) => HTTP 402 with a pay object;
+// the agent hands the top-up link to its human. The OSS local path (BILAN_DB) never
+// touches any of this — local ledgers are free forever.
+
+func hosted_dir() (d) { d = env("HOME") + "/.bilan-hosted" }
+
+// gift_calls — free metered calls per new tenant (the gift credit).
+func gift_calls() (n) {
+    n = 50
+    s := env("BILAN_GIFT_CALLS")
+    if s != "" { n = parse_int(s) }
+}
+
+func hosted_control_db() (db) {
+    dir := hosted_dir()
+    mkdir(dir)
+    dbf := env("BILAN_HOSTED_DB")
+    if dbf == "" { dbf = dir + "/control.db" }
+    db = sqlite_open(dbf)
+    sqlite_exec(db, "PRAGMA busy_timeout=5000", []string{})
+    sqlite_exec(db, "CREATE TABLE IF NOT EXISTS tenants(token TEXT PRIMARY KEY, ws TEXT, calls_used INTEGER DEFAULT 0, created INTEGER)", []string{})
+}
+
+type Tenantrow struct { ws string  calls_used int }
+
+// tenant_ensure — resolve a bearer token to its tenant row, auto-provisioning on
+// first sight (the gift starts counting from the first call). The workspace file is
+// derived from sha256(token) — the token itself never touches the filesystem.
+func tenant_ensure(cdb, tok) (ws, used) {
+    rows := sqlite_query(cdb, "SELECT ws, calls_used FROM tenants WHERE token=?", []string{tok})
+    if rows != "[]" && rows != "" {
+        parsed := parse(rows, []Tenantrow{})
+        if len(parsed) > 0 { ws = parsed[0].ws  used = parsed[0].calls_used  return ws, used }
+    }
+    ws = hosted_dir() + "/ws-" + substr(sha256(tok), 0, 16) + ".db"
+    sqlite_exec(cdb, "INSERT INTO tenants(token,ws,calls_used,created) VALUES(?,?,0,?)", []string{tok, ws, str(now_ms())})
+    used = 0
+}
+
+
+func bump_calls(cdb, tok) {
+    sqlite_exec(cdb, "UPDATE tenants SET calls_used = calls_used + 1 WHERE token=?", []string{tok})
+}
+
+// pay_required — the 402 body. `pay` follows peage's merchant convention and adds
+// the two curl-able endpoints an agent needs: create a wallet (free starter credit
+// = the gift), then top it up (returns a Stripe link for the human).
+func pay_required(msg) (r) {
+    r = response("402 Payment Required", "application/json",
+      "{\"ok\":false,\"error\":\"" + esc(msg) + "\",\"pay\":{\"rail\":\"peage\",\"price_cents\":1,\"header\":\"X-Peage-Wallet\",\"wallet_create\":\"POST https://peage.intrane.fr/v1/wallets\",\"topup\":\"POST https://peage.intrane.fr/v1/topup\",\"note\":\"a new wallet ships with free starter credit (the gift); when it runs out, topup returns a Stripe link for your human\"}}")
+}
+
+// hosted_handle — the hosted front door for one /v1/* request: authenticate the
+// tenant, apply the gift credit, charge peage past the gift, then run the API against
+// the tenant's own ledger. Returns the HTTP response (single value — machweb
+// closures can't multi-assign). Local (non-hosted) mode never calls this.
+func hosted_handle(req) (res) {
+    h := header(req, "authorization")
+    if has_prefix(h, "Bearer ") == false { res = unauthorized()  return res }
+    tok := substr(h, 7, len(h))
+    if tok == "" { res = unauthorized()  return res }
+    cdb := hosted_control_db()
+    tws, used := tenant_ensure(cdb, tok)
+    if used < gift_calls() {
+        bump_calls(cdb, tok)
+        sqlite_close(cdb)
+        res = api(req, tws)
+        return res
+    }
+    // gift spent: charge 1 cent on the caller's peage wallet (X-Peage-Wallet)
+    w := header(req, "x-peage-wallet")
+    if w == "" {
+        sqlite_close(cdb)
+        res = pay_required("gift credit exhausted — send X-Peage-Wallet (a peage wallet token) to pay per call")
+        return res
+    }
+    mkey := env("BILAN_MERCHANT_KEY")
+    if mkey == "" {
+        sqlite_close(cdb)
+        res = pay_required("operator has not configured a peage merchant key — cannot charge; top up your wallet and retry later")
+        return res
+    }
+    idem := "bilan-" + to_hex(rand_bytes(8))
+    body := "{\"wallet_token\":" + json(w) + ",\"amount_cents\":1,\"memo\":\"bilan " + esc(path_only(req.path)) + "\",\"idempotency_key\":\"" + idem + "\"}"
+    st, pbody, herr := http_request("POST", "https://peage.intrane.fr/v1/charge", []string{"authorization: Bearer " + mkey, "content-type: application/json"}, body)
+    if herr != "" || st != 200 {
+        sqlite_close(cdb)
+        res = pay_required("peage charge failed (status " + str(st) + ") — top up your wallet and retry")
+        return res
+    }
+    bump_calls(cdb, tok)
+    sqlite_close(cdb)
+    res = api(req, tws)
+}

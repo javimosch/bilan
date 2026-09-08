@@ -25,8 +25,12 @@ func cmd_serve(a) {
             return ok_json("{\"ok\":true,\"shutdown\":true}")
         }
         if has_prefix(p, "/v1/") {
+            if env("BILAN_HOSTED") == "1" {
+                // hosted: the bearer IS the tenant; gift calls free, then 1 peage cent/call
+                return hosted_handle(req)
+            }
             if auth_ok(req, token) == 0 { return unauthorized() }
-            return api(req)
+            return api(req, dbpath())
         }
         return not_found()
     })
@@ -72,8 +76,8 @@ func llms_txt() (t) {
 // api — the /v1/* router. GETs render the same JSON the CLI prints; POSTs parse a
 // small JSON body. Errors come back as 400/404 with {"ok":false,"error":...}.
 // (MFL vars are function-scoped: every branch gets its own names.)
-func api(req) (res) {
-    db := opendb()
+func api(req, db_path) (res) {
+    db := open_db_at(db_path)
     p := path_only(req.path)
     if p == "/v1/streams" && req.method == "GET" {
         res = ok_json(stream_list_json(db))
@@ -129,6 +133,22 @@ func api(req) (res) {
         res = ok_json(out_x)
         return res
     }
+    if p == "/v1/rules" && req.method == "GET" {
+        year := query(req, "year")
+        out_r, code_r, err_r := rule_list_json(db, year)
+        sqlite_close(db)
+        if err_r != "" { return err_res(code_r, err_r) }
+        res = ok_json(out_r)
+        return res
+    }
+    if p == "/v1/rules" && req.method == "POST" {
+        body_r := parse(req.body, RuleIn{})
+        out_s, code_s, err_s := rule_set(db, body_r.year, body_r.regime, body_r.param, body_r.value)
+        sqlite_close(db)
+        if err_s != "" { return err_res(code_s, err_s) }
+        res = ok_json(out_s)
+        return res
+    }
     sqlite_close(db)
     res = not_found()
 }
@@ -145,3 +165,4 @@ func err_msg_sanitize(msg) (m) { m = msg }
 type StreamIn struct { name string  kind string  currency string }
 type TxIn struct { stream string  date string  amount string  label string }
 type ImportIn struct { source string  csv string  stream string }
+type RuleIn struct { year string  regime string  param string  value string }
