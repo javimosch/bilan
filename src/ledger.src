@@ -1947,6 +1947,75 @@ func tax_json(db, year) (out, code, err) {
             if ifi_cents < 0 { ifi_cents = 0 }
         }
     }
+    // IFI démembrement — article 968 CGI. Default rule: usufruitier
+    // declares pleine propriété (nu-propriétaire declares nothing).
+    // Exception: if démembrement results from specific dispositions
+    // (art. 757/767 Cciv, vente avec réserve d'usufruit, don/legs à
+    // l'État), then split by art. 669 proportions. Source: BOFiP
+    // BOI-PAT-IFI-20-20-30-10.
+    ifi_dem_eligible := rule_int(db, year, "ifi", "demembrement_eligible", 0)
+    ifi_dem_age := rule_int(db, year, "ifi", "demembrement_usufruitier_age", 0)
+    ifi_dem_exception := rule_int(db, year, "ifi", "demembrement_exception", 0)
+    ifi_dem_bien_valeur := rule_int(db, year, "ifi", "demembrement_bien_valeur_cents", 0)
+    ifi_dem_usufruit_pct := 1000
+    ifi_dem_nue_propriete_pct := 0
+    ifi_dem_usufruit_value := ifi_dem_bien_valeur
+    ifi_dem_nue_propriete_value := 0
+    if ifi_dem_eligible == 1 && ifi_dem_bien_valeur > 0 {
+        if ifi_dem_exception == 1 && ifi_dem_age > 0 {
+            // Exception: split by art. 669 proportions by âge usufruitier
+            if ifi_dem_age <= 20 {
+                ifi_dem_usufruit_pct = 900
+                ifi_dem_nue_propriete_pct = 100
+            } else if ifi_dem_age <= 30 {
+                ifi_dem_usufruit_pct = 800
+                ifi_dem_nue_propriete_pct = 200
+            } else if ifi_dem_age <= 40 {
+                ifi_dem_usufruit_pct = 700
+                ifi_dem_nue_propriete_pct = 300
+            } else if ifi_dem_age <= 50 {
+                ifi_dem_usufruit_pct = 600
+                ifi_dem_nue_propriete_pct = 400
+            } else if ifi_dem_age <= 60 {
+                ifi_dem_usufruit_pct = 500
+                ifi_dem_nue_propriete_pct = 500
+            } else if ifi_dem_age <= 70 {
+                ifi_dem_usufruit_pct = 400
+                ifi_dem_nue_propriete_pct = 600
+            } else if ifi_dem_age <= 80 {
+                ifi_dem_usufruit_pct = 300
+                ifi_dem_nue_propriete_pct = 700
+            } else if ifi_dem_age <= 90 {
+                ifi_dem_usufruit_pct = 200
+                ifi_dem_nue_propriete_pct = 800
+            } else {
+                ifi_dem_usufruit_pct = 100
+                ifi_dem_nue_propriete_pct = 900
+            }
+            ifi_dem_usufruit_value = ifi_dem_bien_valeur * ifi_dem_usufruit_pct / 1000
+            ifi_dem_nue_propriete_value = ifi_dem_bien_valeur * ifi_dem_nue_propriete_pct / 1000
+        }
+        // Default: usufruitier declares pleine propriété (already in ifi_dem_usufruit_value)
+    }
+    // IFI plafonnement 75% — article 979 CGI. IFI + impôts revenus N-1
+    // limited to 75% of revenus mondiaux nets N-1. Réduction = MAX(0,
+    // (IFI net + impôts revenus N-1) - 75% × revenus mondiaux nets N-1).
+    // Source: BOFiP BOI-PAT-IFI-40-30-10.
+    ifi_plaf_eligible := rule_int(db, year, "ifi", "plafonnement_eligible", 0)
+    ifi_plaf_revenus_n1 := rule_int(db, year, "ifi", "plafonnement_revenus_n1_cents", 0)
+    ifi_plaf_impots_n1 := rule_int(db, year, "ifi", "plafonnement_impots_n1_cents", 0)
+    ifi_plaf_seuil := rule_int(db, year, "ifi", "plafonnement_seuil_pct_tenths", 750)
+    ifi_plaf_reduction := 0
+    ifi_cents_avant_plaf := ifi_cents
+    if ifi_plaf_eligible == 1 && ifi_plaf_revenus_n1 > 0 && ifi_cents > 0 {
+        // (IFI + impôts N-1) - 75% × revenus N-1
+        ifi_excedent := ifi_cents + ifi_plaf_impots_n1 - ifi_plaf_revenus_n1 * ifi_plaf_seuil / 1000
+        if ifi_excedent > 0 {
+            ifi_plaf_reduction = ifi_excedent
+            ifi_cents = ifi_cents - ifi_plaf_reduction
+            if ifi_cents < 0 { ifi_cents = 0 }
+        }
+    }
     // CFE — cotisation foncière des entreprises (art. 1647 D CGI). Cotisation
     // minimum based on CA (BNC + BIC gross). Base minimum by CA bracket
     // (midpoint of the legal range). Communal rate (default 20%, overridable).
@@ -2119,7 +2188,7 @@ func tax_json(db, year) (out, code, err) {
     out = out + ",\"capital\":{\"taxable_cents\":" + str(taxable) + ",\"taxable_eur\":\"" + fmt_cents(taxable) + "\",\"tax_cents\":" + str(cap_tax) + ",\"tax_eur\":\"" + fmt_cents(cap_tax) + "\"}"
     out = out + ",\"dividends\":{\"gross_cents\":" + str(g_div) + ",\"tax_cents\":" + str(div_tax) + "}"
     out = out + ",\"plus_values\":{\"immo\":{\"brute_cents\":" + str(pv_immo_brute) + ",\"brute_eur\":\"" + fmt_cents(pv_immo_brute) + "\",\"detention_years\":" + str(pv_detention) + ",\"ir_abattement_pct\":" + pct_str(pv_ir_abattement_pct) + ",\"social_abattement_pct\":" + pct_str(pv_social_abattement_pct) + ",\"ir_base_cents\":" + str(pv_ir_base) + ",\"social_base_cents\":" + str(pv_social_base) + ",\"ir_tax_cents\":" + str(pv_ir_tax) + ",\"social_tax_cents\":" + str(pv_social_tax) + ",\"total_tax_cents\":" + str(pv_immo_total) + ",\"total_tax_eur\":\"" + fmt_cents(pv_immo_total) + "\",\"surtaxe_cents\":" + str(pv_surtaxe_cents) + ",\"surtaxe_eur\":\"" + fmt_cents(pv_surtaxe_cents) + "\",\"note\":\"art. 150 U à 150 VH CGI — 19% IR + 17.2% social, abattement 6%/an IR (22y) + 1.65%/an social (30y); surtaxe art. 1609 nonies G (2%-6% on PV > 50k, immeubles bâtis)\"}}"
-    out = out + ",\"ifi\":{\"patrimoine_net_cents\":" + str(ifi_patrimoine) + ",\"patrimoine_net_eur\":\"" + fmt_cents(ifi_patrimoine) + "\",\"seuil_cents\":" + str(ifi_seuil) + ",\"eligible\":" + json(ifi_patrimoine > ifi_seuil) + ",\"bareme_cents\":" + str(ifi_cents + ifi_decote_cents) + ",\"decote_cents\":" + str(ifi_decote_cents) + ",\"ifi_cents\":" + str(ifi_cents) + ",\"ifi_eur\":\"" + fmt_cents(ifi_cents) + "\",\"note\":\"art. 977 CGI — barème progressif 0.5%-1.5%, seuil 1.3M (taxation from 800k), décote 1.3M-1.4M\"}"
+    out = out + ",\"ifi\":{\"patrimoine_net_cents\":" + str(ifi_patrimoine) + ",\"patrimoine_net_eur\":\"" + fmt_cents(ifi_patrimoine) + "\",\"seuil_cents\":" + str(ifi_seuil) + ",\"eligible\":" + json(ifi_patrimoine > ifi_seuil) + ",\"bareme_cents\":" + str(ifi_cents + ifi_decote_cents) + ",\"decote_cents\":" + str(ifi_decote_cents) + ",\"ifi_cents\":" + str(ifi_cents) + ",\"ifi_eur\":\"" + fmt_cents(ifi_cents) + "\",\"demembrement\":{\"eligible\":" + json(ifi_dem_eligible == 1) + ",\"usufruitier_age\":" + str(ifi_dem_age) + ",\"exception\":" + json(ifi_dem_exception == 1) + ",\"bien_valeur_cents\":" + str(ifi_dem_bien_valeur) + ",\"usufruit_pct\":" + pct_str(ifi_dem_usufruit_pct) + ",\"nue_propriete_pct\":" + pct_str(ifi_dem_nue_propriete_pct) + ",\"usufruit_value_cents\":" + str(ifi_dem_usufruit_value) + ",\"nue_propriete_value_cents\":" + str(ifi_dem_nue_propriete_value) + ",\"note\":\"art. 968 CGI — default: usufruitier declares pleine propriété; exception (art. 757/767 Cciv, vente réserve, don/legs État): split by art. 669 proportions\"},\"plafonnement\":{\"eligible\":" + json(ifi_plaf_eligible == 1) + ",\"revenus_n1_cents\":" + str(ifi_plaf_revenus_n1) + ",\"impots_n1_cents\":" + str(ifi_plaf_impots_n1) + ",\"seuil_pct\":" + pct_str(ifi_plaf_seuil) + ",\"ifi_avant_plafonnement_cents\":" + str(ifi_cents_avant_plaf) + ",\"reduction_cents\":" + str(ifi_plaf_reduction) + ",\"ifi_apres_plafonnement_cents\":" + str(ifi_cents) + ",\"note\":\"art. 979 CGI — bouclier fiscal: IFI + impôts revenus N-1 limited to 75% of revenus mondiaux nets N-1\"},\"note\":\"art. 977 CGI — barème progressif 0.5%-1.5%, seuil 1.3M (taxation from 800k), décote 1.3M-1.4M; art. 968: démembrement; art. 979: plafonnement 75%; set: bilan rule set 2026 ifi demembrement_eligible 1 + demembrement_usufruitier_age <val> + demembrement_exception <0|1> + demembrement_bien_valeur_cents <val>; bilan rule set 2026 ifi plafonnement_eligible 1 + plafonnement_revenus_n1_cents <val> + plafonnement_impots_n1_cents <val>\"}"
     out = out + ",\"cfe\":{\"ca_cents\":" + str(cfe_ca) + ",\"ca_eur\":\"" + fmt_cents(cfe_ca) + "\",\"bracket\":" + str(cfe_bracket) + ",\"base_cents\":" + str(cfe_base) + ",\"base_eur\":\"" + fmt_cents(cfe_base) + "\",\"rate_pct_tenths\":" + str(cfe_rate) + ",\"cfe_cents\":" + str(cfe_cents) + ",\"cfe_eur\":\"" + fmt_cents(cfe_cents) + "\",\"note\":\"art. 1647 D CGI — cotisation minimum (base midpoint × communal rate); exonération if CA ≤ 5000 EUR; override with bilan rule set <year> cfe rate_pct_tenths <val>\"}"
     out = out + ",\"cvae\":{\"ca_cents\":" + str(cvae_ca) + ",\"ca_eur\":\"" + fmt_cents(cvae_ca) + "\",\"assujettie\":" + json(cvae_assujettie == 1) + ",\"effective_rate_pct_hundredths\":" + str(cvae_effective_rate_pct_hundredths) + ",\"cvae_cents\":" + str(cvae_cents) + ",\"cvae_eur\":\"" + fmt_cents(cvae_cents) + "\",\"note\":\"art. 1586 ter CGI — progressive effective rate (0% < 500k, 0.25% at 3M, 0.7% at 10M, 0.75% > 50M); VA ≈ 45% of CA (simplified); 2024 reduction 25% (art. 79 LF 2024); being phased out (suppression 2027)\"}"
     out = out + ",\"pvm\":{\"base_cents\":" + str(pvm_base) + ",\"base_eur\":\"" + fmt_cents(pvm_base) + "\",\"detention_years\":" + str(pvm_detention) + ",\"abattement_pct\":" + pct_str(pvm_abat_pct) + ",\"depart_retraite_eligible\":" + json(pvm_dr_eligible == 1) + ",\"depart_retraite_abattement_cents\":" + str(pvm_dr_abattement) + ",\"ir_base_after_abattement_cents\":" + str(pvm_dr_ir_base) + ",\"pfu_ir_cents\":" + str(pvm_pfu_ir) + ",\"pfu_social_cents\":" + str(pvm_pfu_social) + ",\"pfu_total_cents\":" + str(pvm_pfu_total) + ",\"bareme_ir_cents\":" + str(pvm_bareme_ir) + ",\"bareme_social_cents\":" + str(pvm_bareme_social) + ",\"bareme_total_cents\":" + str(pvm_bareme_total) + ",\"optimal\":\"" + pvm_optimal + "\",\"ir_tax_cents\":" + str(pvm_ir_tax) + ",\"social_tax_cents\":" + str(pvm_social_tax) + ",\"total_tax_cents\":" + str(pvm_total_tax) + ",\"total_tax_eur\":\"" + fmt_cents(pvm_total_tax) + "\",\"note\":\"art. 200 A CGI — PFU 12.8% IR + 17.2% social by default; option barème progressif (case 2OP) with abattement durée de détention (50% 2-8y, 65% >8y, titres pré-2018); abattement fixe 500k art. 150-0 D ter (départ retraite dirigeants, social sur PV brute, IR sur PV après abattement); radar reports the lower\"}"

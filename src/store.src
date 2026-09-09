@@ -565,6 +565,24 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'decote_threshold_cents', '140000000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'decote_base_cents', '1750000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'decote_rate_pct_hundredths', '125')", []string{y})
+    // IFI démembrement — article 968 CGI. Default rule: usufruitier
+    // declares pleine propriété (nu-propriétaire declares nothing).
+    // Exception: if démembrement results from specific dispositions
+    // (art. 757/767 Cciv, vente avec réserve d'usufruit, don/legs à
+    // l'État), then split by art. 669 proportions. Source: BOFiP
+    // BOI-PAT-IFI-20-20-30-10.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'demembrement_eligible', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'demembrement_usufruitier_age', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'demembrement_exception', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'demembrement_bien_valeur_cents', '0')", []string{y})
+    // IFI plafonnement 75% — article 979 CGI. IFI + impôts revenus N-1
+    // limited to 75% of revenus mondiaux nets N-1. Réduction = MAX(0,
+    // (IFI net + impôts revenus N-1) - 75% × revenus mondiaux nets N-1).
+    // Source: BOFiP BOI-PAT-IFI-40-30-10.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'plafonnement_eligible', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'plafonnement_revenus_n1_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'plafonnement_impots_n1_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'plafonnement_seuil_pct_tenths', '750')", []string{y})
     // Heures supplémentaires (art. 81 quater CGI). Exonération d'IR up to 7,500
     // EUR/year (rémunération nette imposable). Record the net imposable amount
     // of heures sup as a positive tx in a 'heures_sup' stream. The radar

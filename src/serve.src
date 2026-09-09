@@ -194,7 +194,9 @@ func llms_txt() (t) {
         "    abattement between total and partial thresholds) + donation\n" +
         "    temporaire d'usufruit art. 669 II (23%/10y entamée, plafonné viager)\n" +
         "    + PV mobilière report d'imposition art. 150-0 D bis (réinvestissement\n" +
-        "    ≥50% PV nette dans PME 24 mois);\n" +
+        "    ≥50% PV nette dans PME 24 mois) + IFI démembrement art. 968\n" +
+        "    (usufruitier pleine propriété, exception art. 669) + IFI\n" +
+        "    plafonnement 75% art. 979 (bouclier fiscal);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

@@ -567,6 +567,29 @@ func guide_text(base) (t) {
         "  report_eligible 1 + report_reinvesti_pct <val>. Source: BOFiP\n" +
         "  BOI-RPPM-PVBMI-30-10-60-10.\n" +
         "\n" +
+        "## IFI démembrement — art. 968 CGI\n" +
+        "  Règle par défaut: l'usufruitier déclare la pleine propriété (le\n" +
+        "  nu-propriétaire ne déclare rien). Exception: si le démembrement\n" +
+        "  résulte de dispositions spécifiques (art. 757/767 Cciv, vente avec\n" +
+        "  réserve d'usufruit, don/legs à l'État), alors répartition par les\n" +
+        "  proportions de l'article 669. Le ifi JSON block expose maintenant\n" +
+        "  demembrement.usufruit_pct, demembrement.nue_propriete_pct,\n" +
+        "  demembrement.usufruit_value, demembrement.nue_propriete_value. Set:\n" +
+        "  bilan rule set 2026 ifi demembrement_eligible 1 +\n" +
+        "  demembrement_usufruitier_age <val> + demembrement_exception <0|1> +\n" +
+        "  demembrement_bien_valeur_cents <val>. Source: BOFiP\n" +
+        "  BOI-PAT-IFI-20-20-30-10.\n" +
+        "\n" +
+        "## IFI plafonnement 75% — art. 979 CGI (bouclier fiscal)\n" +
+        "  IFI + impôts sur les revenus N-1 limités à 75% des revenus\n" +
+        "  mondiaux nets N-1. Réduction = MAX(0, (IFI net + impôts revenus\n" +
+        "  N-1) - 75% × revenus mondiaux nets N-1). Le ifi JSON block expose\n" +
+        "  maintenant plafonnement.eligible, plafonnement.reduction_cents,\n" +
+        "  plafonnement.ifi_apres_plafonnement_cents. Set: bilan rule set 2026\n" +
+        "  ifi plafonnement_eligible 1 + plafonnement_revenus_n1_cents <val>\n" +
+        "  + plafonnement_impots_n1_cents <val>. Source: BOFiP\n" +
+        "  BOI-PAT-IFI-40-30-10.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

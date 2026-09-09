@@ -685,6 +685,74 @@ ok "ifi 1.35M decote 625" 62500 "$(jq -r .ifi.decote_cents <<<"$r")"
 ok "ifi 1.35M ifi 2225" 222500 "$(jq -r .ifi.ifi_cents <<<"$r")"
 rm -f "$IFIDB3"
 
+# --- IFI démembrement art. 968 (default: usufruitier pleine propriété) ---
+# 2M patrimoine, démembrement eligible, bien 500000, usufruitier 75y, NO exception
+# → default rule: usufruitier declares pleine propriété (500000 in usufruit)
+IFIDEM1="$(mktemp -u /tmp/bilan-ifidem1-XXXXXX.db)"
+BILAN_DB="$IFIDEM1" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$IFIDEM1" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$IFIDEM1" $BIN stream add pat --kind ifi_patrimoine >/dev/null
+BILAN_DB="$IFIDEM1" $BIN tx add pat 2026-06-30 2000000 >/dev/null
+BILAN_DB="$IFIDEM1" $BIN rule set 2026 ifi demembrement_eligible 1 >/dev/null
+BILAN_DB="$IFIDEM1" $BIN rule set 2026 ifi demembrement_usufruitier_age 75 >/dev/null
+BILAN_DB="$IFIDEM1" $BIN rule set 2026 ifi demembrement_exception 0 >/dev/null
+BILAN_DB="$IFIDEM1" $BIN rule set 2026 ifi demembrement_bien_valeur_cents 50000000 >/dev/null
+r=$(BILAN_DB="$IFIDEM1" $BIN tax --year 2026)
+ok "ifi dem eligible" true "$(jq -r .ifi.demembrement.eligible <<<"$r")"
+ok "ifi dem exception false" false "$(jq -r .ifi.demembrement.exception <<<"$r")"
+# Default: usufruitier declares pleine propriété → usufruit 100%, NP 0%
+ok "ifi dem default usufruit pct 100" 100 "$(jq -r .ifi.demembrement.usufruit_pct <<<"$r")"
+ok "ifi dem default NP pct 0" 0 "$(jq -r .ifi.demembrement.nue_propriete_pct <<<"$r")"
+ok "ifi dem default usufruit value 500000" 50000000 "$(jq -r .ifi.demembrement.usufruit_value_cents <<<"$r")"
+rm -f "$IFIDEM1"
+
+# --- IFI démembrement art. 968 (exception: split by art. 669) ---
+# 2M patrimoine, démembrement eligible, bien 500000, usufruitier 75y, exception 1
+# → exception: split by art. 669 → usufruit 30% (75y), NP 70%
+IFIDEM2="$(mktemp -u /tmp/bilan-ifidem2-XXXXXX.db)"
+BILAN_DB="$IFIDEM2" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$IFIDEM2" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$IFIDEM2" $BIN stream add pat --kind ifi_patrimoine >/dev/null
+BILAN_DB="$IFIDEM2" $BIN tx add pat 2026-06-30 2000000 >/dev/null
+BILAN_DB="$IFIDEM2" $BIN rule set 2026 ifi demembrement_eligible 1 >/dev/null
+BILAN_DB="$IFIDEM2" $BIN rule set 2026 ifi demembrement_usufruitier_age 75 >/dev/null
+BILAN_DB="$IFIDEM2" $BIN rule set 2026 ifi demembrement_exception 1 >/dev/null
+BILAN_DB="$IFIDEM2" $BIN rule set 2026 ifi demembrement_bien_valeur_cents 50000000 >/dev/null
+r=$(BILAN_DB="$IFIDEM2" $BIN tax --year 2026)
+ok "ifi dem2 exception true" true "$(jq -r .ifi.demembrement.exception <<<"$r")"
+ok "ifi dem2 usufruit pct 30" 30 "$(jq -r .ifi.demembrement.usufruit_pct <<<"$r")"
+ok "ifi dem2 NP pct 70" 70 "$(jq -r .ifi.demembrement.nue_propriete_pct <<<"$r")"
+ok "ifi dem2 usufruit value 150000" 15000000 "$(jq -r .ifi.demembrement.usufruit_value_cents <<<"$r")"
+ok "ifi dem2 NP value 350000" 35000000 "$(jq -r .ifi.demembrement.nue_propriete_value_cents <<<"$r")"
+rm -f "$IFIDEM2"
+
+# --- IFI plafonnement 75% art. 979 (bouclier fiscal) ---
+# 10M patrimoine → IFI ≈ 98190 EUR (large IFI)
+# revenus N-1 50000, impots N-1 10000, seuil 75%
+# 75% × 50000 = 37500; IFI 98190 + 10000 = 108190 > 37500 → reduction applies
+IFIPLAF1="$(mktemp -u /tmp/bilan-ifiplaf1-XXXXXX.db)"
+BILAN_DB="$IFIPLAF1" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$IFIPLAF1" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$IFIPLAF1" $BIN stream add pat --kind ifi_patrimoine >/dev/null
+BILAN_DB="$IFIPLAF1" $BIN tx add pat 2026-06-30 10000000 >/dev/null
+BILAN_DB="$IFIPLAF1" $BIN rule set 2026 ifi plafonnement_eligible 1 >/dev/null
+BILAN_DB="$IFIPLAF1" $BIN rule set 2026 ifi plafonnement_revenus_n1_cents 5000000 >/dev/null
+BILAN_DB="$IFIPLAF1" $BIN rule set 2026 ifi plafonnement_impots_n1_cents 1000000 >/dev/null
+r=$(BILAN_DB="$IFIPLAF1" $BIN tax --year 2026)
+ok "ifi plaf eligible" true "$(jq -r .ifi.plafonnement.eligible <<<"$r")"
+ok "ifi plaf revenus n1 50000" 5000000 "$(jq -r .ifi.plafonnement.revenus_n1_cents <<<"$r")"
+ok "ifi plaf impots n1 10000" 1000000 "$(jq -r .ifi.plafonnement.impots_n1_cents <<<"$r")"
+# IFI avant plafonnement should be > 0
+ifi_avant=$(jq -r .ifi.plafonnement.ifi_avant_plafonnement_cents <<<"$r")
+ok "ifi plaf avant > 0" 1 "$(if [ "$ifi_avant" -gt 0 ]; then echo 1; else echo 0; fi)"
+# Reduction should be > 0 (IFI + 10000 > 37500)
+ifi_red=$(jq -r .ifi.plafonnement.reduction_cents <<<"$r")
+ok "ifi plaf reduction > 0" 1 "$(if [ "$ifi_red" -gt 0 ]; then echo 1; else echo 0; fi)"
+# IFI after plafonnement should be < IFI before
+ifi_apres=$(jq -r .ifi.plafonnement.ifi_apres_plafonnement_cents <<<"$r")
+ok "ifi plaf apres < avant" 1 "$(if [ "$ifi_apres" -lt "$ifi_avant" ]; then echo 1; else echo 0; fi)"
+rm -f "$IFIPLAF1"
+
 # --- heures supplémentaires (art. 81 quater, 7500 EUR cap) ---
 HSDB1="$(mktemp -u /tmp/bilan-hs1-XXXXXX.db)"
 BILAN_DB="$HSDB1" $BIN stream add sal --kind salary >/dev/null
