@@ -502,6 +502,30 @@ func guide_text(base) (t) {
         "  + abattement_789_bis_eligible <0|1>. New dmtg_donation JSON block.\n" +
         "  Source: BOFiP BOI-ENR-DMTG-20-30.\n" +
         "\n" +
+        "## PV sur valeurs mobilières — art. 150-0 A + 150-0 D CGI\n" +
+        "  Article 150-0 A: gain net = prix cession - prix acquisition.\n" +
+        "  Article 150-0 D 1 ter: abattement 50% >2 ans, 65% >8 ans (sociétés\n" +
+        "  non-PME). Article 150-0 D 1 quater: abattement 50% >1 an, 75% >5\n" +
+        "  ans (PME). Set: bilan rule set 2026 pv_mobiliere\n" +
+        "  prix_acquisition_cents <val> + prix_cession_cents <val> +\n" +
+        "  duree_detention_years <val> + is_pme <0|1>. New pv_mobiliere JSON\n" +
+        "  block. Source: BOFiP BOI-RPPM-PVMC-20.\n" +
+        "\n" +
+        "## DMTG handicap — art. 779 II CGI\n" +
+        "  Abattement 159325 EUR pour héritier/légataire/donataire handicapé\n" +
+        "  (incapable de travailler dans des conditions normales de rentabilité).\n" +
+        "  Cumulable avec les autres abattements. Set: bilan rule set 2026 dmtg\n" +
+        "  handicap_eligible 1. New dmtg_handicap JSON block. Source: BOFiP\n" +
+        "  BOI-ENR-DMTG-10-50-20.\n" +
+        "\n" +
+        "## Pacte Dutreil — art. 787 B CGI\n" +
+        "  Abattement 75% sur la valeur de l'entreprise transmise (engagement\n" +
+        "  collectif 2y + individuel 4y). Réduction 50% sur les droits restants\n" +
+        "  si donateur < 70 ans et donation en pleine propriété (art. 790).\n" +
+        "  Set: bilan rule set 2026 dmtg dutreil_eligible 1 +\n" +
+        "  dutreil_donateur_age <val> + dutreil_pleine_propriete 1. New\n" +
+        "  dmtg_dutreil JSON block. Source: BOFiP BOI-ENR-DMTG-20-30-50.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

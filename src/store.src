@@ -446,6 +446,35 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'conjoint_bracket_7_rate_pct_tenths', '450')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'abattement_789_bis_cents', '50000000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'abattement_789_bis_eligible', '0')", []string{y})
+    // Plus-values sur valeurs mobilières — articles 150-0 A et 150-0 D CGI.
+    // Art. 150-0 A: gain net = prix cession - prix acquisition - frais.
+    // Art. 150-0 D 1 ter: abattement pour durée de détention sur titres de
+    // sociétés (< 1 Md capitalisation ou < 150 M CA): 50% >2 ans, 65% >8 ans.
+    // Art. 150-0 D 1 quater: abattement renforcé pour PME: 50% >1 an, 75% >5 ans.
+    // Source: BOFiP BOI-RPPM-PVMC-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_mobiliere', 'prix_acquisition_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_mobiliere', 'prix_cession_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_mobiliere', 'duree_detention_years', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_mobiliere', 'is_pme', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_mobiliere', 'abattement_1ter_2y_pct_tenths', '500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_mobiliere', 'abattement_1ter_8y_pct_tenths', '650')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_mobiliere', 'abattement_1quater_1y_pct_tenths', '500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_mobiliere', 'abattement_1quater_5y_pct_tenths', '750')", []string{y})
+    // DMTG handicap — article 779 II CGI. Abattement 159325 EUR pour tout
+    // héritier/légataire/donataire incapable de travailler dans des conditions
+    // normales de rentabilité (infirmité physique/mentale). Cumulable avec les
+    // autres abattements. Source: BOFiP BOI-ENR-DMTG-10-50-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'handicap_eligible', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'handicap_abattement_cents', '15932500')", []string{y})
+    // Pacte Dutreil — article 787 B CGI. Abattement 75% sur la valeur de
+    // l'entreprise transmise (engagement collectif 2y + individuel 4y).
+    // Réduction 50% sur les droits restants si donateur < 70 ans et donation
+    // en pleine propriété (art. 790). Source: BOFiP BOI-ENR-DMTG-20-30-50.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'dutreil_eligible', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'dutreil_abattement_pct_tenths', '750')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'dutreil_reduction_pct_tenths', '500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'dutreil_donateur_age', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'dutreil_pleine_propriete', '0')", []string{y})
     // FCPI/FIP (art. 199 terdecies-0 A VI CGI). 18% reduction, capped at 12,000
     // EUR single / 24,000 EUR couple. 25% for FIP Corse/Outre-Mer (until 2026).
     // Subject to plafonnement global. Record versements as positive txs in a

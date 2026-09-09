@@ -184,7 +184,10 @@ func llms_txt() (t) {
         "    art. 669 prorata (abattement réparti, usufruitier exoneré) + PV pro\n" +
         "    art. 151 septies (exonération petites entreprises) + 151 septies B\n" +
         "    (abattement 10%/an >5y biens immo) + DMTG donation art. 777 Tableau\n" +
-        "    II (conjoint NOT exoneré, abattement 789 bis 500000 fonds commerce);\n" +
+        "    II (conjoint NOT exoneré, abattement 789 bis 500000 fonds commerce)\n" +
+        "    + PV valeurs mobilières art. 150-0 A/D (abattement 50/65% non-PME,\n" +
+        "    50/75% PME) + DMTG handicap art. 779 II (159325 cumulable) + Pacte\n" +
+        "    Dutreil art. 787 B (75% abattement + 50% réduction);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

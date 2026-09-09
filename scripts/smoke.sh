@@ -1177,6 +1177,75 @@ r=$(BILAN_DB="$DDDB3" $BIN tax --year 2026)
 ok "dd 789 bis abattement 500000" 50000000 "$(jq -r .dmtg_donation.abattement_789_bis_cents <<<"$r")"
 rm -f "$DDDB3"
 
+# --- PV valeurs mobilières art. 150-0 A/D (non-PME 50% >2y) ---
+# acq 50000, cession 100000 → gain 50000, detention 3y → 50% abattement → 25000
+PVMOB1="$(mktemp -u /tmp/bilan-pvmob1-XXXXXX.db)"
+BILAN_DB="$PVMOB1" $BIN rule set 2026 pv_mobiliere prix_acquisition_cents 5000000 >/dev/null
+BILAN_DB="$PVMOB1" $BIN rule set 2026 pv_mobiliere prix_cession_cents 10000000 >/dev/null
+BILAN_DB="$PVMOB1" $BIN rule set 2026 pv_mobiliere duree_detention_years 3 >/dev/null
+BILAN_DB="$PVMOB1" $BIN rule set 2026 pv_mobiliere is_pme 0 >/dev/null
+r=$(BILAN_DB="$PVMOB1" $BIN tax --year 2026)
+ok "pvmob gain 50000" 5000000 "$(jq -r .pv_mobiliere.gain_net_cents <<<"$r")"
+ok "pvmob non-PME 3y abattement 50%" 50 "$(jq -r .pv_mobiliere.abattement_pct <<<"$r")"
+ok "pvmob gain apres abattement 25000" 2500000 "$(jq -r .pv_mobiliere.gain_apres_abattement_cents <<<"$r")"
+rm -f "$PVMOB1"
+# PV mobilières PME 6y → 75% abattement
+PVMOB2="$(mktemp -u /tmp/bilan-pvmob2-XXXXXX.db)"
+BILAN_DB="$PVMOB2" $BIN rule set 2026 pv_mobiliere prix_acquisition_cents 5000000 >/dev/null
+BILAN_DB="$PVMOB2" $BIN rule set 2026 pv_mobiliere prix_cession_cents 10000000 >/dev/null
+BILAN_DB="$PVMOB2" $BIN rule set 2026 pv_mobiliere duree_detention_years 6 >/dev/null
+BILAN_DB="$PVMOB2" $BIN rule set 2026 pv_mobiliere is_pme 1 >/dev/null
+r=$(BILAN_DB="$PVMOB2" $BIN tax --year 2026)
+ok "pvmob PME 6y abattement 75%" 75 "$(jq -r .pv_mobiliere.abattement_pct <<<"$r")"
+ok "pvmob PME gain apres abattement 12500" 1250000 "$(jq -r .pv_mobiliere.gain_apres_abattement_cents <<<"$r")"
+rm -f "$PVMOB2"
+
+# --- DMTG handicap art. 779 II (159325 cumulable) ---
+# 200000 actif, ligne directe abattement 100000, base 100000 → tax > 0
+# With handicap 159325 → base = 100000 - 159325 < 0 → base 0 → tax 0
+DHDB1="$(mktemp -u /tmp/bilan-dh1-XXXXXX.db)"
+BILAN_DB="$DHDB1" $BIN rule set 2026 dmtg actif_taxable_cents 20000000 >/dev/null
+BILAN_DB="$DHDB1" $BIN rule set 2026 dmtg degre_parente ligne_directe >/dev/null
+BILAN_DB="$DHDB1" $BIN rule set 2026 dmtg handicap_eligible 1 >/dev/null
+r=$(BILAN_DB="$DHDB1" $BIN tax --year 2026)
+ok "dh eligible" true "$(jq -r .dmtg_handicap.eligible <<<"$r")"
+ok "dh abattement 159325" 15932500 "$(jq -r .dmtg_handicap.abattement_cents <<<"$r")"
+# With handicap, base goes negative → 0 → tax 0
+ok "dh tax 0 (base absorbed by handicap)" 0 "$(jq -r .dmtg.tax_cents <<<"$r")"
+DHDB2="$(mktemp -u /tmp/bilan-dh2-XXXXXX.db)"
+BILAN_DB="$DHDB2" $BIN rule set 2026 dmtg actif_taxable_cents 20000000 >/dev/null
+BILAN_DB="$DHDB2" $BIN rule set 2026 dmtg degre_parente ligne_directe >/dev/null
+r_no_handicap=$(BILAN_DB="$DHDB2" $BIN tax --year 2026)
+tax_no_handicap=$(jq -r .dmtg.tax_cents <<<"$r_no_handicap")
+ok "dh tax > 0 without handicap" 1 "$(if [ "$tax_no_handicap" -gt 0 ]; then echo 1; else echo 0; fi)"
+rm -f "$DHDB1" "$DHDB2"
+
+# --- Pacte Dutreil art. 787 B (75% abattement + 50% réduction) ---
+# 1000000 actif, ligne directe, donateur 65y, pleine propriété
+# After 75% abattement: 250000, abattement 100000 → base 150000
+# Tax on 150000 (ligne directe), then 50% reduction
+DUTREIL1="$(mktemp -u /tmp/bilan-dutreil1-XXXXXX.db)"
+BILAN_DB="$DUTREIL1" $BIN rule set 2026 dmtg actif_taxable_cents 100000000 >/dev/null
+BILAN_DB="$DUTREIL1" $BIN rule set 2026 dmtg degre_parente ligne_directe >/dev/null
+BILAN_DB="$DUTREIL1" $BIN rule set 2026 dmtg dutreil_eligible 1 >/dev/null
+BILAN_DB="$DUTREIL1" $BIN rule set 2026 dmtg dutreil_donateur_age 65 >/dev/null
+BILAN_DB="$DUTREIL1" $BIN rule set 2026 dmtg dutreil_pleine_propriete 1 >/dev/null
+r=$(BILAN_DB="$DUTREIL1" $BIN tax --year 2026)
+ok "dutreil eligible" true "$(jq -r .dmtg_dutreil.eligible <<<"$r")"
+ok "dutreil abattement 75%" 75 "$(jq -r .dmtg_dutreil.abattement_pct <<<"$r")"
+ok "dutreil reduction 50%" 50 "$(jq -r .dmtg_dutreil.reduction_pct <<<"$r")"
+# Compare Dutreil tax vs regular DMTG tax — Dutreil should be much lower
+r_regular=$(BILAN_DB="$DUTREIL1" $BIN tax --year 2026)
+# Get regular dmtg tax by temporarily disabling dutreil
+DUTREIL2="$(mktemp -u /tmp/bilan-dutreil2-XXXXXX.db)"
+BILAN_DB="$DUTREIL2" $BIN rule set 2026 dmtg actif_taxable_cents 100000000 >/dev/null
+BILAN_DB="$DUTREIL2" $BIN rule set 2026 dmtg degre_parente ligne_directe >/dev/null
+r_regular=$(BILAN_DB="$DUTREIL2" $BIN tax --year 2026)
+dutreil_tax=$(jq -r .dmtg_dutreil.tax_cents <<<"$r")
+regular_tax=$(jq -r .dmtg.tax_cents <<<"$r_regular")
+ok "dutreil tax < regular tax" 1 "$(if [ "$dutreil_tax" -lt "$regular_tax" ]; then echo 1; else echo 0; fi)"
+rm -f "$DUTREIL1" "$DUTREIL2"
+
 # --- monuments historiques (art. 156, déduction 100%/50%) ---
 # 10000 charges (negative tx), fermé → 50% deduction = 5000 EUR = 500000 cents
 MHDB1="$(mktemp -u /tmp/bilan-mh1-XXXXXX.db)"
