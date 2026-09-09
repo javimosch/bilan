@@ -1520,6 +1520,27 @@ r=$(BILAN_DB="$IFERDB2" $BIN tax --year 2026)
 ok "ifer 500 lignes custom 30EUR tax 1500000" 1500000 "$(jq -r .ifer.tax_cents <<<"$r")"
 rm -f "$IFERDB2"
 
+# --- Contribution sociale IS (art. 235 ter ZC) — IS 1M, CA 10M, abattement 763k ---
+# base = 1000000 - 763000 = 237000 EUR = 23700000 cents
+# tax = 23700000 × 330 / 10000 = 782100 cents = 7821 EUR
+CSISDB1="$(mktemp -u /tmp/bilan-csis1-XXXXXX.db)"
+BILAN_DB="$CSISDB1" $BIN rule set 2026 contribution_sociale_is is_cents 100000000 >/dev/null
+BILAN_DB="$CSISDB1" $BIN rule set 2026 contribution_sociale_is chiffre_affaires_cents 1000000000 >/dev/null
+r=$(BILAN_DB="$CSISDB1" $BIN tax --year 2026)
+ok "csis IS 1M CA 10M eligible true" true "$(jq -r .contribution_sociale_is.eligible <<<"$r")"
+ok "csis base 23700000 (1M - 763k)" 23700000 "$(jq -r .contribution_sociale_is.base_cents <<<"$r")"
+ok "csis 3.3% tax 782100" 782100 "$(jq -r .contribution_sociale_is.tax_cents <<<"$r")"
+rm -f "$CSISDB1"
+
+# --- Contribution sociale IS (art. 235 ter ZC) — CA <7630000, not eligible ---
+CSISDB2="$(mktemp -u /tmp/bilan-csis2-XXXXXX.db)"
+BILAN_DB="$CSISDB2" $BIN rule set 2026 contribution_sociale_is is_cents 100000000 >/dev/null
+BILAN_DB="$CSISDB2" $BIN rule set 2026 contribution_sociale_is chiffre_affaires_cents 500000000 >/dev/null
+r=$(BILAN_DB="$CSISDB2" $BIN tax --year 2026)
+ok "csis CA 5M not eligible false" false "$(jq -r .contribution_sociale_is.eligible <<<"$r")"
+ok "csis not eligible tax 0" 0 "$(jq -r .contribution_sociale_is.tax_cents <<<"$r")"
+rm -f "$CSISDB2"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents

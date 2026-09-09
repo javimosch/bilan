@@ -855,6 +855,15 @@ func seed_rules(db) {
     // BOI-TFP-IFER-90.
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer', 'lignes_en_service', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer', 'tarif_ligne_cents', '2421')", []string{y})
+    // Contribution sociale sur l'impôt sur les sociétés — article
+    // 235 ter ZC CGI. 3.3% sur IS calculé sur résultats imposables,
+    // diminué abattement 763000 EUR/12 mois. Exonération: CA
+    // <7630000 EUR. Source: BOFiP BOI-IS-AUT-10-30.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'contribution_sociale_is', 'is_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'contribution_sociale_is', 'chiffre_affaires_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'contribution_sociale_is', 'taux_pct_hundredths', '330')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'contribution_sociale_is', 'abattement_cents', '76300000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'contribution_sociale_is', 'seuil_ca_cents', '763000000')", []string{y})
     // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
     // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
     // immeubles bâtis only (not terrains à bâtir). Brackets:
