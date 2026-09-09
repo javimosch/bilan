@@ -198,7 +198,10 @@ func llms_txt() (t) {
         "    (usufruitier pleine propriété, exception art. 669) + IFI\n" +
         "    plafonnement 75% art. 979 (bouclier fiscal) + IFI réduction\n" +
         "    dons art. 978 (75% dons, cap 50000) + DMTG abattement\n" +
-        "    renouvelable 15 ans art. 779;\n" +
+        "    renouvelable 15 ans art. 779 + crédit d'impôt adaptation\n" +
+        "    logement art. 200 quater A (25%, cap 5000/10000) + crédit\n" +
+        "    d'impôt borne de recharge VE art. 200 quater C (75%, cap\n" +
+        "    500/system, 2025 only);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

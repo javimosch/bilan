@@ -420,6 +420,53 @@ r=$(BILAN_DB="$FGDB2" $BIN tax --year 2026)
 ok "frais_garde 50% under cap" 100000 "$(jq -r .reductions.frais_garde.credit_cents <<<"$r")"
 rm -f "$FGDB2"
 
+# --- Crédit d'impôt adaptation du logement (art. 200 quater A) ---
+# 25% of 8000 EUR dépenses, single cap 5000 EUR → 25% × 5000 = 1250 EUR = 125000 cents
+ALDB1="$(mktemp -u /tmp/bilan-al1-XXXXXX.db)"
+BILAN_DB="$ALDB1" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$ALDB1" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$ALDB1" $BIN stream add adap --kind adaptation_logement >/dev/null
+BILAN_DB="$ALDB1" $BIN tx add adap 2026-06-30 8000 >/dev/null
+r=$(BILAN_DB="$ALDB1" $BIN tax --year 2026)
+ok "adaptation_logement 25% cap 5000 single" 125000 "$(jq -r .reductions.adaptation_logement.credit_cents <<<"$r")"
+ok "adaptation_logement ir credit" 125000 "$(jq -r .ir.adaptation_logement_credit_cents <<<"$r")"
+rm -f "$ALDB1"
+
+# --- Crédit d'impôt adaptation du logement (couple cap 10000) ---
+# 25% of 12000 EUR dépenses, couple cap 10000 EUR → 25% × 10000 = 2500 EUR = 250000 cents
+ALDB2="$(mktemp -u /tmp/bilan-al2-XXXXXX.db)"
+BILAN_DB="$ALDB2" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$ALDB2" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$ALDB2" $BIN stream add adap --kind adaptation_logement >/dev/null
+BILAN_DB="$ALDB2" $BIN tx add adap 2026-06-30 12000 >/dev/null
+BILAN_DB="$ALDB2" $BIN rule set 2026 adaptation_logement situation couple >/dev/null
+r=$(BILAN_DB="$ALDB2" $BIN tax --year 2026)
+ok "adaptation_logement 25% cap 10000 couple" 250000 "$(jq -r .reductions.adaptation_logement.credit_cents <<<"$r")"
+rm -f "$ALDB2"
+
+# --- Crédit d'impôt borne de recharge VE (art. 200 quater C) ---
+# 75% of 800 EUR dépenses, cap 500 EUR per system → 75% × 500 = 375 EUR = 37500 cents
+BRDB1="$(mktemp -u /tmp/bilan-br1-XXXXXX.db)"
+BILAN_DB="$BRDB1" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$BRDB1" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$BRDB1" $BIN stream add borne --kind borne_recharge >/dev/null
+BILAN_DB="$BRDB1" $BIN tx add borne 2026-06-30 800 >/dev/null
+r=$(BILAN_DB="$BRDB1" $BIN tax --year 2026)
+ok "borne_recharge 75% cap 500" 37500 "$(jq -r .reductions.borne_recharge.credit_cents <<<"$r")"
+ok "borne_recharge ir credit" 37500 "$(jq -r .ir.borne_recharge_credit_cents <<<"$r")"
+rm -f "$BRDB1"
+
+# --- Crédit d'impôt borne de recharge VE (under cap) ---
+# 75% of 400 EUR dépenses → 75% × 400 = 300 EUR = 30000 cents
+BRDB2="$(mktemp -u /tmp/bilan-br2-XXXXXX.db)"
+BILAN_DB="$BRDB2" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$BRDB2" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$BRDB2" $BIN stream add borne --kind borne_recharge >/dev/null
+BILAN_DB="$BRDB2" $BIN tx add borne 2026-06-30 400 >/dev/null
+r=$(BILAN_DB="$BRDB2" $BIN tax --year 2026)
+ok "borne_recharge 75% under cap" 30000 "$(jq -r .reductions.borne_recharge.credit_cents <<<"$r")"
+rm -f "$BRDB2"
+
 # --- Scolarité (art. 199 quater F): forfaitaire passthrough ---
 # 1 child collège (61) + 1 lycée (153) + 1 supérieur (183) = 397 EUR = 39700 cents
 SCDB="$(mktemp -u /tmp/bilan-scol-XXXXXX.db)"

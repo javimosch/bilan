@@ -241,6 +241,22 @@ func seed_rules(db) {
     // Source: BOFiP BOI-IR-RICI-300, service-public.gouv.fr F8.
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'frais_garde', 'rate_pct_tenths', '500')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'frais_garde', 'cap_per_child_cents', '350000')", []string{y})
+    // Crédit d'impôt adaptation du logement (art. 200 quater A CGI). 25% of
+    // dépenses d'adaptation du logement à la perte d'autonomie/handicap, cap
+    // 5000 EUR (single) / 10000 EUR (couple) over 5 years. REFUNDABLE (crédit).
+    // Record dépenses as positive txs in an 'adaptation_logement' stream.
+    // Source: BOFiP BOI-IR-RICI-290, service-public.gouv.fr F10752.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'adaptation_logement', 'rate_pct_tenths', '250')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'adaptation_logement', 'cap_single_cents', '500000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'adaptation_logement', 'cap_couple_cents', '1000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'adaptation_logement', 'situation', 'single')", []string{y})
+    // Crédit d'impôt borne de recharge VE (art. 200 quater C CGI). 75% of
+    // dépenses d'installation borne de recharge pilotable, cap 500 EUR per
+    // system (2025 only, suppressed 2026). REFUNDABLE (crédit). Record
+    // dépenses as positive txs in a 'borne_recharge' stream. Source: BOFiP
+    // BOI-IR-RICI-360.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'borne_recharge', 'rate_pct_tenths', '750')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'borne_recharge', 'cap_per_system_cents', '50000')", []string{y})
     // Réduction d'impôt frais de scolarité (art. 199 quater F CGI). Forfaitaire:
     // 61 EUR collège, 153 EUR lycée, 183 EUR supérieur (per child, half in garde
     // alternée). RÉDUCTION (non-refundable). The user records the TOTAL forfaitaire

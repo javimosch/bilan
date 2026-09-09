@@ -610,6 +610,27 @@ func guide_text(base) (t) {
         "  dmtg_donation abattement_deja_utilise_cents <val> +\n" +
         "  derniere_donation_year <val>. Source: BOFiP BOI-ENR-DMTG-10-30-10.\n" +
         "\n" +
+        "## Crédit d'impôt adaptation du logement — art. 200 quater A CGI\n" +
+        "  25% des dépenses d'adaptation du logement à la perte d'autonomie\n" +
+        "  ou au handicap, plafond 5000 EUR (célibataire) / 10000 EUR\n" +
+        "  (couple) sur 5 ans. CRÉDIT REMBOURSABLE (refundable si > IR).\n" +
+        "  Dépenses enregistrées comme tx positifs dans un stream\n" +
+        "  'adaptation_logement'. Le radar expose\n" +
+        "  ir.adaptation_logement_credit_cents +\n" +
+        "  reductions.adaptation_logement.credit_cents. Set: bilan rule\n" +
+        "  set 2026 adaptation_logement situation <single|couple>. Source:\n" +
+        "  BOFiP BOI-IR-RICI-290, service-public.gouv.fr F10752.\n" +
+        "\n" +
+        "## Crédit d'impôt borne de recharge VE — art. 200 quater C CGI\n" +
+        "  75% des dépenses d'installation d'une borne de recharge\n" +
+        "  pilotable, plafond 500 EUR par système. 2025 uniquement\n" +
+        "  (supprimé pour dépenses payées à compter du 01/01/2026).\n" +
+        "  CRÉDIT REMBOURSABLE. Dépenses enregistrées comme tx positifs\n" +
+        "  dans un stream 'borne_recharge'. Le radar expose\n" +
+        "  ir.borne_recharge_credit_cents +\n" +
+        "  reductions.borne_recharge.credit_cents. Source: BOFiP\n" +
+        "  BOI-IR-RICI-360.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
