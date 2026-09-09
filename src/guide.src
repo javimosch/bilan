@@ -479,6 +479,29 @@ func guide_text(base) (t) {
         "  New assurance_vie.demembrement JSON sub-block. Source: BOFiP\n" +
         "  BOI-TCAS-AUT-60 §310.\n" +
         "\n" +
+        "## PV professionnelles de cession — art. 151 septies + 151 septies B\n" +
+        "  Article 151 septies: exonération totale des PV de cession pour\n" +
+        "  petites entreprises (activité ≥ 5 ans, recettes < seuils: commerce\n" +
+        "  250000, artisanat 90000, libéral/agricole 350000 EUR). Article 151\n" +
+        "  septies B: abattement de 10% par année de détention au-delà de la\n" +
+        "  5ème année, sur biens immobiliers bâtis/non bâtis affectés à\n" +
+        "  l'exploitation (plafond 10 ans = exonération totale après 15 ans).\n" +
+        "  Set: bilan rule set 2026 pv_pro plus_value_cents <val> +\n" +
+        "  duree_activite_years <val> + recettes_cents <val> + activite_type\n" +
+        "  <commerce|artisanat|liberal|agricole>. New pv_pro JSON block.\n" +
+        "  Source: BOFiP BOI-BIC-PVMV-40-10-10/20.\n" +
+        "\n" +
+        "## DMTG donation — art. 777 CGI (Tableau II conjoint)\n" +
+        "  Same barème as succession for ligne directe/frère-sœur/4e degré/\n" +
+        "  tiers, but conjoint/PACS follows Tableau II (NOT exoneré for\n" +
+        "  donations, abattement 80724 EUR). Art. 789 bis: abattement 500000\n" +
+        "  EUR sur donation de fonds de commerce/entreprise individuelle.\n" +
+        "  Abattements renouvelables tous les 15 ans (art. 779). Set: bilan\n" +
+        "  rule set 2026 dmtg_donation actif_taxable_cents <val> +\n" +
+        "  degre_parente <ligne_directe|conjoint|frere_soeur|quatrieme_degre|tiers>\n" +
+        "  + abattement_789_bis_eligible <0|1>. New dmtg_donation JSON block.\n" +
+        "  Source: BOFiP BOI-ENR-DMTG-20-30.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

@@ -397,6 +397,55 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_vie', 'demembrement_eligible', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_vie', 'demembrement_usufruitier_age', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_vie', 'demembrement_np_count', '0')", []string{y})
+    // Plus-values professionnelles de cession — article 151 septies CGI.
+    // Exonération totale/partielle des PV de cession pour petites entreprises
+    // (activité ≥ 5 ans, recettes < seuils). Seuils: commerce/industrie 250000,
+    // artisanat 90000, libéral 350000, agricole 350000 (exonération totale).
+    // Exonération partielle jusqu'à 350000/126000/450000/550000. Source: BOFiP
+    // BOI-BIC-PVMV-40-10-10.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'plus_value_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'duree_activite_years', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'recettes_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'activite_type', 'commerce')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'seuil_exoneration_total_commerce_cents', '25000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'seuil_exoneration_total_artisanat_cents', '9000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'seuil_exoneration_total_liberal_cents', '35000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'seuil_exoneration_total_agricole_cents', '35000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'duree_minimum_years', '5')", []string{y})
+    // Plus-values professionnelles — article 151 septies B CGI. Abattement
+    // de 10% par année de détention au-delà de la 5ème année, sur biens
+    // immobiliers bâtis/non bâtis affectés à l'exploitation. Exonération totale
+    // après 15 ans (5 + 10 abattement). Source: BOFiP BOI-BIC-PVMV-40-10-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'bien_immo_affecte', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'duree_detention_years', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'abattement_151_septies_B_pct_tenths', '100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'abattement_151_septies_B_duree_plafond_years', '10')", []string{y})
+    // DMTG donation — article 777 CGI Tableau II (conjoint/PACS). Unlike
+    // successions (exonération totale depuis 22/08/2007), donations entre
+    // conjoints/PACS follow Tableau II: 5/10/15/20/30/40/45% with different
+    // thresholds. Abattement 80724 EUR (art. 779). Abattement 789 bis:
+    // 500000 EUR sur donation de fonds de commerce/entreprise individuelle.
+    // Abattements renouvelables tous les 15 ans (art. 779). Source: BOFiP
+    // BOI-ENR-DMTG-20-30.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'actif_taxable_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'degre_parente', 'ligne_directe')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'conjoint_abattement_cents', '8072400')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'conjoint_bracket_1_threshold_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'conjoint_bracket_1_rate_pct_tenths', '50')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'conjoint_bracket_2_threshold_cents', '807200')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'conjoint_bracket_2_rate_pct_tenths', '100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'conjoint_bracket_3_threshold_cents', '1593200')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'conjoint_bracket_3_rate_pct_tenths', '150')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'conjoint_bracket_4_threshold_cents', '3186500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'conjoint_bracket_4_rate_pct_tenths', '200')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'conjoint_bracket_5_threshold_cents', '55232400')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'conjoint_bracket_5_rate_pct_tenths', '300')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'conjoint_bracket_6_threshold_cents', '90283800')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'conjoint_bracket_6_rate_pct_tenths', '400')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'conjoint_bracket_7_threshold_cents', '180567700')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'conjoint_bracket_7_rate_pct_tenths', '450')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'abattement_789_bis_cents', '50000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'abattement_789_bis_eligible', '0')", []string{y})
     // FCPI/FIP (art. 199 terdecies-0 A VI CGI). 18% reduction, capped at 12,000
     // EUR single / 24,000 EUR couple. 25% for FIP Corse/Outre-Mer (until 2026).
     // Subject to plafonnement global. Record versements as positive txs in a

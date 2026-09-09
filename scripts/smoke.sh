@@ -1113,6 +1113,70 @@ ok "avd np_share 7000000" 7000000 "$(jq -r .assurance_vie.demembrement.np_share_
 ok "avd total_np_tax > 0" 1 "$(if [ "$(jq -r .assurance_vie.demembrement.total_np_tax_cents <<<"$r")" -gt 0 ]; then echo 1; else echo 0; fi)"
 rm -f "$AVDDB1"
 
+# --- PV pro art. 151 septies (exonération totale) ---
+# 50000 PV, 6 ans activité, 200000 recettes commerce (< 250000) → exonéré
+PVPDB1="$(mktemp -u /tmp/bilan-pvp1-XXXXXX.db)"
+BILAN_DB="$PVPDB1" $BIN rule set 2026 pv_pro plus_value_cents 5000000 >/dev/null
+BILAN_DB="$PVPDB1" $BIN rule set 2026 pv_pro duree_activite_years 6 >/dev/null
+BILAN_DB="$PVPDB1" $BIN rule set 2026 pv_pro recettes_cents 20000000 >/dev/null
+BILAN_DB="$PVPDB1" $BIN rule set 2026 pv_pro activite_type commerce >/dev/null
+r=$(BILAN_DB="$PVPDB1" $BIN tax --year 2026)
+ok "pvp pv 50000" 5000000 "$(jq -r .pv_pro.plus_value_cents <<<"$r")"
+ok "pvp eligible 151 septies" true "$(jq -r .pv_pro.eligible_151_septies <<<"$r")"
+ok "pvp pv exoneree 50000" 5000000 "$(jq -r .pv_pro.pv_exoneree_cents <<<"$r")"
+ok "pvp pv imposable 0" 0 "$(jq -r .pv_pro.pv_imposable_cents <<<"$r")"
+rm -f "$PVPDB1"
+# PV pro NOT eligible: 3 ans activité (< 5 ans)
+PVPDB2="$(mktemp -u /tmp/bilan-pvp2-XXXXXX.db)"
+BILAN_DB="$PVPDB2" $BIN rule set 2026 pv_pro plus_value_cents 5000000 >/dev/null
+BILAN_DB="$PVPDB2" $BIN rule set 2026 pv_pro duree_activite_years 3 >/dev/null
+BILAN_DB="$PVPDB2" $BIN rule set 2026 pv_pro recettes_cents 20000000 >/dev/null
+r=$(BILAN_DB="$PVPDB2" $BIN tax --year 2026)
+ok "pvp NOT eligible (3y < 5y)" false "$(jq -r .pv_pro.eligible_151_septies <<<"$r")"
+ok "pvp pv imposable 50000 (not exoneré)" 5000000 "$(jq -r .pv_pro.pv_imposable_cents <<<"$r")"
+rm -f "$PVPDB2"
+# PV pro art. 151 septies B: bien immo affecté, 8 ans détention → 30% abattement
+PVPDB3="$(mktemp -u /tmp/bilan-pvp3-XXXXXX.db)"
+BILAN_DB="$PVPDB3" $BIN rule set 2026 pv_pro plus_value_cents 5000000 >/dev/null
+BILAN_DB="$PVPDB3" $BIN rule set 2026 pv_pro duree_activite_years 3 >/dev/null
+BILAN_DB="$PVPDB3" $BIN rule set 2026 pv_pro recettes_cents 20000000 >/dev/null
+BILAN_DB="$PVPDB3" $BIN rule set 2026 pv_pro bien_immo_affecte 1 >/dev/null
+BILAN_DB="$PVPDB3" $BIN rule set 2026 pv_pro duree_detention_years 8 >/dev/null
+r=$(BILAN_DB="$PVPDB3" $BIN tax --year 2026)
+ok "pvp 151 septies B abattement 30%" 30 "$(jq -r .pv_pro.abattement_151_septies_B_pct <<<"$r")"
+# PV apres abattement = 50000 * (100 - 30)% = 35000 EUR = 3500000 cents
+ok "pvp pv apres abattement 35000" 3500000 "$(jq -r .pv_pro.pv_apres_abattement_cents <<<"$r")"
+rm -f "$PVPDB3"
+
+# --- DMTG donation art. 777 (conjoint Tableau II, NOT exoneré) ---
+# 200000 donation conjoint, abattement 80724, base 119276
+# Tableau II: 5% 0-8072, 10% 8072-15932, 15% 15932-31865, 20% 31865-552324
+# Tax > 0 (conjoint NOT exoneré for donations)
+DDDB1="$(mktemp -u /tmp/bilan-dd1-XXXXXX.db)"
+BILAN_DB="$DDDB1" $BIN rule set 2026 dmtg_donation actif_taxable_cents 20000000 >/dev/null
+BILAN_DB="$DDDB1" $BIN rule set 2026 dmtg_donation degre_parente conjoint >/dev/null
+r=$(BILAN_DB="$DDDB1" $BIN tax --year 2026)
+ok "dd actif 200000" 20000000 "$(jq -r .dmtg_donation.actif_taxable_cents <<<"$r")"
+ok "dd conjoint abattement 80724" 8072400 "$(jq -r .dmtg_donation.abattement_cents <<<"$r")"
+ok "dd conjoint tax > 0 (NOT exoneré)" 1 "$(if [ "$(jq -r .dmtg_donation.tax_cents <<<"$r")" -gt 0 ]; then echo 1; else echo 0; fi)"
+rm -f "$DDDB1"
+# DMTG donation ligne directe (same as succession)
+DDDB2="$(mktemp -u /tmp/bilan-dd2-XXXXXX.db)"
+BILAN_DB="$DDDB2" $BIN rule set 2026 dmtg_donation actif_taxable_cents 20000000 >/dev/null
+BILAN_DB="$DDDB2" $BIN rule set 2026 dmtg_donation degre_parente ligne_directe >/dev/null
+r=$(BILAN_DB="$DDDB2" $BIN tax --year 2026)
+ok "dd ligne directe abattement 100000" 10000000 "$(jq -r .dmtg_donation.abattement_cents <<<"$r")"
+ok "dd ligne directe tax > 0" 1 "$(if [ "$(jq -r .dmtg_donation.tax_cents <<<"$r")" -gt 0 ]; then echo 1; else echo 0; fi)"
+rm -f "$DDDB2"
+# DMTG donation with abattement 789 bis (500000 fonds commerce)
+DDDB3="$(mktemp -u /tmp/bilan-dd3-XXXXXX.db)"
+BILAN_DB="$DDDB3" $BIN rule set 2026 dmtg_donation actif_taxable_cents 60000000 >/dev/null
+BILAN_DB="$DDDB3" $BIN rule set 2026 dmtg_donation degre_parente ligne_directe >/dev/null
+BILAN_DB="$DDDB3" $BIN rule set 2026 dmtg_donation abattement_789_bis_eligible 1 >/dev/null
+r=$(BILAN_DB="$DDDB3" $BIN tax --year 2026)
+ok "dd 789 bis abattement 500000" 50000000 "$(jq -r .dmtg_donation.abattement_789_bis_cents <<<"$r")"
+rm -f "$DDDB3"
+
 # --- monuments historiques (art. 156, déduction 100%/50%) ---
 # 10000 charges (negative tx), fermé → 50% deduction = 5000 EUR = 500000 cents
 MHDB1="$(mktemp -u /tmp/bilan-mh1-XXXXXX.db)"
