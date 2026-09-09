@@ -460,6 +460,16 @@ func seed_rules(db) {
     // additional DMTG (art. 1133 CGI). Source: BOFiP BOI-ENR-DMTG-10-30.
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'demembrement_eligible', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'demembrement_donateur_age', '0')", []string{y})
+    // Donation temporaire d'usufruit — article 669 II CGI. The donateur
+    // transmits usufruit temporaire (durée fixe). Valeur usufruit = 23%
+    // par tranche de 10 ans entamée (1-10y: 23%, 11-20y: 46%, 21-30y:
+    // 69%, 31-40y: 92%), plafonné au viager (art. 669 I by âge donateur).
+    // DMTG on usufruit value. Source: BOFiP BOI-ENR-DMTG-10-30.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'usufruit_temporaire_eligible', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'usufruit_temporaire_duree_years', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'usufruit_temporaire_donateur_age', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'usufruit_temporaire_taux_periode_pct_tenths', '230')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'usufruit_temporaire_periode_years', '10')", []string{y})
     // Plus-values sur valeurs mobilières — articles 150-0 A et 150-0 D CGI.
     // Art. 150-0 A: gain net = prix cession - prix acquisition - frais.
     // Art. 150-0 D 1 ter: abattement pour durée de détention sur titres de
@@ -474,6 +484,13 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_mobiliere', 'abattement_1ter_8y_pct_tenths', '650')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_mobiliere', 'abattement_1quater_1y_pct_tenths', '500')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_mobiliere', 'abattement_1quater_5y_pct_tenths', '750')", []string{y})
+    // PV mobilière report d'imposition — article 150-0 D bis CGI. Cession
+    // de titres qualifiés (≥10% droits détenus 8y), réinvestissement ≥50%
+    // de la plus-value nette dans souscription PME dans 24 mois → report
+    // d'imposition (imposition différée, pas d'abattement durée détention).
+    // Source: BOFiP BOI-RPPM-PVBMI-30-10-60-10.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_mobiliere', 'report_eligible', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_mobiliere', 'report_reinvesti_pct_tenths', '0')", []string{y})
     // DMTG handicap — article 779 II CGI. Abattement 159325 EUR pour tout
     // héritier/légataire/donataire incapable de travailler dans des conditions
     // normales de rentabilité (infirmité physique/mentale). Cumulable avec les

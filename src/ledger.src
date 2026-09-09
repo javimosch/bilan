@@ -1278,6 +1278,74 @@ func tax_json(db, year) (out, code, err) {
             dd_dem_tax = dd_dem_base * rate / 1000
         }
     }
+    // Donation temporaire d'usufruit — article 669 II CGI. The donateur
+    // transmits usufruit temporaire (durée fixe). Valeur usufruit = 23%
+    // par tranche de 10 ans entamée (1-10y: 23%, 11-20y: 46%, 21-30y:
+    // 69%, 31-40y: 92%), plafonné au viager (art. 669 I by âge donateur).
+    // DMTG on usufruit value. Source: BOFiP BOI-ENR-DMTG-10-30.
+    dd_ut_eligible := rule_int(db, year, "dmtg_donation", "usufruit_temporaire_eligible", 0)
+    dd_ut_duree := rule_int(db, year, "dmtg_donation", "usufruit_temporaire_duree_years", 0)
+    dd_ut_age := rule_int(db, year, "dmtg_donation", "usufruit_temporaire_donateur_age", 0)
+    dd_ut_taux_periode := rule_int(db, year, "dmtg_donation", "usufruit_temporaire_taux_periode_pct_tenths", 230)
+    dd_ut_periode := rule_int(db, year, "dmtg_donation", "usufruit_temporaire_periode_years", 10)
+    dd_ut_usufruit_pct := 0
+    dd_ut_usufruit_value := 0
+    dd_ut_tax := 0
+    if dd_ut_eligible == 1 && dd_ut_duree > 0 {
+        // 23% per 10-year period (pro rata), capped at viager (art. 669 I)
+        dd_ut_temporaire_pct := dd_ut_duree * dd_ut_taux_periode / dd_ut_periode
+        // Viager cap by âge donateur (art. 669 I)
+        dd_ut_viager_pct := 1000
+        if dd_ut_age > 0 {
+            if dd_ut_age <= 20 {
+                dd_ut_viager_pct = 900
+            } else if dd_ut_age <= 30 {
+                dd_ut_viager_pct = 800
+            } else if dd_ut_age <= 40 {
+                dd_ut_viager_pct = 700
+            } else if dd_ut_age <= 50 {
+                dd_ut_viager_pct = 600
+            } else if dd_ut_age <= 60 {
+                dd_ut_viager_pct = 500
+            } else if dd_ut_age <= 70 {
+                dd_ut_viager_pct = 400
+            } else if dd_ut_age <= 80 {
+                dd_ut_viager_pct = 300
+            } else if dd_ut_age <= 90 {
+                dd_ut_viager_pct = 200
+            } else {
+                dd_ut_viager_pct = 100
+            }
+        }
+        if dd_ut_temporaire_pct > dd_ut_viager_pct { dd_ut_temporaire_pct = dd_ut_viager_pct }
+        if dd_ut_temporaire_pct > 1000 { dd_ut_temporaire_pct = 1000 }
+        dd_ut_usufruit_pct = dd_ut_temporaire_pct
+        dd_ut_usufruit_value = dd_actif * dd_ut_usufruit_pct / 1000
+        // Apply standard abattement for the degré
+        dd_ut_base := dd_ut_usufruit_value - dd_abattement
+        if dd_ut_base < 0 { dd_ut_base = 0 }
+        // Apply the same barème as the regular donation
+        if dd_degre == "ligne_directe" {
+            dd_ut_tax = dmtg_bareme_ld(db, year, dd_ut_base)
+        } else if dd_degre == "conjoint" {
+            dd_ut_tax = dmtg_bareme_conjoint(db, year, dd_ut_base)
+        } else if dd_degre == "frere_soeur" {
+            t1 := rule_int(db, year, "dmtg", "frere_soeur_bracket_1_threshold_cents", 0)
+            r1 := rule_int(db, year, "dmtg", "frere_soeur_bracket_1_rate_pct_tenths", 350)
+            t2 := rule_int(db, year, "dmtg", "frere_soeur_bracket_2_threshold_cents", 2443000)
+            r2 := rule_int(db, year, "dmtg", "frere_soeur_bracket_2_rate_pct_tenths", 450)
+            hi := dd_ut_base
+            if hi > t2 { hi = t2 }
+            if hi > t1 { dd_ut_tax = dd_ut_tax + (hi - t1) * r1 / 1000 }
+            if dd_ut_base > t2 { dd_ut_tax = dd_ut_tax + (dd_ut_base - t2) * r2 / 1000 }
+        } else if dd_degre == "quatrieme_degre" {
+            rate := rule_int(db, year, "dmtg", "quatrieme_degre_rate_pct_tenths", 550)
+            dd_ut_tax = dd_ut_base * rate / 1000
+        } else if dd_degre == "tiers" {
+            rate := rule_int(db, year, "dmtg", "tiers_rate_pct_tenths", 600)
+            dd_ut_tax = dd_ut_base * rate / 1000
+        }
+    }
     // Plus-values sur valeurs mobilières — articles 150-0 A et 150-0 D CGI.
     // Art. 150-0 A: gain net = prix cession - prix acquisition.
     // Art. 150-0 D 1 ter: abattement 50% >2 ans, 65% >8 ans (sociétés non-PME).
@@ -1308,6 +1376,20 @@ func tax_json(db, year) (out, code, err) {
     }
     if pvmob_abattement_pct > 0 {
         pvmob_gain_apres_abattement = pvmob_gain * (1000 - pvmob_abattement_pct) / 1000
+    }
+    // PV mobilière report d'imposition — article 150-0 D bis CGI. Cession
+    // de titres qualifiés (≥10% droits détenus 8y), réinvestissement ≥50%
+    // de la plus-value nette dans souscription PME dans 24 mois → report
+    // d'imposition (imposition différée). Le report suspend l'imposition;
+    // aucun abattement durée détention ne s'applique pendant le report.
+    // Source: BOFiP BOI-RPPM-PVBMI-30-10-60-10.
+    pvmob_report_eligible := rule_int(db, year, "pv_mobiliere", "report_eligible", 0)
+    pvmob_report_reinvesti_pct := rule_int(db, year, "pv_mobiliere", "report_reinvesti_pct_tenths", 0)
+    pvmob_report_imposable := 0
+    pvmob_report_reporte := 0
+    if pvmob_report_eligible == 1 && pvmob_gain > 0 {
+        pvmob_report_reporte = pvmob_gain * pvmob_report_reinvesti_pct / 1000
+        pvmob_report_imposable = pvmob_gain - pvmob_report_reporte
     }
     // DMTG handicap — article 779 II CGI. Abattement 159325 EUR cumulable
     // avec les autres abattements. Applies to both dmtg (succession) and
@@ -2054,7 +2136,8 @@ func tax_json(db, year) (out, code, err) {
     out = out + ",\"pv_pro\":{\"plus_value_cents\":" + str(pvp_pv) + ",\"plus_value_eur\":\"" + fmt_cents(pvp_pv) + "\",\"duree_activite_years\":" + str(pvp_duree) + ",\"recettes_cents\":" + str(pvp_recettes) + ",\"activite_type\":\"" + pvp_activite + "\",\"eligible_151_septies\":" + json(pvp_eligible_151_septies == 1) + ",\"exoneration_partielle\":" + json(pvp_eligible_151_septies == 2) + ",\"exoneration_pct\":" + pct_str(pvp_exoneration_pct) + ",\"pv_exoneree_cents\":" + str(pvp_pv_exoneree) + ",\"pv_imposable_cents\":" + str(pvp_pv_imposable) + ",\"bien_immo_affecte\":" + json(pvp_bien_immo == 1) + ",\"duree_detention_years\":" + str(pvp_detention) + ",\"abattement_151_septies_B_pct\":" + pct_str(pvp_abattement_151b_pct) + ",\"pv_apres_abattement_cents\":" + str(pvp_pv_apres_abattement) + ",\"note\":\"art. 151 septies CGI — exonération totale PV cession petites entreprises (activité ≥5 ans, recettes < seuils: commerce 250000, artisanat 90000, libéral/agricole 350000); exonération partielle dégressive entre seuil total et seuil partiel (commerce 350000, artisanat/libéral 126000, agricole 450000); art. 151 septies B — abattement 10%/an >5y sur biens immo affectés (plafond 10y = exonération 15y); set: bilan rule set 2026 pv_pro plus_value_cents <val> + duree_activite_years <val> + recettes_cents <val> + activite_type <commerce|artisanat|liberal|agricole>\"}"
     out = out + ",\"dmtg_donation\":{\"actif_taxable_cents\":" + str(dd_actif) + ",\"actif_taxable_eur\":\"" + fmt_cents(dd_actif) + "\",\"degre_parente\":\"" + dd_degre + "\",\"abattement_cents\":" + str(dd_abattement) + ",\"abattement_eur\":\"" + fmt_cents(dd_abattement) + "\",\"abattement_789_bis_cents\":" + str(dd_789_bis) + ",\"abattement_789_bis_eur\":\"" + fmt_cents(dd_789_bis) + "\",\"tax_cents\":" + str(dd_tax) + ",\"tax_eur\":\"" + fmt_cents(dd_tax) + "\",\"note\":\"art. 777 CGI — DMTG donation: same barème as succession for ligne directe/frère-sœur/4e degré/tiers, but conjoint/PACS follows Tableau II (NOT exoneré for donations, abattement 80724); art. 789 bis: abattement 500000 sur donation fonds commerce/entreprise individuelle; abattements renouvelables 15 ans (art. 779); set: bilan rule set 2026 dmtg_donation actif_taxable_cents <val> + degre_parente <ligne_directe|conjoint|frere_soeur|quatrieme_degre|tiers> + abattement_789_bis_eligible <0|1>\"}"
     out = out + ",\"dmtg_donation_demembrement\":{\"eligible\":" + json(dd_dem_eligible == 1) + ",\"donateur_age\":" + str(dd_dem_donateur_age) + ",\"usufruit_pct\":" + pct_str(dd_dem_usufruit_pct) + ",\"nue_propriete_pct\":" + pct_str(dd_dem_np_pct) + ",\"nue_propriete_value_cents\":" + str(dd_dem_np_value) + ",\"nue_propriete_value_eur\":\"" + fmt_cents(dd_dem_np_value) + "\",\"tax_cents\":" + str(dd_dem_tax) + ",\"tax_eur\":\"" + fmt_cents(dd_dem_tax) + "\",\"note\":\"art. 669 CGI — donation démembrement: donateur transmet nue-propriété, conserve usufruit; base taxable = nue-propriété value (barème 669 by âge donateur); au décès usufruitier, pleine propriété se reconstitue sans DMTG supplémentaire (art. 1133); set: bilan rule set 2026 dmtg_donation demembrement_eligible 1 + demembrement_donateur_age <val>\"}"
-    out = out + ",\"pv_mobiliere\":{\"prix_acquisition_cents\":" + str(pvmob_acq) + ",\"prix_cession_cents\":" + str(pvmob_cession) + ",\"duree_detention_years\":" + str(pvmob_detention) + ",\"is_pme\":" + json(pvmob_is_pme == 1) + ",\"gain_net_cents\":" + str(pvmob_gain) + ",\"gain_net_eur\":\"" + fmt_cents(pvmob_gain) + "\",\"abattement_pct\":" + pct_str(pvmob_abattement_pct) + ",\"gain_apres_abattement_cents\":" + str(pvmob_gain_apres_abattement) + ",\"gain_apres_abattement_eur\":\"" + fmt_cents(pvmob_gain_apres_abattement) + "\",\"note\":\"art. 150-0 A CGI — gain net = prix cession - prix acquisition; art. 150-0 D 1 ter: abattement 50% >2 ans, 65% >8 ans (sociétés non-PME); art. 150-0 D 1 quater: abattement 50% >1 an, 75% >5 ans (PME); set: bilan rule set 2026 pv_mobiliere prix_acquisition_cents <val> + prix_cession_cents <val> + duree_detention_years <val> + is_pme <0|1>\"}"
+    out = out + ",\"dmtg_donation_usufruit_temporaire\":{\"eligible\":" + json(dd_ut_eligible == 1) + ",\"duree_years\":" + str(dd_ut_duree) + ",\"donateur_age\":" + str(dd_ut_age) + ",\"usufruit_pct\":" + pct_str(dd_ut_usufruit_pct) + ",\"usufruit_value_cents\":" + str(dd_ut_usufruit_value) + ",\"usufruit_value_eur\":\"" + fmt_cents(dd_ut_usufruit_value) + "\",\"tax_cents\":" + str(dd_ut_tax) + ",\"tax_eur\":\"" + fmt_cents(dd_ut_tax) + "\",\"note\":\"art. 669 II CGI — donation temporaire d'usufruit: donateur transmet usufruit temporaire (durée fixe); valeur usufruit = 23%/10y entamée (1-10y 23%, 11-20y 46%, 21-30y 69%, 31-40y 92%), plafonné au viager (art. 669 I by âge donateur); DMTG on usufruit value; set: bilan rule set 2026 dmtg_donation usufruit_temporaire_eligible 1 + usufruit_temporaire_duree_years <val> + usufruit_temporaire_donateur_age <val>\"}"
+    out = out + ",\"pv_mobiliere\":{\"prix_acquisition_cents\":" + str(pvmob_acq) + ",\"prix_cession_cents\":" + str(pvmob_cession) + ",\"duree_detention_years\":" + str(pvmob_detention) + ",\"is_pme\":" + json(pvmob_is_pme == 1) + ",\"gain_net_cents\":" + str(pvmob_gain) + ",\"gain_net_eur\":\"" + fmt_cents(pvmob_gain) + "\",\"abattement_pct\":" + pct_str(pvmob_abattement_pct) + ",\"gain_apres_abattement_cents\":" + str(pvmob_gain_apres_abattement) + ",\"gain_apres_abattement_eur\":\"" + fmt_cents(pvmob_gain_apres_abattement) + "\",\"report\":{\"eligible\":" + json(pvmob_report_eligible == 1) + ",\"reinvesti_pct\":" + pct_str(pvmob_report_reinvesti_pct) + ",\"gain_reporte_cents\":" + str(pvmob_report_reporte) + ",\"gain_imposable_cents\":" + str(pvmob_report_imposable) + "},\"note\":\"art. 150-0 A CGI — gain net = prix cession - prix acquisition; art. 150-0 D 1 ter: abattement 50% >2 ans, 65% >8 ans (sociétés non-PME); art. 150-0 D 1 quater: abattement 50% >1 an, 75% >5 ans (PME); art. 150-0 D bis: report d'imposition si réinvestissement ≥50% PV nette dans PME (24 mois); set: bilan rule set 2026 pv_mobiliere prix_acquisition_cents <val> + prix_cession_cents <val> + duree_detention_years <val> + is_pme <0|1> + report_eligible <0|1> + report_reinvesti_pct <val>\"}"
     out = out + ",\"dmtg_handicap\":{\"eligible\":" + json(dmtg_handicap_eligible == 1) + ",\"abattement_cents\":" + str(dmtg_handicap_abattement) + ",\"abattement_eur\":\"" + fmt_cents(dmtg_handicap_abattement) + "\",\"note\":\"art. 779 II CGI — abattement 159325 EUR pour héritier/légataire/donataire handicapé (incapable de travailler), cumulable avec les autres abattements; set: bilan rule set 2026 dmtg handicap_eligible 1\"}"
     out = out + ",\"dmtg_dutreil\":{\"eligible\":" + json(dmtg_dutreil_eligible == 1) + ",\"abattement_pct\":" + pct_str(dmtg_dutreil_abattement_pct) + ",\"reduction_pct\":" + pct_str(dmtg_dutreil_reduction_pct) + ",\"tax_cents\":" + str(dmtg_dutreil_tax) + ",\"tax_eur\":\"" + fmt_cents(dmtg_dutreil_tax) + "\",\"note\":\"art. 787 B CGI (Pacte Dutreil) — abattement 75% sur valeur entreprise transmise (engagement collectif 2y + individuel 4y); art. 790: réduction 50% sur droits restants si donateur <70 ans et pleine propriété; set: bilan rule set 2026 dmtg dutreil_eligible 1 + dutreil_donateur_age <val> + dutreil_pleine_propriete 1\"}"
     out = out + ",\"totals\":{\"ir_cents\":" + str(ir_after_credit) + ",\"ir_eur\":\"" + fmt_cents(ir_after_credit) + "\",\"flat_tax_cents\":" + str(cap_tax+div_tax) + ",\"flat_tax_eur\":\"" + fmt_cents(cap_tax+div_tax) + "\",\"social_cents\":" + str(soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel) + ",\"social_eur\":\"" + fmt_cents(soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel) + "\",\"tva_cents\":" + str(tva_a_payer) + ",\"tva_eur\":\"" + fmt_cents(tva_a_payer) + "\",\"pv_immo_cents\":" + str(pv_immo_total) + ",\"pv_immo_eur\":\"" + fmt_cents(pv_immo_total) + "\",\"ifi_cents\":" + str(ifi_cents) + ",\"ifi_eur\":\"" + fmt_cents(ifi_cents) + "\",\"cfe_cents\":" + str(cfe_cents) + ",\"cfe_eur\":\"" + fmt_cents(cfe_cents) + "\",\"cvae_cents\":" + str(cvae_cents) + ",\"cvae_eur\":\"" + fmt_cents(cvae_cents) + "\",\"pvm_cents\":" + str(pvm_total_tax) + ",\"pvm_eur\":\"" + fmt_cents(pvm_total_tax) + "\",\"pv_immo_surtaxe_cents\":" + str(pv_surtaxe_cents) + ",\"pv_immo_surtaxe_eur\":\"" + fmt_cents(pv_surtaxe_cents) + "\",\"metaux_precieux_cents\":" + str(mp_effective_total) + ",\"metaux_precieux_eur\":\"" + fmt_cents(mp_effective_total) + "\",\"total_tax_cents\":" + str(ir_after_credit+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel+tva_a_payer+pv_immo_total+pv_surtaxe_cents+ifi_cents+cfe_cents+cvae_cents+mp_effective_total) + ",\"total_tax_eur\":\"" + fmt_cents(ir_after_credit+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel+tva_a_payer+pv_immo_total+pv_surtaxe_cents+ifi_cents+cfe_cents+cvae_cents+mp_effective_total) + "\"}"

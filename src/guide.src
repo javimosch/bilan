@@ -545,6 +545,28 @@ func guide_text(base) (t) {
         "  block expose maintenant exoneration_partielle et le taux dégressif.\n" +
         "  Source: BOFiP BOI-BIC-PVMV-40-10-10-30.\n" +
         "\n" +
+        "## Donation temporaire d'usufruit — art. 669 II CGI\n" +
+        "  Le donateur transmet l'usufruit temporaire (durée fixe). Valeur\n" +
+        "  usufruit = 23% par tranche de 10 ans entamée (1-10y: 23%, 11-20y:\n" +
+        "  46%, 21-30y: 69%, 31-40y: 92%), plafonné au viager (art. 669 I by\n" +
+        "  âge donateur). DMTG on usufruit value. Set: bilan rule set 2026\n" +
+        "  dmtg_donation usufruit_temporaire_eligible 1 +\n" +
+        "  usufruit_temporaire_duree_years <val> +\n" +
+        "  usufruit_temporaire_donateur_age <val>. New\n" +
+        "  dmtg_donation_usufruit_temporaire JSON block. Source: BOFiP\n" +
+        "  BOI-ENR-DMTG-10-30.\n" +
+        "\n" +
+        "## PV mobilière report d'imposition — art. 150-0 D bis CGI\n" +
+        "  Cession de titres qualifiés (≥10% droits détenus 8y),\n" +
+        "  réinvestissement ≥50% de la plus-value nette dans souscription PME\n" +
+        "  dans 24 mois → report d'imposition (imposition différée). Le\n" +
+        "  report suspend l'imposition; aucun abattement durée détention ne\n" +
+        "  s'applique pendant le report. Le pv_mobiliere JSON block expose\n" +
+        "  maintenant report.eligible, report.reinvesti_pct, report.gain_reporte\n" +
+        "  et report.gain_imposable. Set: bilan rule set 2026 pv_mobiliere\n" +
+        "  report_eligible 1 + report_reinvesti_pct <val>. Source: BOFiP\n" +
+        "  BOI-RPPM-PVBMI-30-10-60-10.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

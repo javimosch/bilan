@@ -1290,6 +1290,52 @@ ok "pvp partial pv exoneree 50000" 5000000 "$(jq -r .pv_pro.pv_exoneree_cents <<
 ok "pvp partial pv imposable 50000" 5000000 "$(jq -r .pv_pro.pv_imposable_cents <<<"$r")"
 rm -f "$PVPART1"
 
+# --- Donation temporaire d'usufruit art. 669 II (10y → 23%) ---
+# 400000 actif, ligne directe, donateur 65y, durée 10y → usufruit 23% = 92000
+# abattement 100000 → base 0 (92000 < 100000) → tax 0
+DDUT1="$(mktemp -u /tmp/bilan-ddut1-XXXXXX.db)"
+BILAN_DB="$DDUT1" $BIN rule set 2026 dmtg_donation actif_taxable_cents 40000000 >/dev/null
+BILAN_DB="$DDUT1" $BIN rule set 2026 dmtg_donation degre_parente ligne_directe >/dev/null
+BILAN_DB="$DDUT1" $BIN rule set 2026 dmtg_donation usufruit_temporaire_eligible 1 >/dev/null
+BILAN_DB="$DDUT1" $BIN rule set 2026 dmtg_donation usufruit_temporaire_duree_years 10 >/dev/null
+BILAN_DB="$DDUT1" $BIN rule set 2026 dmtg_donation usufruit_temporaire_donateur_age 65 >/dev/null
+r=$(BILAN_DB="$DDUT1" $BIN tax --year 2026)
+ok "dd ut eligible" true "$(jq -r .dmtg_donation_usufruit_temporaire.eligible <<<"$r")"
+ok "dd ut duree 10" 10 "$(jq -r .dmtg_donation_usufruit_temporaire.duree_years <<<"$r")"
+ok "dd ut usufruit pct 23" 23 "$(jq -r .dmtg_donation_usufruit_temporaire.usufruit_pct <<<"$r")"
+ok "dd ut usufruit value 92000" 9200000 "$(jq -r .dmtg_donation_usufruit_temporaire.usufruit_value_cents <<<"$r")"
+# Tax 0 because usufruit value (92000) < abattement (100000)
+ok "dd ut tax 0 (under abattement)" 0 "$(jq -r .dmtg_donation_usufruit_temporaire.tax_cents <<<"$r")"
+rm -f "$DDUT1"
+
+# --- Donation temporaire d'usufruit art. 669 II (20y → 46%, capped at viager) ---
+# 400000 actif, ligne directe, donateur 75y, durée 20y → temporaire 46% but viager 30% → capped 30%
+DDUT2="$(mktemp -u /tmp/bilan-ddut2-XXXXXX.db)"
+BILAN_DB="$DDUT2" $BIN rule set 2026 dmtg_donation actif_taxable_cents 40000000 >/dev/null
+BILAN_DB="$DDUT2" $BIN rule set 2026 dmtg_donation degre_parente ligne_directe >/dev/null
+BILAN_DB="$DDUT2" $BIN rule set 2026 dmtg_donation usufruit_temporaire_eligible 1 >/dev/null
+BILAN_DB="$DDUT2" $BIN rule set 2026 dmtg_donation usufruit_temporaire_duree_years 20 >/dev/null
+BILAN_DB="$DDUT2" $BIN rule set 2026 dmtg_donation usufruit_temporaire_donateur_age 75 >/dev/null
+r=$(BILAN_DB="$DDUT2" $BIN tax --year 2026)
+ok "dd ut2 usufruit pct 30 (viager cap)" 30 "$(jq -r .dmtg_donation_usufruit_temporaire.usufruit_pct <<<"$r")"
+ok "dd ut2 usufruit value 120000" 12000000 "$(jq -r .dmtg_donation_usufruit_temporaire.usufruit_value_cents <<<"$r")"
+rm -f "$DDUT2"
+
+# --- PV mobilière report d'imposition art. 150-0 D bis (50% reinvesti) ---
+# 100000 gain, report eligible, 50% reinvesti → reporte 50000, imposable 50000
+PVREP1="$(mktemp -u /tmp/bilan-pvrep1-XXXXXX.db)"
+BILAN_DB="$PVREP1" $BIN rule set 2026 pv_mobiliere prix_acquisition_cents 10000000 >/dev/null
+BILAN_DB="$PVREP1" $BIN rule set 2026 pv_mobiliere prix_cession_cents 20000000 >/dev/null
+BILAN_DB="$PVREP1" $BIN rule set 2026 pv_mobiliere duree_detention_years 3 >/dev/null
+BILAN_DB="$PVREP1" $BIN rule set 2026 pv_mobiliere report_eligible 1 >/dev/null
+BILAN_DB="$PVREP1" $BIN rule set 2026 pv_mobiliere report_reinvesti_pct_tenths 500 >/dev/null
+r=$(BILAN_DB="$PVREP1" $BIN tax --year 2026)
+ok "pvmob report eligible" true "$(jq -r .pv_mobiliere.report.eligible <<<"$r")"
+ok "pvmob report reinvesti pct 50" 50 "$(jq -r .pv_mobiliere.report.reinvesti_pct <<<"$r")"
+ok "pvmob report gain reporte 50000" 5000000 "$(jq -r .pv_mobiliere.report.gain_reporte_cents <<<"$r")"
+ok "pvmob report gain imposable 50000" 5000000 "$(jq -r .pv_mobiliere.report.gain_imposable_cents <<<"$r")"
+rm -f "$PVREP1"
+
 # --- monuments historiques (art. 156, déduction 100%/50%) ---
 # 10000 charges (negative tx), fermé → 50% deduction = 5000 EUR = 500000 cents
 MHDB1="$(mktemp -u /tmp/bilan-mh1-XXXXXX.db)"

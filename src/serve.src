@@ -191,7 +191,10 @@ func llms_txt() (t) {
         "    FIX v0.2.26 (progressive bottom-up, correct thresholds) +\n" +
         "    donation démembrement art. 669 (nue-propriété by âge donateur) +\n" +
         "    PV pro exonération partielle art. 151 septies II 2° (degressive\n" +
-        "    abattement between total and partial thresholds);\n" +
+        "    abattement between total and partial thresholds) + donation\n" +
+        "    temporaire d'usufruit art. 669 II (23%/10y entamée, plafonné viager)\n" +
+        "    + PV mobilière report d'imposition art. 150-0 D bis (réinvestissement\n" +
+        "    ≥50% PV nette dans PME 24 mois);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +
