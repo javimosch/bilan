@@ -691,6 +691,19 @@ func guide_text(base) (t) {
         "  valeur_ajoutee_cents <val> + cfe_minimum_cents <val>.\n" +
         "  Source: BOFiP BOI-IF-CFE-40-30-20-30.\n" +
         "\n" +
+        "## Taxe annuelle sur les bureaux (TSB) — art. 231 ter + 1599 quater C\n" +
+        "  Taxe par m² sur bureaux, locaux commerciaux, stockage,\n" +
+        "  stationnement en Île-de-France (4 circonscriptions) et\n" +
+        "  PACA. Tarifs 2025 IDF: bureaux 25.77€ (c1) / 21.70€ (c2) /\n" +
+        "  11.87€ (c3) / 5.74€ (c4). PACA: bureaux 0.99€/m². Exonérations:\n" +
+        "  bureaux <100m², commercial <2500m², stockage <5000m²,\n" +
+        "  stationnement <500m². TSS additionnelle sur stationnement\n" +
+        "  ≥500m² en IDF. Le radar expose tsb.tax_cents, tsb.tss.tax_cents.\n" +
+        "  Set: bilan rule set 2026 tsb surface_m2 <val>\n" +
+        "  + category <bureaux|commercial|stockage|stationnement>\n" +
+        "  + region <idf|paca> + circonscription <1-4>.\n" +
+        "  Source: BOFiP BOI-IF-TF-10, service-public.gouv.fr.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

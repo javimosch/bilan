@@ -2304,6 +2304,62 @@ func tax_json(db, year) (out, code, err) {
         }
         cet_after = cet_cents - cet_degrevement
     }
+    // Taxe annuelle sur les bureaux (TSB) — articles 231 ter (IDF) et
+    // 1599 quater C (PACA) CGI. Per-m² tax on bureaux, locaux commerciaux,
+    // stockage, stationnement. 4 circonscriptions tarifaires in IDF.
+    // Exonérations: bureaux <100m², commercial <2500m², stockage <5000m²,
+    // stationnement <500m². TSS additionnelle on stationnement ≥500m².
+    // Source: BOFiP BOI-IF-TF-10, service-public.gouv.fr.
+    tsb_surface := rule_int(db, year, "tsb", "surface_m2", 0)
+    tsb_category := rule_str(db, year, "tsb", "category", "bureaux")
+    tsb_region := rule_str(db, year, "tsb", "region", "idf")
+    tsb_circonscription := rule_int(db, year, "tsb", "circonscription", 1)
+    // Tarifs 2025 per m² in cents (IDF)
+    tsb_tarif := 0
+    if tsb_region == "idf" {
+        if tsb_category == "bureaux" {
+            if tsb_circonscription == 1 { tsb_tarif = rule_int(db, year, "tsb", "idf_c1_bureaux_cents", 2577) }
+            else if tsb_circonscription == 2 { tsb_tarif = rule_int(db, year, "tsb", "idf_c2_bureaux_cents", 2170) }
+            else if tsb_circonscription == 3 { tsb_tarif = rule_int(db, year, "tsb", "idf_c3_bureaux_cents", 1187) }
+            else if tsb_circonscription == 4 { tsb_tarif = rule_int(db, year, "tsb", "idf_c4_bureaux_cents", 574) }
+        } else if tsb_category == "commercial" {
+            if tsb_circonscription == 1 { tsb_tarif = rule_int(db, year, "tsb", "idf_c1_commercial_cents", 884) }
+            else if tsb_circonscription == 3 { tsb_tarif = rule_int(db, year, "tsb", "idf_c3_commercial_cents", 460) }
+            else if tsb_circonscription == 4 { tsb_tarif = rule_int(db, year, "tsb", "idf_c4_commercial_cents", 235) }
+        } else if tsb_category == "stockage" {
+            if tsb_circonscription == 1 { tsb_tarif = rule_int(db, year, "tsb", "idf_c1_stockage_cents", 462) }
+            else if tsb_circonscription == 3 { tsb_tarif = rule_int(db, year, "tsb", "idf_c3_stockage_cents", 235) }
+            else if tsb_circonscription == 4 { tsb_tarif = rule_int(db, year, "tsb", "idf_c4_stockage_cents", 121) }
+        } else if tsb_category == "stationnement" {
+            if tsb_circonscription == 1 { tsb_tarif = rule_int(db, year, "tsb", "idf_c1_stationnement_cents", 292) }
+            else if tsb_circonscription == 3 { tsb_tarif = rule_int(db, year, "tsb", "idf_c3_stationnement_cents", 158) }
+            else if tsb_circonscription == 4 { tsb_tarif = rule_int(db, year, "tsb", "idf_c4_stationnement_cents", 83) }
+        }
+    } else if tsb_region == "paca" {
+        if tsb_category == "bureaux" { tsb_tarif = rule_int(db, year, "tsb", "paca_bureaux_cents", 99) }
+        else if tsb_category == "commercial" { tsb_tarif = rule_int(db, year, "tsb", "paca_commercial_cents", 41) }
+        else if tsb_category == "stockage" { tsb_tarif = rule_int(db, year, "tsb", "paca_stockage_cents", 22) }
+        else if tsb_category == "stationnement" { tsb_tarif = rule_int(db, year, "tsb", "paca_stationnement_cents", 10) }
+    }
+    // Exonération thresholds
+    tsb_exonere := false
+    if tsb_category == "bureaux" && tsb_surface < 100 { tsb_exonere = true }
+    if tsb_category == "commercial" && tsb_surface < 2500 { tsb_exonere = true }
+    if tsb_category == "stockage" && tsb_surface < 5000 { tsb_exonere = true }
+    if tsb_category == "stationnement" && tsb_surface < 500 { tsb_exonere = true }
+    tsb_tax := 0
+    if !tsb_exonere && tsb_surface > 0 && tsb_tarif > 0 {
+        tsb_tax = tsb_surface * tsb_tarif
+    }
+    // TSS additionnelle on stationnement ≥500m² (IDF only)
+    tsb_tss_tax := 0
+    if tsb_region == "idf" && tsb_category == "stationnement" && tsb_surface >= 500 {
+        tsb_tss_tarif := 0
+        if tsb_circonscription == 1 { tsb_tss_tarif = rule_int(db, year, "tsb", "idf_c1_tss_cents", 498) }
+        else if tsb_circonscription == 3 { tsb_tss_tarif = rule_int(db, year, "tsb", "idf_c3_tss_cents", 289) }
+        else if tsb_circonscription == 4 { tsb_tss_tarif = rule_int(db, year, "tsb", "idf_c4_tss_cents", 147) }
+        tsb_tss_tax = tsb_surface * tsb_tss_tarif
+    }
     // Prélèvement à la source — taux neutre mensuel (art. 204 H CGI). The radar
     // projects the annual net salary / 12 and applies the taux neutre grid to
     // estimate the monthly prepayment. This is the confidentiality grid (taux neutre),
@@ -2408,6 +2464,7 @@ func tax_json(db, year) (out, code, err) {
     out = out + ",\"taxe_apprentissage\":{\"masse_salariale_cents\":" + str(ta_base) + ",\"masse_salariale_eur\":\"" + fmt_cents(ta_base) + "\",\"region\":\"" + ta_region + "\",\"smic_annuel_cents\":" + str(ta_smic_annuel) + ",\"exoneration_threshold_cents\":" + str(ta_exoneration_threshold) + ",\"exonere\":" + json(ta_base > 0 && ta_base <= ta_exoneration_threshold) + ",\"rate_principale_pct_hundredths\":" + str(ta_rate_principale) + ",\"rate_solde_pct_hundredths\":" + str(ta_rate_solde) + ",\"part_principale_cents\":" + str(ta_part_principale) + ",\"solde_cents\":" + str(ta_solde) + ",\"tax_cents\":" + str(ta_tax) + ",\"tax_eur\":\"" + fmt_cents(ta_tax) + "\",\"csa\":{\"eligible\":" + json(csa_eligible == 1) + ",\"effectif_moyen\":" + str(csa_effectif) + ",\"alternants_pct_tenths\":" + str(csa_alternants_pct_tenths) + ",\"rate_pct_hundredths\":" + str(csa_rate) + ",\"tax_cents\":" + str(csa_tax) + ",\"tax_eur\":\"" + fmt_cents(csa_tax) + "\"},\"total_cents\":" + str(ta_tax + csa_tax) + ",\"total_eur\":\"" + fmt_cents(ta_tax + csa_tax) + "\",\"note\":\"art. 1599 CGI — taxe d'apprentissage 0.68% masse salariale (0.59% principale + 0.09% solde); Alsace-Moselle 0.44% (0.36% + 0.08%); exonération if base ≤ 6×SMIC annuel; CSA pour ≥250 salariés <5% alternants (0.05-0.6% by ratio); set: bilan rule set 2026 taxe_apprentissage masse_salariale_cents <val> + region <metropole|alsace_moselle> + csa_eligible <0|1> + csa_effectif_moyen <val> + csa_alternants_pct_tenths <val>\"}"
     out = out + ",\"cir\":{\"depenses_cents\":" + str(cir_depenses) + ",\"depenses_eur\":\"" + fmt_cents(cir_depenses) + "\",\"dom_eligible\":" + json(cir_dom == 1) + ",\"rate_low_pct_hundredths\":" + str(cir_rate_low) + ",\"rate_high_pct_hundredths\":" + str(cir_rate_high) + ",\"threshold_cents\":" + str(cir_threshold) + ",\"jei_eligible\":" + json(cir_jei == 1) + ",\"credit_cents\":" + str(cir_credit) + ",\"credit_eur\":\"" + fmt_cents(cir_credit) + "\",\"cii\":{\"depenses_cents\":" + str(cii_depenses) + ",\"depenses_eur\":\"" + fmt_cents(cii_depenses) + "\",\"dom_eligible\":" + json(cii_dom == 1) + ",\"rate_pct_hundredths\":" + str(cii_rate) + ",\"cap_cents\":" + str(cii_cap) + ",\"base_cents\":" + str(cii_base) + ",\"credit_cents\":" + str(cii_credit) + ",\"credit_eur\":\"" + fmt_cents(cii_credit) + "\"},\"total_credit_cents\":" + str(cir_credit + cii_credit) + ",\"total_credit_eur\":\"" + fmt_cents(cir_credit + cii_credit) + "\",\"note\":\"art. 244 quater B CGI — CIR 30% dépenses recherche ≤100M EUR, 5% above (DOM 50%/5%); art. 244 quater B bis — CII 20% dépenses innovation (DOM 60%), cap 400000 EUR/an PME; JEI = refundable, otherwise imputable; set: bilan rule set 2026 cir depenses_cents <val> + dom_eligible <0|1> + jei_eligible <0|1> + cii_depenses_cents <val> + cii_dom_eligible <0|1>\"}"
     out = out + ",\"cet_plafonnement\":{\"cet_cents\":" + str(cet_cents) + ",\"cet_eur\":\"" + fmt_cents(cet_cents) + "\",\"cfe_cents\":" + str(cfe_cents) + ",\"cvae_cents\":" + str(cvae_cents) + ",\"valeur_ajoutee_cents\":" + str(cet_va) + ",\"valeur_ajoutee_eur\":\"" + fmt_cents(cet_va) + "\",\"taux_hundred_thousandths\":" + str(cet_taux) + ",\"plafond_cents\":" + str(cet_plafond) + ",\"plafond_eur\":\"" + fmt_cents(cet_plafond) + "\",\"degrevement_cents\":" + str(cet_degrevement) + ",\"degrevement_eur\":\"" + fmt_cents(cet_degrevement) + "\",\"cet_after_degrevement_cents\":" + str(cet_after) + ",\"cet_after_degrevement_eur\":\"" + fmt_cents(cet_after) + "\",\"note\":\"art. 1647 B sexies CGI — plafonnement CET: si CFE+CVAE > taux × VA, dégrèvement = CET - plafond; floor: CET après dégrèvement ≥ cotisation minimum CFE (art. 1647 D); taux 1.438% (2025), 1.531% (2026/2027); set: bilan rule set 2026 cet_plafonnement valeur_ajoutee_cents <val> + cfe_minimum_cents <val>\"}"
+    out = out + ",\"tsb\":{\"surface_m2\":" + str(tsb_surface) + ",\"category\":\"" + tsb_category + "\",\"region\":\"" + tsb_region + "\",\"circonscription\":" + str(tsb_circonscription) + ",\"tarif_unit_cents\":" + str(tsb_tarif) + ",\"exonere\":" + json(tsb_exonere) + ",\"tax_cents\":" + str(tsb_tax) + ",\"tax_eur\":\"" + fmt_cents(tsb_tax) + "\",\"tss\":{\"eligible\":" + json(tsb_tss_tax > 0) + ",\"tax_cents\":" + str(tsb_tss_tax) + ",\"tax_eur\":\"" + fmt_cents(tsb_tss_tax) + "\"},\"total_cents\":" + str(tsb_tax + tsb_tss_tax) + ",\"total_eur\":\"" + fmt_cents(tsb_tax + tsb_tss_tax) + "\",\"note\":\"art. 231 ter (IDF) + 1599 quater C (PACA) CGI — taxe annuelle par m² sur bureaux/commercial/stockage/stationnement; 4 circonscriptions IDF; exonérations: bureaux <100m², commercial <2500m², stockage <5000m², stationnement <500m²; TSS additionnelle stationnement ≥500m² IDF; set: bilan rule set 2026 tsb surface_m2 <val> + category <bureaux|commercial|stockage|stationnement> + region <idf|paca> + circonscription <1-4>\"}"
     out = out + ",\"pvm\":{\"base_cents\":" + str(pvm_base) + ",\"base_eur\":\"" + fmt_cents(pvm_base) + "\",\"detention_years\":" + str(pvm_detention) + ",\"abattement_pct\":" + pct_str(pvm_abat_pct) + ",\"depart_retraite_eligible\":" + json(pvm_dr_eligible == 1) + ",\"depart_retraite_abattement_cents\":" + str(pvm_dr_abattement) + ",\"ir_base_after_abattement_cents\":" + str(pvm_dr_ir_base) + ",\"pfu_ir_cents\":" + str(pvm_pfu_ir) + ",\"pfu_social_cents\":" + str(pvm_pfu_social) + ",\"pfu_total_cents\":" + str(pvm_pfu_total) + ",\"bareme_ir_cents\":" + str(pvm_bareme_ir) + ",\"bareme_social_cents\":" + str(pvm_bareme_social) + ",\"bareme_total_cents\":" + str(pvm_bareme_total) + ",\"optimal\":\"" + pvm_optimal + "\",\"ir_tax_cents\":" + str(pvm_ir_tax) + ",\"social_tax_cents\":" + str(pvm_social_tax) + ",\"total_tax_cents\":" + str(pvm_total_tax) + ",\"total_tax_eur\":\"" + fmt_cents(pvm_total_tax) + "\",\"note\":\"art. 200 A CGI — PFU 12.8% IR + 17.2% social by default; option barème progressif (case 2OP) with abattement durée de détention (50% 2-8y, 65% >8y, titres pré-2018); abattement fixe 500k art. 150-0 D ter (départ retraite dirigeants, social sur PV brute, IR sur PV après abattement); radar reports the lower\"}"
     out = out + ",\"metaux_precieux\":{\"metaux_cents\":" + str(g_metaux) + ",\"metaux_eur\":\"" + fmt_cents(g_metaux) + "\",\"objets_art_cents\":" + str(g_objets_art) + ",\"objets_art_eur\":\"" + fmt_cents(g_objets_art) + "\",\"taux_metaux_pct\":" + pct_str(taux_metaux) + ",\"taux_objets_art_pct\":" + pct_str(taux_objets_art) + ",\"metaux_tax_cents\":" + str(metaux_tax) + ",\"objets_art_tax_cents\":" + str(objets_art_tax) + ",\"forfaitaire_total_cents\":" + str(metaux_total_tax) + ",\"option_150vl_eligible\":" + json(mp_150vl_eligible == 1) + ",\"option_150vl_pv_cents\":" + str(mp_150vl_pv) + ",\"option_150vl_abattement_pct\":" + pct_str(mp_150vl_abattement_pct) + ",\"option_150vl_ir_cents\":" + str(mp_150vl_ir) + ",\"option_150vl_social_cents\":" + str(mp_150vl_social) + ",\"option_150vl_total_cents\":" + str(mp_150vl_total) + ",\"optimal\":\"" + mp_optimal + "\",\"total_tax_cents\":" + str(mp_effective_total) + ",\"total_tax_eur\":\"" + fmt_cents(mp_effective_total) + "\",\"note\":\"art. 150 VI/VK CGI — taxe forfaitaire (11% métaux, 6% objets d'art) by default; option art. 150 VL pour régime plus-values (art. 150 UA): 19% IR + 17.2% social sur PV nette, abattement 5%/an au-delà de 2y, exonération 22y; radar reports the lower\"}"
     out = out + ",\"lmnp_amortissement\":{\"property_value_cents\":" + str(la_property_value) + ",\"property_value_eur\":\"" + fmt_cents(la_property_value) + "\",\"terrain_pct\":" + pct_str(la_terrain_pct) + ",\"building_value_cents\":" + str(la_building) + ",\"mobilier_value_cents\":" + str(la_mobilier_value) + ",\"mobilier_dotation_cents\":" + str(la_mobilier_dotation) + ",\"gros_oeuvre_dotation_cents\":" + str(la_go_dotation) + ",\"toiture_dotation_cents\":" + str(la_to_dotation) + ",\"reseaux_dotation_cents\":" + str(la_re_dotation) + ",\"agencements_dotation_cents\":" + str(la_ag_dotation) + ",\"dotation_brute_cents\":" + str(la_dotation_brute) + ",\"plafond_cents\":" + str(la_plafond) + ",\"dotation_cents\":" + str(la_dotation) + ",\"dotation_eur\":\"" + fmt_cents(la_dotation) + "\",\"ard_reportable_cents\":" + str(la_ard_reportable) + ",\"ard_stock_prior_cents\":" + str(la_ard_stock) + ",\"ard_consumed_cents\":" + str(la_ard_consumed) + ",\"ard_stock_after_cents\":" + str(la_ard_stock_after) + ",\"note\":\"art. 39 C CGI — amortissement linéaire par composants (gros œuvre 50y, toiture 30y, réseaux 25y, agencements 12y, mobilier 7y); terrain non amortissable; plafonnement: dotation ≤ loyer net (ne crée pas de déficit); excédent reportable (ARD) sans limite de durée; set: bilan rule set 2026 lmnp_amortissement property_value_cents <val>\"}"

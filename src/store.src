@@ -727,6 +727,38 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cet_plafonnement', 'valeur_ajoutee_cents', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cet_plafonnement', 'taux_hundred_thousandths', '1438')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cet_plafonnement', 'cfe_minimum_cents', '0')", []string{y})
+    // Taxe annuelle sur les bureaux (TSB) — articles 231 ter (IDF) et
+    // 1599 quater C (PACA) CGI. Per-m² tax on bureaux, commerciaux,
+    // stockage, stationnement. 4 circonscriptions IDF. Exonérations by
+    // surface. TSS additionnelle on stationnement ≥500m² IDF.
+    // Source: BOFiP BOI-IF-TF-10, service-public.gouv.fr.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'surface_m2', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'category', 'bureaux')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'region', 'idf')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'circonscription', '1')", []string{y})
+    // IDF tarifs 2025 per m² in cents
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'idf_c1_bureaux_cents', '2577')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'idf_c2_bureaux_cents', '2170')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'idf_c3_bureaux_cents', '1187')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'idf_c4_bureaux_cents', '574')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'idf_c1_commercial_cents', '884')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'idf_c3_commercial_cents', '460')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'idf_c4_commercial_cents', '235')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'idf_c1_stockage_cents', '462')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'idf_c3_stockage_cents', '235')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'idf_c4_stockage_cents', '121')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'idf_c1_stationnement_cents', '292')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'idf_c3_stationnement_cents', '158')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'idf_c4_stationnement_cents', '83')", []string{y})
+    // TSS additionnelle (stationnement ≥500m² IDF)
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'idf_c1_tss_cents', '498')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'idf_c3_tss_cents', '289')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'idf_c4_tss_cents', '147')", []string{y})
+    // PACA tarifs 2025 per m² in cents
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'paca_bureaux_cents', '99')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'paca_commercial_cents', '41')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'paca_stockage_cents', '22')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'paca_stationnement_cents', '10')", []string{y})
     // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
     // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
     // immeubles bâtis only (not terrains à bâtir). Brackets:

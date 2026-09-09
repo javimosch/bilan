@@ -1217,6 +1217,69 @@ ok "cet plafonnement floor CFE min degrevement 8680" 8680 "$(jq -r .cet_plafonne
 ok "cet plafonnement floor cet after 5000" 5000 "$(jq -r .cet_plafonnement.cet_after_degrevement_cents <<<"$r")"
 rm -f "$CETDB3"
 
+# --- TSB (art. 231 ter) — bureaux IDF c1, 200m² → 200 × 25.77 = 5154 EUR = 515400 cents ---
+TSBDB1="$(mktemp -u /tmp/bilan-tsb1-XXXXXX.db)"
+BILAN_DB="$TSBDB1" $BIN rule set 2026 tsb surface_m2 200 >/dev/null
+BILAN_DB="$TSBDB1" $BIN rule set 2026 tsb category bureaux >/dev/null
+BILAN_DB="$TSBDB1" $BIN rule set 2026 tsb region idf >/dev/null
+BILAN_DB="$TSBDB1" $BIN rule set 2026 tsb circonscription 1 >/dev/null
+r=$(BILAN_DB="$TSBDB1" $BIN tax --year 2026)
+ok "tsb bureaux IDF c1 200m2 tax 515400" 515400 "$(jq -r .tsb.tax_cents <<<"$r")"
+rm -f "$TSBDB1"
+
+# --- TSB (art. 231 ter) — bureaux IDF c3, 200m² → 200 × 11.87 = 2374 EUR = 237400 cents ---
+TSBDB2="$(mktemp -u /tmp/bilan-tsb2-XXXXXX.db)"
+BILAN_DB="$TSBDB2" $BIN rule set 2026 tsb surface_m2 200 >/dev/null
+BILAN_DB="$TSBDB2" $BIN rule set 2026 tsb category bureaux >/dev/null
+BILAN_DB="$TSBDB2" $BIN rule set 2026 tsb region idf >/dev/null
+BILAN_DB="$TSBDB2" $BIN rule set 2026 tsb circonscription 3 >/dev/null
+r=$(BILAN_DB="$TSBDB2" $BIN tax --year 2026)
+ok "tsb bureaux IDF c3 200m2 tax 237400" 237400 "$(jq -r .tsb.tax_cents <<<"$r")"
+rm -f "$TSBDB2"
+
+# --- TSB (art. 231 ter) — bureaux IDF c1, 50m² → exonéré (< 100m²) ---
+TSBDB3="$(mktemp -u /tmp/bilan-tsb3-XXXXXX.db)"
+BILAN_DB="$TSBDB3" $BIN rule set 2026 tsb surface_m2 50 >/dev/null
+BILAN_DB="$TSBDB3" $BIN rule set 2026 tsb category bureaux >/dev/null
+BILAN_DB="$TSBDB3" $BIN rule set 2026 tsb region idf >/dev/null
+BILAN_DB="$TSBDB3" $BIN rule set 2026 tsb circonscription 1 >/dev/null
+r=$(BILAN_DB="$TSBDB3" $BIN tax --year 2026)
+ok "tsb bureaux 50m2 exoneré 0" 0 "$(jq -r .tsb.tax_cents <<<"$r")"
+ok "tsb bureaux 50m2 exoneré flag true" true "$(jq -r .tsb.exonere <<<"$r")"
+rm -f "$TSBDB3"
+
+# --- TSB (art. 1599 quater C) — PACA bureaux, 500m² → 500 × 0.99 = 495 EUR = 49500 cents ---
+TSBDB4="$(mktemp -u /tmp/bilan-tsb4-XXXXXX.db)"
+BILAN_DB="$TSBDB4" $BIN rule set 2026 tsb surface_m2 500 >/dev/null
+BILAN_DB="$TSBDB4" $BIN rule set 2026 tsb category bureaux >/dev/null
+BILAN_DB="$TSBDB4" $BIN rule set 2026 tsb region paca >/dev/null
+r=$(BILAN_DB="$TSBDB4" $BIN tax --year 2026)
+ok "tsb PACA bureaux 500m2 tax 49500" 49500 "$(jq -r .tsb.tax_cents <<<"$r")"
+rm -f "$TSBDB4"
+
+# --- TSB (art. 231 ter) — stationnement IDF c1, 600m² → 600 × 2.92 = 1752 + TSS 600 × 4.98 = 2988 → total 4740 EUR ---
+TSBDB5="$(mktemp -u /tmp/bilan-tsb5-XXXXXX.db)"
+BILAN_DB="$TSBDB5" $BIN rule set 2026 tsb surface_m2 600 >/dev/null
+BILAN_DB="$TSBDB5" $BIN rule set 2026 tsb category stationnement >/dev/null
+BILAN_DB="$TSBDB5" $BIN rule set 2026 tsb region idf >/dev/null
+BILAN_DB="$TSBDB5" $BIN rule set 2026 tsb circonscription 1 >/dev/null
+r=$(BILAN_DB="$TSBDB5" $BIN tax --year 2026)
+ok "tsb stationnement IDF c1 600m2 tax 175200" 175200 "$(jq -r .tsb.tax_cents <<<"$r")"
+ok "tsb stationnement IDF c1 600m2 tss 298800" 298800 "$(jq -r .tsb.tss.tax_cents <<<"$r")"
+ok "tsb stationnement IDF c1 600m2 total 474000" 474000 "$(jq -r .tsb.total_cents <<<"$r")"
+rm -f "$TSBDB5"
+
+# --- TSB (art. 231 ter) — stationnement IDF c1, 400m² → exonéré (< 500m²), no TSS ---
+TSBDB6="$(mktemp -u /tmp/bilan-tsb6-XXXXXX.db)"
+BILAN_DB="$TSBDB6" $BIN rule set 2026 tsb surface_m2 400 >/dev/null
+BILAN_DB="$TSBDB6" $BIN rule set 2026 tsb category stationnement >/dev/null
+BILAN_DB="$TSBDB6" $BIN rule set 2026 tsb region idf >/dev/null
+BILAN_DB="$TSBDB6" $BIN rule set 2026 tsb circonscription 1 >/dev/null
+r=$(BILAN_DB="$TSBDB6" $BIN tax --year 2026)
+ok "tsb stationnement 400m2 exoneré 0" 0 "$(jq -r .tsb.tax_cents <<<"$r")"
+ok "tsb stationnement 400m2 tss 0" 0 "$(jq -r .tsb.tss.tax_cents <<<"$r")"
+rm -f "$TSBDB6"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents
