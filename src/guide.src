@@ -764,6 +764,17 @@ func guide_text(base) (t) {
         "  |automobile|assurance_vie|autres>.\n" +
         "  Source: BOFiP BOI-TCAS-ASSUR-30.\n" +
         "\n" +
+        "## Taxe de solidarité transport aérien (TTAP) — art. L. 422-20 CIBS\n" +
+        "  Ex-art. 302 bis K CGI. Taxe par passager selon destination\n" +
+        "  et classe: <1000km 120/60/10 EUR (business/economy/autre),\n" +
+        "  1000-2200km 360/180/30, >2200km 1200/400/60. Fret:\n" +
+        "  50 EUR/tonne. Le radar expose\n" +
+        "  ttap_solidarite.total_cents.\n" +
+        "  Set: bilan rule set 2026 ttap_solidarite\n" +
+        "  passagers_cents <val> + classe <business|economy|autre>\n" +
+        "  + distance <courte|moyenne|longue> + fret_tonnes_cents <val>.\n" +
+        "  Source: BOFiP, ecologie.gouv.fr.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

@@ -825,6 +825,28 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsca', 'taux_automobile_pct_hundredths', '3300')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsca', 'taux_assurance_vie_pct_hundredths', '350')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsca', 'taux_autres_pct_hundredths', '900')", []string{y})
+    // Taxe de solidarité sur le transport aérien de passagers (TTAP
+    // tarif solidarité) — ex-art. 302 bis K CGI, now art. L. 422-20
+    // CIBS. 2025 rates per passager by destination distance and
+    // class. Fret: 50 EUR/tonne. Source: BOFiP, ecologie.gouv.fr.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ttap_solidarite', 'passagers_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ttap_solidarite', 'classe', 'economy')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ttap_solidarite', 'distance', 'courte')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ttap_solidarite', 'fret_tonnes_cents', '0')", []string{y})
+    // <1000 km
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ttap_solidarite', 'courte_business_cents', '12000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ttap_solidarite', 'courte_economy_cents', '6000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ttap_solidarite', 'courte_autre_cents', '1000')", []string{y})
+    // 1000-2200 km
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ttap_solidarite', 'moyenne_business_cents', '36000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ttap_solidarite', 'moyenne_economy_cents', '18000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ttap_solidarite', 'moyenne_autre_cents', '3000')", []string{y})
+    // >2200 km
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ttap_solidarite', 'longue_business_cents', '120000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ttap_solidarite', 'longue_economy_cents', '40000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ttap_solidarite', 'longue_autre_cents', '6000')", []string{y})
+    // Fret
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ttap_solidarite', 'fret_tarif_cents', '5000')", []string{y})
     // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
     // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
     // immeubles bâtis only (not terrains à bâtir). Brackets:

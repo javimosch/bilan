@@ -1466,6 +1466,43 @@ r=$(BILAN_DB="$TSCADB5" $BIN tax --year 2026)
 ok "tsca assurance_vie 3.5% 10000 tax 35000" 35000 "$(jq -r .tsca.tax_cents <<<"$r")"
 rm -f "$TSCADB5"
 
+# --- TTAP solidarité — 100 passagers economy courte (<1000km) → 100 × 60 = 6000 EUR ---
+# passagers_cents = 10000 (100 passagers × 100 cents), tarif 6000 cents/passager
+# tax = 10000 × 6000 / 100 = 600000 cents = 6000 EUR
+TTAPDB1="$(mktemp -u /tmp/bilan-ttap1-XXXXXX.db)"
+BILAN_DB="$TTAPDB1" $BIN rule set 2026 ttap_solidarite passagers_cents 10000 >/dev/null
+BILAN_DB="$TTAPDB1" $BIN rule set 2026 ttap_solidarite classe economy >/dev/null
+BILAN_DB="$TTAPDB1" $BIN rule set 2026 ttap_solidarite distance courte >/dev/null
+r=$(BILAN_DB="$TTAPDB1" $BIN tax --year 2026)
+ok "ttap 100 eco courte 60EUR tax 600000" 600000 "$(jq -r .ttap_solidarite.passagers_tax_cents <<<"$r")"
+rm -f "$TTAPDB1"
+
+# --- TTAP solidarité — 50 passagers business longue (>2200km) → 50 × 1200 = 60000 EUR ---
+# passagers_cents = 5000, tarif 120000 cents/passager
+# tax = 5000 × 120000 / 100 = 6000000 cents = 60000 EUR
+TTAPDB2="$(mktemp -u /tmp/bilan-ttap2-XXXXXX.db)"
+BILAN_DB="$TTAPDB2" $BIN rule set 2026 ttap_solidarite passagers_cents 5000 >/dev/null
+BILAN_DB="$TTAPDB2" $BIN rule set 2026 ttap_solidarite classe business >/dev/null
+BILAN_DB="$TTAPDB2" $BIN rule set 2026 ttap_solidarite distance longue >/dev/null
+r=$(BILAN_DB="$TTAPDB2" $BIN tax --year 2026)
+ok "ttap 50 business longue 1200EUR tax 6000000" 6000000 "$(jq -r .ttap_solidarite.passagers_tax_cents <<<"$r")"
+rm -f "$TTAPDB2"
+
+# --- TTAP solidarité — 200 passagers economy moyenne (1000-2200km) + 10 tonnes fret ---
+# passagers: 200 × 180 = 36000 EUR = 3600000 cents
+# fret: 10 × 50 = 500 EUR = 50000 cents
+# total = 3650000 cents
+TTAPDB3="$(mktemp -u /tmp/bilan-ttap3-XXXXXX.db)"
+BILAN_DB="$TTAPDB3" $BIN rule set 2026 ttap_solidarite passagers_cents 20000 >/dev/null
+BILAN_DB="$TTAPDB3" $BIN rule set 2026 ttap_solidarite classe economy >/dev/null
+BILAN_DB="$TTAPDB3" $BIN rule set 2026 ttap_solidarite distance moyenne >/dev/null
+BILAN_DB="$TTAPDB3" $BIN rule set 2026 ttap_solidarite fret_tonnes_cents 1000 >/dev/null
+r=$(BILAN_DB="$TTAPDB3" $BIN tax --year 2026)
+ok "ttap 200 eco moyenne 180EUR tax 3600000" 3600000 "$(jq -r .ttap_solidarite.passagers_tax_cents <<<"$r")"
+ok "ttap 10t fret 50EUR tax 50000" 50000 "$(jq -r .ttap_solidarite.fret_tax_cents <<<"$r")"
+ok "ttap total 3650000" 3650000 "$(jq -r .ttap_solidarite.total_cents <<<"$r")"
+rm -f "$TTAPDB3"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents
