@@ -944,6 +944,17 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_pylones', 'nb_pylones_sup_350_kv', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_pylones', 'tarif_200_350_kv_cents', '332200')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_pylones', 'tarif_sup_350_kv_cents', '663500')", []string{y})
+    // IFER sur les transformateurs électriques — article
+    // 1519 G CGI. Transformateurs des réseaux publics de
+    // transport et distribution d'électricité. 2026 tarifs
+    // par transformateur selon tension en amont.
+    // Source: BOFiP BOI-TFP-IFER-40.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_transformateurs', 'nb_sup_350_kv', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_transformateurs', 'nb_130_350_kv', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_transformateurs', 'nb_50_130_kv', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_transformateurs', 'tarif_sup_350_kv_cents', '17058700')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_transformateurs', 'tarif_130_350_kv_cents', '5789000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_transformateurs', 'tarif_50_130_kv_cents', '1662700')", []string{y})
     // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
     // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
     // immeubles bâtis only (not terrains à bâtir). Brackets:

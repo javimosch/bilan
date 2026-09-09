@@ -885,6 +885,19 @@ func guide_text(base) (t) {
         "  nb_pylones_sup_350_kv <val>.\n" +
         "  Source: BOFiP BOI-TFP-PYL.\n" +
         "\n" +
+        "## IFER transformateurs — art. 1519 G CGI\n" +
+        "  IFER sur transformateurs électriques des réseaux\n" +
+        "  publics transport/distribution électricité.\n" +
+        "  2026 tarifs par transformateur selon tension en\n" +
+        "  amont: >350 kV = 170587 EUR, >130-350 kV =\n" +
+        "  57890 EUR, >50-130 kV = 16627 EUR. Seuil: >50 kV\n" +
+        "  (<=50 kV non imposés).\n" +
+        "  Le radar expose ifer_transformateurs.tax_cents.\n" +
+        "  Set: bilan rule set 2026 ifer_transformateurs\n" +
+        "  nb_sup_350_kv <val> + nb_130_350_kv <val> +\n" +
+        "  nb_50_130_kv <val>.\n" +
+        "  Source: BOFiP BOI-TFP-IFER-40.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

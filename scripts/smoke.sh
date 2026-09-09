@@ -1694,6 +1694,22 @@ r=$(BILAN_DB="$IPDB2" $BIN tax --year 2026)
 ok "ip 0 pylônes tax 0" 0 "$(jq -r .ifer_pylones.tax_cents <<<"$r")"
 rm -f "$IPDB2"
 
+# --- IFER transformateurs (art. 1519 G) — 2 >350kV + 3 >130-350kV + 5 >50-130kV ---
+# 2 × 17058700 + 3 × 5789000 + 5 × 1662700 = 34117400 + 17367000 + 8313500 = 59797900 cents
+ITDB1="$(mktemp -u /tmp/bilan-it1-XXXXXX.db)"
+BILAN_DB="$ITDB1" $BIN rule set 2026 ifer_transformateurs nb_sup_350_kv 2 >/dev/null
+BILAN_DB="$ITDB1" $BIN rule set 2026 ifer_transformateurs nb_130_350_kv 3 >/dev/null
+BILAN_DB="$ITDB1" $BIN rule set 2026 ifer_transformateurs nb_50_130_kv 5 >/dev/null
+r=$(BILAN_DB="$ITDB1" $BIN tax --year 2026)
+ok "it 2+3+5 transformateurs tax 59797900" 59797900 "$(jq -r .ifer_transformateurs.tax_cents <<<"$r")"
+rm -f "$ITDB1"
+
+# --- IFER transformateurs (art. 1519 G) — 0 transformateurs, tax 0 ---
+ITDB2="$(mktemp -u /tmp/bilan-it2-XXXXXX.db)"
+r=$(BILAN_DB="$ITDB2" $BIN tax --year 2026)
+ok "it 0 transformateurs tax 0" 0 "$(jq -r .ifer_transformateurs.tax_cents <<<"$r")"
+rm -f "$ITDB2"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents
