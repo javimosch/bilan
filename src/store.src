@@ -470,6 +470,14 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'usufruit_temporaire_donateur_age', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'usufruit_temporaire_taux_periode_pct_tenths', '230')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'usufruit_temporaire_periode_years', '10')", []string{y})
+    // DMTG abattement renouvelable 15 ans — article 779 CGI. Abattements
+    // (ligne directe 100000, conjoint 80724, etc.) are renewable every
+    // 15 years. For donations within 15 years of a previous donation,
+    // the abattement is reduced by the amount already used. Source:
+    // BOFiP BOI-ENR-DMTG-10-30-10.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'abattement_deja_utilise_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'derniere_donation_year', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'renouvellement_periode_years', '15')", []string{y})
     // Plus-values sur valeurs mobilières — articles 150-0 A et 150-0 D CGI.
     // Art. 150-0 A: gain net = prix cession - prix acquisition - frais.
     // Art. 150-0 D 1 ter: abattement pour durée de détention sur titres de
@@ -583,6 +591,13 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'plafonnement_revenus_n1_cents', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'plafonnement_impots_n1_cents', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'plafonnement_seuil_pct_tenths', '750')", []string{y})
+    // IFI réduction dons — article 978 CGI. 75% of dons to organismes
+    // d'intérêt général, cap 50000 EUR per redevable per year. Applied
+    // BEFORE plafonnement (art. 979). Source: BOFiP BOI-PAT-IFI-40-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'dons_eligible', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'dons_montant_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'dons_taux_pct_tenths', '750')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifi', 'dons_plafond_cents', '5000000')", []string{y})
     // Heures supplémentaires (art. 81 quater CGI). Exonération d'IR up to 7,500
     // EUR/year (rémunération nette imposable). Record the net imposable amount
     // of heures sup as a positive tx in a 'heures_sup' stream. The radar

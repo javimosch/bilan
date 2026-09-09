@@ -753,6 +753,78 @@ ifi_apres=$(jq -r .ifi.plafonnement.ifi_apres_plafonnement_cents <<<"$r")
 ok "ifi plaf apres < avant" 1 "$(if [ "$ifi_apres" -lt "$ifi_avant" ]; then echo 1; else echo 0; fi)"
 rm -f "$IFIPLAF1"
 
+# --- IFI réduction dons art. 978 (75% dons, cap 50000) ---
+# 5M patrimoine → IFI ≈ 35690 EUR (progressive bareme)
+# dons 40000 EUR → réduction 75% × 40000 = 30000 EUR = 3000000 cents
+# IFI après dons = 35690 - 30000 = 5690 EUR = 569000 cents
+IFIDONS1="$(mktemp -u /tmp/bilan-ifidons1-XXXXXX.db)"
+BILAN_DB="$IFIDONS1" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$IFIDONS1" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$IFIDONS1" $BIN stream add pat --kind ifi_patrimoine >/dev/null
+BILAN_DB="$IFIDONS1" $BIN tx add pat 2026-06-30 5000000 >/dev/null
+BILAN_DB="$IFIDONS1" $BIN rule set 2026 ifi dons_eligible 1 >/dev/null
+BILAN_DB="$IFIDONS1" $BIN rule set 2026 ifi dons_montant_cents 4000000 >/dev/null
+r=$(BILAN_DB="$IFIDONS1" $BIN tax --year 2026)
+ok "ifi dons eligible" true "$(jq -r .ifi.dons.eligible <<<"$r")"
+ok "ifi dons montant 40000" 4000000 "$(jq -r .ifi.dons.montant_cents <<<"$r")"
+# 75% × 40000 = 30000 EUR = 3000000 cents
+ok "ifi dons reduction 30000" 3000000 "$(jq -r .ifi.dons.reduction_cents <<<"$r")"
+# IFI avant dons should be > 0
+ifi_avant_dons=$(jq -r .ifi.dons.ifi_avant_dons_cents <<<"$r")
+ok "ifi dons avant > 0" 1 "$(if [ "$ifi_avant_dons" -gt 0 ]; then echo 1; else echo 0; fi)"
+# IFI after dons should be < IFI before dons
+ifi_after_dons=$(jq -r .ifi.ifi_cents <<<"$r")
+ok "ifi dons ifi after < avant" 1 "$(if [ "$ifi_after_dons" -lt "$ifi_avant_dons" ]; then echo 1; else echo 0; fi)"
+rm -f "$IFIDONS1"
+
+# --- IFI réduction dons art. 978 (cap 50000 EUR) ---
+# dons 100000 EUR → réduction 75% × 100000 = 75000, but capped at 50000 EUR = 5000000 cents
+IFIDONS2="$(mktemp -u /tmp/bilan-ifidons2-XXXXXX.db)"
+BILAN_DB="$IFIDONS2" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$IFIDONS2" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$IFIDONS2" $BIN stream add pat --kind ifi_patrimoine >/dev/null
+BILAN_DB="$IFIDONS2" $BIN tx add pat 2026-06-30 10000000 >/dev/null
+BILAN_DB="$IFIDONS2" $BIN rule set 2026 ifi dons_eligible 1 >/dev/null
+BILAN_DB="$IFIDONS2" $BIN rule set 2026 ifi dons_montant_cents 10000000 >/dev/null
+r=$(BILAN_DB="$IFIDONS2" $BIN tax --year 2026)
+# 75% × 100000 = 75000, capped at 50000 EUR = 5000000 cents
+ok "ifi dons2 reduction capped 50000" 5000000 "$(jq -r .ifi.dons.reduction_cents <<<"$r")"
+rm -f "$IFIDONS2"
+
+# --- DMTG abattement renouvelable 15 ans art. 779 (within 15y, reduced) ---
+# 200000 actif, ligne directe, abattement 100000, déjà utilisé 60000, dernière donation 2020
+# → abattement réduit à 100000 - 60000 = 40000; base = 200000 - 40000 = 160000
+DDREN1="$(mktemp -u /tmp/bilan-ddren1-XXXXXX.db)"
+BILAN_DB="$DDREN1" $BIN rule set 2026 dmtg_donation actif_taxable_cents 20000000 >/dev/null
+BILAN_DB="$DDREN1" $BIN rule set 2026 dmtg_donation degre_parente ligne_directe >/dev/null
+BILAN_DB="$DDREN1" $BIN rule set 2026 dmtg_donation abattement_deja_utilise_cents 6000000 >/dev/null
+BILAN_DB="$DDREN1" $BIN rule set 2026 dmtg_donation derniere_donation_year 2020 >/dev/null
+r=$(BILAN_DB="$DDREN1" $BIN tax --year 2026)
+ok "dd renouvellement deja utilise 60000" 6000000 "$(jq -r .dmtg_donation.abattement_renouvellement.deja_utilise_cents <<<"$r")"
+ok "dd renouvellement derniere 2020" 2020 "$(jq -r .dmtg_donation.abattement_renouvellement.derniere_donation_year <<<"$r")"
+# 2026 - 2020 = 6 < 15 → NOT renewed → abattement réduit 60000
+ok "dd renouvellement abattement reduit 60000" 6000000 "$(jq -r .dmtg_donation.abattement_renouvellement.abattement_reduit_cents <<<"$r")"
+ok "dd renouvellement renewed false" false "$(jq -r .dmtg_donation.abattement_renouvellement.renewed <<<"$r")"
+# abattement = 100000 - 60000 = 40000 EUR = 4000000 cents
+ok "dd renouvellement abattement 40000" 4000000 "$(jq -r .dmtg_donation.abattement_cents <<<"$r")"
+rm -f "$DDREN1"
+
+# --- DMTG abattement renouvelable 15 ans art. 779 (outside 15y, renewed) ---
+# 200000 actif, ligne directe, abattement 100000, déjà utilisé 60000, dernière donation 2010
+# → 2026 - 2010 = 16 >= 15 → renewed → abattement full 100000
+DDREN2="$(mktemp -u /tmp/bilan-ddren2-XXXXXX.db)"
+BILAN_DB="$DDREN2" $BIN rule set 2026 dmtg_donation actif_taxable_cents 20000000 >/dev/null
+BILAN_DB="$DDREN2" $BIN rule set 2026 dmtg_donation degre_parente ligne_directe >/dev/null
+BILAN_DB="$DDREN2" $BIN rule set 2026 dmtg_donation abattement_deja_utilise_cents 6000000 >/dev/null
+BILAN_DB="$DDREN2" $BIN rule set 2026 dmtg_donation derniere_donation_year 2010 >/dev/null
+r=$(BILAN_DB="$DDREN2" $BIN tax --year 2026)
+# 2026 - 2010 = 16 >= 15 → renewed → abattement réduit 0
+ok "dd renouvellement2 abattement reduit 0 (renewed)" 0 "$(jq -r .dmtg_donation.abattement_renouvellement.abattement_reduit_cents <<<"$r")"
+ok "dd renouvellement2 renewed true" true "$(jq -r .dmtg_donation.abattement_renouvellement.renewed <<<"$r")"
+# abattement = 100000 (full, renewed)
+ok "dd renouvellement2 abattement 100000" 10000000 "$(jq -r .dmtg_donation.abattement_cents <<<"$r")"
+rm -f "$DDREN2"
+
 # --- heures supplémentaires (art. 81 quater, 7500 EUR cap) ---
 HSDB1="$(mktemp -u /tmp/bilan-hs1-XXXXXX.db)"
 BILAN_DB="$HSDB1" $BIN stream add sal --kind salary >/dev/null

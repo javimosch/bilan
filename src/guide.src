@@ -590,6 +590,26 @@ func guide_text(base) (t) {
         "  + plafonnement_impots_n1_cents <val>. Source: BOFiP\n" +
         "  BOI-PAT-IFI-40-30-10.\n" +
         "\n" +
+        "## IFI réduction dons — art. 978 CGI\n" +
+        "  75% des dons aux organismes d'intérêt général, plafond 50000 EUR\n" +
+        "  par redevable et par an. Appliquée AVANT le plafonnement (art.\n" +
+        "  979). Le ifi JSON block expose maintenant dons.eligible,\n" +
+        "  dons.reduction_cents, dons.ifi_avant_dons_cents. Set: bilan rule\n" +
+        "  set 2026 ifi dons_eligible 1 + dons_montant_cents <val>. Source:\n" +
+        "  BOFiP BOI-PAT-IFI-40-20.\n" +
+        "\n" +
+        "## DMTG abattement renouvelable 15 ans — art. 779 CGI\n" +
+        "  Les abattements (ligne directe 100000, conjoint 80724, etc.)\n" +
+        "  sont renouvelables tous les 15 ans. Pour une donation dans les\n" +
+        "  15 ans suivant une donation précédente, l'abattement est réduit\n" +
+        "  du montant déjà utilisé. Le dmtg_donation JSON block expose\n" +
+        "  maintenant abattement_renouvellement.deja_utilise_cents,\n" +
+        "  abattement_renouvellement.derniere_donation_year,\n" +
+        "  abattement_renouvellement.abattement_reduit_cents,\n" +
+        "  abattement_renouvellement.renewed. Set: bilan rule set 2026\n" +
+        "  dmtg_donation abattement_deja_utilise_cents <val> +\n" +
+        "  derniere_donation_year <val>. Source: BOFiP BOI-ENR-DMTG-10-30-10.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
