@@ -237,7 +237,9 @@ func llms_txt() (t) {
         "    thermique art. 1519 E (3588\n" +
         "    EUR/MW) + IFER ferroviaire art.\n" +
         "    1599 quater A (9 catégories\n" +
-        "    matériel roulant);\n" +
+        "    matériel roulant) + IFER\n" +
+        "    stations radio art. 1519 H\n" +
+        "    (1884 EUR/station);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

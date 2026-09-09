@@ -930,6 +930,12 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'tarif_remorque_passagers_cents', '591300')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'tarif_remorque_gv_cents', '1231600')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'tarif_remorque_tramtrain_cents', '295600')", []string{y})
+    // IFER sur les stations radioélectriques — article
+    // 1519 H CGI. Stations dont la puissance impose un avis,
+    // accord ou déclaration à l'ANFR. Tarif 1884 EUR/station.
+    // Source: BOFiP BOI-TFP-IFER-50.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_stations_radio', 'nb_stations', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_stations_radio', 'tarif_station_cents', '188400')", []string{y})
     // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
     // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
     // immeubles bâtis only (not terrains à bâtir). Brackets:

@@ -859,6 +859,18 @@ func guide_text(base) (t) {
         "  <val> + nb_automotrice <val> + ...\n" +
         "  Source: BOFiP BOI-TFP-IFER-70.\n" +
         "\n" +
+        "## IFER stations radio — art. 1519 H CGI\n" +
+        "  IFER sur stations radioélectriques (puissance\n" +
+        "  imposant avis/accord/déclaration ANFR).\n" +
+        "  Tarif 1884 EUR/station. Réductions: 75%\n" +
+        "  nouvelles stations (3 premières années),\n" +
+        "  50% zones sans haut débit, 10% émetteurs\n" +
+        "  couverture sans accord ANFR.\n" +
+        "  Le radar expose ifer_stations_radio.tax_cents.\n" +
+        "  Set: bilan rule set 2026 ifer_stations_radio\n" +
+        "  nb_stations <val> + tarif_station_cents <val>.\n" +
+        "  Source: BOFiP BOI-TFP-IFER-50.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

@@ -1665,6 +1665,20 @@ r=$(BILAN_DB="$IFDB2" $BIN tax --year 2026)
 ok "if no matériel tax 0" 0 "$(jq -r .ifer_ferroviaire.tax_cents <<<"$r")"
 rm -f "$IFDB2"
 
+# --- IFER stations radio (art. 1519 H) — 10 stations × 1884 EUR = 18840 EUR ---
+# 10 × 188400 cents = 1884000 cents = 18840 EUR
+ISRDB1="$(mktemp -u /tmp/bilan-isr1-XXXXXX.db)"
+BILAN_DB="$ISRDB1" $BIN rule set 2026 ifer_stations_radio nb_stations 10 >/dev/null
+r=$(BILAN_DB="$ISRDB1" $BIN tax --year 2026)
+ok "isr 10 stations 1884EUR tax 1884000" 1884000 "$(jq -r .ifer_stations_radio.tax_cents <<<"$r")"
+rm -f "$ISRDB1"
+
+# --- IFER stations radio (art. 1519 H) — 0 stations, tax 0 ---
+ISRDB2="$(mktemp -u /tmp/bilan-isr2-XXXXXX.db)"
+r=$(BILAN_DB="$ISRDB2" $BIN tax --year 2026)
+ok "isr 0 stations tax 0" 0 "$(jq -r .ifer_stations_radio.tax_cents <<<"$r")"
+rm -f "$ISRDB2"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents
