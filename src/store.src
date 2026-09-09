@@ -774,6 +774,27 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'versement_mobilite', 'effectif_moyen', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'versement_mobilite', 'remunerations_cents', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'versement_mobilite', 'taux_pct_hundredths', '150')", []string{y})
+    // Retenue à la source non-résidents (PASNR) — article 182 A CGI.
+    // Barème 2025: 0% ≤17122, 12% 17122-49667, 20% >49667. DOM:
+    // 0%/8%/14.4%. Abattement 10% frais professionnels.
+    // Source: BOFiP BOI-IR-DOMIC-10-20-20, legifiscal.fr.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pasnr', 'revenus_bruts_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pasnr', 'dom_eligible', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pasnr', 'abattement_pct_tenths', '100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pasnr', 't1_threshold_cents', '1712200')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pasnr', 't2_threshold_cents', '4966700')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pasnr', 'rate1_pct_hundredths', '1200')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pasnr', 'rate2_pct_hundredths', '2000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pasnr', 'rate1_dom_pct_hundredths', '800')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pasnr', 'rate2_dom_pct_hundredths', '1440')", []string{y})
+    // Prélèvement de solidarité — article 119 bis 2 CGI. 25% on
+    // dividendes versés à non-résidents. 12.8% IR + 17.2% social =
+    // 30% PFU on interest. Source: BOFiP BOI-IR-DOMIC-10-20-50.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'prelevement_solidarite', 'dividendes_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'prelevement_solidarite', 'interets_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'prelevement_solidarite', 'taux_dividendes_pct_hundredths', '2500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'prelevement_solidarite', 'taux_ir_interets_pct_hundredths', '1280')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'prelevement_solidarite', 'taux_social_interets_pct_hundredths', '1720')", []string{y})
     // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
     // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
     // immeubles bâtis only (not terrains à bâtir). Brackets:

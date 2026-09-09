@@ -1326,6 +1326,55 @@ ok "vm 10 sal not eligible 0" 0 "$(jq -r .versement_mobilite.tax_cents <<<"$r")"
 ok "vm 10 sal eligible flag false" false "$(jq -r .versement_mobilite.eligible <<<"$r")"
 rm -f "$VMDB2"
 
+# --- PASNR (art. 182 A) — 50000 EUR, abattement 10% → net 45000, bracket 12% ---
+# net = 45000 EUR = 4500000 cents. 45000 > 17122, < 49667 → 12%
+# tax = (45000 - 17122) × 12% = 27878 × 0.12 = 3345.36 EUR → 334536 cents
+PASNRDB1="$(mktemp -u /tmp/bilan-pasnr1-XXXXXX.db)"
+BILAN_DB="$PASNRDB1" $BIN rule set 2026 pasnr revenus_bruts_cents 5000000 >/dev/null
+r=$(BILAN_DB="$PASNRDB1" $BIN tax --year 2026)
+ok "pasnr 50000 net 45000 bracket 12% tax 334536" 334536 "$(jq -r .pasnr.tax_cents <<<"$r")"
+rm -f "$PASNRDB1"
+
+# --- PASNR (art. 182 A) — 10000 EUR, abattement 10% → net 9000, below threshold → 0 ---
+PASNRDB2="$(mktemp -u /tmp/bilan-pasnr2-XXXXXX.db)"
+BILAN_DB="$PASNRDB2" $BIN rule set 2026 pasnr revenus_bruts_cents 1000000 >/dev/null
+r=$(BILAN_DB="$PASNRDB2" $BIN tax --year 2026)
+ok "pasnr 10000 net 9000 below threshold 0" 0 "$(jq -r .pasnr.tax_cents <<<"$r")"
+rm -f "$PASNRDB2"
+
+# --- PASNR (art. 182 A) — 60000 EUR, abattement 10% → net 54000, both brackets ---
+# net = 54000 EUR = 5400000 cents. > 49667
+# tax = (49667 - 17122) × 12% + (54000 - 49667) × 20%
+# = 32545 × 0.12 + 4333 × 0.20 = 3905.40 + 866.60 = 4772.00 EUR = 477200 cents
+PASNRDB3="$(mktemp -u /tmp/bilan-pasnr3-XXXXXX.db)"
+BILAN_DB="$PASNRDB3" $BIN rule set 2026 pasnr revenus_bruts_cents 6000000 >/dev/null
+r=$(BILAN_DB="$PASNRDB3" $BIN tax --year 2026)
+ok "pasnr 60000 net 54000 both brackets tax 477200" 477200 "$(jq -r .pasnr.tax_cents <<<"$r")"
+rm -f "$PASNRDB3"
+
+# --- PASNR (art. 182 A) — DOM rates (8%/14.4%) ---
+# 60000 EUR, DOM → net 54000. tax = 32545 × 8% + 4333 × 14.4%
+# = 2603.60 + 623.95 = 3227.55 EUR → 322755 cents
+PASNRDB4="$(mktemp -u /tmp/bilan-pasnr4-XXXXXX.db)"
+BILAN_DB="$PASNRDB4" $BIN rule set 2026 pasnr revenus_bruts_cents 6000000 >/dev/null
+BILAN_DB="$PASNRDB4" $BIN rule set 2026 pasnr dom_eligible 1 >/dev/null
+r=$(BILAN_DB="$PASNRDB4" $BIN tax --year 2026)
+ok "pasnr 60000 DOM tax 322755" 322755 "$(jq -r .pasnr.tax_cents <<<"$r")"
+rm -f "$PASNRDB4"
+
+# --- Prélèvement de solidarité (art. 119 bis 2) — 10000 EUR dividendes + 10000 EUR intérêts ---
+# dividendes: 25% × 10000 = 2500 EUR = 250000 cents
+# intérêts: 12.8% × 10000 + 17.2% × 10000 = 1280 + 1720 = 3000 EUR = 300000 cents
+# total = 250000 + 300000 = 550000 cents
+PSDB1="$(mktemp -u /tmp/bilan-ps1-XXXXXX.db)"
+BILAN_DB="$PSDB1" $BIN rule set 2026 prelevement_solidarite dividendes_cents 1000000 >/dev/null
+BILAN_DB="$PSDB1" $BIN rule set 2026 prelevement_solidarite interets_cents 1000000 >/dev/null
+r=$(BILAN_DB="$PSDB1" $BIN tax --year 2026)
+ok "ps 10000 dividendes 25% tax 250000" 250000 "$(jq -r .prelevement_solidarite.dividendes_tax_cents <<<"$r")"
+ok "ps 10000 interets 30% PFU tax 300000" 300000 "$(jq -r .prelevement_solidarite.interets_tax_cents <<<"$r")"
+ok "ps total 550000" 550000 "$(jq -r .prelevement_solidarite.total_cents <<<"$r")"
+rm -f "$PSDB1"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents

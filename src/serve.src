@@ -213,7 +213,10 @@ func llms_txt() (t) {
         "    minimum) + TSB art. 231 ter (bureaux IDF 4\n" +
         "    circonscriptions, PACA) + TSS stationnement + CRL\n" +
         "    art. 234 nonies (2.5% loyers personnes morales)\n" +
-        "    + versement mobilité art. L52-53 (≥11 salariés);\n" +
+        "    + versement mobilité art. L52-53 (≥11 salariés)\n" +
+        "    + PASNR art. 182 A (non-résidents 0/12/20%)\n" +
+        "    + prélèvement solidarité art. 119 bis 2\n" +
+        "    (25% dividendes, 30% PFU intérêts);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

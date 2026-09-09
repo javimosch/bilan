@@ -721,6 +721,21 @@ func guide_text(base) (t) {
         "  effectif_moyen <val> + remunerations_cents <val>\n" +
         "  + taux_pct_hundredths <val>. Source: urssaf.fr.\n" +
         "\n" +
+        "## Retenue à la source non-résidents (PASNR) — art. 182 A CGI\n" +
+        "  Barème 2025: 0% ≤17122, 12% 17122-49667, 20% >49667.\n" +
+        "  DOM: 0%/8%/14.4%. Abattement 10% frais professionnels.\n" +
+        "  Le radar expose pasnr.tax_cents.\n" +
+        "  Set: bilan rule set 2026 pasnr revenus_bruts_cents <val>\n" +
+        "  + dom_eligible <0|1>. Source: BOFiP BOI-IR-DOMIC-10-20-20.\n" +
+        "\n" +
+        "## Prélèvement de solidarité — art. 119 bis 2 CGI\n" +
+        "  25% sur dividendes versés à non-résidents. 12.8% IR +\n" +
+        "  17.2% social = 30% PFU sur intérêts. Le radar expose\n" +
+        "  prelevement_solidarite.total_cents.\n" +
+        "  Set: bilan rule set 2026 prelevement_solidarite\n" +
+        "  dividendes_cents <val> + interets_cents <val>.\n" +
+        "  Source: BOFiP BOI-IR-DOMIC-10-20-50.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
