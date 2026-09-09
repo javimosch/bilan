@@ -763,6 +763,21 @@ func guide_text(base) (t) {
         "  taux_pct_hundredths <val>.\n" +
         "  Source: Unédic, BOFiP, urssaf.fr.\n" +
         "\n" +
+        "## CSA solidarité autonomie — art. L 14-10-4 CASF\n" +
+        "  Contribution solidarité autonomie. Cotisation\n" +
+        "  patronale 0.30% sur même assiette que\n" +
+        "  cotisations patronales d'assurance maladie\n" +
+        "  (salaire total, sans plafond). Due par tous\n" +
+        "  les employeurs soumis à la cotisation\n" +
+        "  patronale d'assurance maladie. Finance la\n" +
+        "  Caisse nationale de solidarité pour\n" +
+        "  l'autonomie (CNSA). Distinct du CSA\n" +
+        "  apprentissage (déjà dans taxe_apprentissage).\n" +
+        "  Le radar expose csa_solidarite.tax_cents.\n" +
+        "  Set: bilan rule set 2026 csa_solidarite\n" +
+        "  salaires_base_cents <val>.\n" +
+        "  Source: BOFiP, urssaf.fr.\n" +
+        "\n" +
         "## Plafonnement de la CET — art. 1647 B sexies CGI\n" +
         "  Si CFE + CVAE > taux × valeur ajoutée, dégrèvement =\n" +
         "  CET - plafond. Taux 1.438% (2025), 1.531% (2026/2027).\n" +

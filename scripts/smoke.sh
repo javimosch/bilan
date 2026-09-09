@@ -1842,6 +1842,19 @@ r=$(BILAN_DB="$ACDB3" $BIN tax --year 2026)
 ok "ac 0 base tax 0" 0 "$(jq -r .assurance_chomage.tax_cents <<<"$r")"
 rm -f "$ACDB3"
 
+# --- CSA solidarité (art. L 14-10-4 CASF) — 100000 EUR, 0.30% = 30000 ---
+CSASDB1="$(mktemp -u /tmp/bilan-csas1-XXXXXX.db)"
+BILAN_DB="$CSASDB1" $BIN rule set 2026 csa_solidarite salaires_base_cents 10000000 >/dev/null
+r=$(BILAN_DB="$CSASDB1" $BIN tax --year 2026)
+ok "csas 100k EUR tax 30000" 30000 "$(jq -r .csa_solidarite.tax_cents <<<"$r")"
+rm -f "$CSASDB1"
+
+# --- CSA solidarité (art. L 14-10-4 CASF) — 0 base, tax 0 ---
+CSASDB2="$(mktemp -u /tmp/bilan-csas2-XXXXXX.db)"
+r=$(BILAN_DB="$CSASDB2" $BIN tax --year 2026)
+ok "csas 0 base tax 0" 0 "$(jq -r .csa_solidarite.tax_cents <<<"$r")"
+rm -f "$CSASDB2"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents
