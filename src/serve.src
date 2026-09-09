@@ -233,7 +233,9 @@ func llms_txt() (t) {
         "    centrales art. 1519 F (3.588-8.62\n" +
         "    EUR/kW photovoltaïque/hydraulique)\n" +
         "    + IFER éoliennes art. 1519 D\n" +
-        "    (8.62 EUR/kW);\n" +
+        "    (8.62 EUR/kW) + IFER nucléaire/\n" +
+        "    thermique art. 1519 E (3588\n" +
+        "    EUR/MW);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

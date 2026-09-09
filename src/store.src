@@ -901,6 +901,13 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_eoliennes', 'puissance_kw', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_eoliennes', 'tarif_kw_cents', '862')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_eoliennes', 'seuil_kw', '100')", []string{y})
+    // IFER sur les installations de production d'électricité
+    // d'origine nucléaire ou thermique à flamme — article
+    // 1519 E CGI. 2026 tarif 3588 EUR/MW (mégawatt, pas kW).
+    // Seuil: >=50 MW. Source: BOFiP BOI-TFP-IFER-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_nucleaire', 'puissance_mw', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_nucleaire', 'tarif_mw_cents', '358800')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_nucleaire', 'seuil_mw', '50')", []string{y})
     // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
     // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
     // immeubles bâtis only (not terrains à bâtir). Brackets:

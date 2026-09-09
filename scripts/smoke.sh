@@ -1635,6 +1635,21 @@ r=$(BILAN_DB="$IEDB2" $BIN tax --year 2026)
 ok "ie 80kW below seuil tax 0" 0 "$(jq -r .ifer_eoliennes.tax_cents <<<"$r")"
 rm -f "$IEDB2"
 
+# --- IFER nucléaire (art. 1519 E) — 1000 MW × 3588 EUR = 3588000 EUR ---
+# 1000 × 358800 cents = 358800000 cents = 3588000 EUR
+INDB1="$(mktemp -u /tmp/bilan-in1-XXXXXX.db)"
+BILAN_DB="$INDB1" $BIN rule set 2026 ifer_nucleaire puissance_mw 1000 >/dev/null
+r=$(BILAN_DB="$INDB1" $BIN tax --year 2026)
+ok "in 1000MW 3588EUR tax 358800000" 358800000 "$(jq -r .ifer_nucleaire.tax_cents <<<"$r")"
+rm -f "$INDB1"
+
+# --- IFER nucléaire (art. 1519 E) — 40 MW below seuil, no tax ---
+INDB2="$(mktemp -u /tmp/bilan-in2-XXXXXX.db)"
+BILAN_DB="$INDB2" $BIN rule set 2026 ifer_nucleaire puissance_mw 40 >/dev/null
+r=$(BILAN_DB="$INDB2" $BIN tax --year 2026)
+ok "in 40MW below seuil tax 0" 0 "$(jq -r .ifer_nucleaire.tax_cents <<<"$r")"
+rm -f "$INDB2"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents

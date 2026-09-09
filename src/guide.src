@@ -836,6 +836,15 @@ func guide_text(base) (t) {
         "  puissance_kw <val> + tarif_kw_cents <val>.\n" +
         "  Source: BOFiP BOI-TFP-IFER-10.\n" +
         "\n" +
+        "## IFER nucléaire/thermique — art. 1519 E CGI\n" +
+        "  IFER sur installations production électricité\n" +
+        "  nucléaire ou thermique à flamme. 2026 tarif\n" +
+        "  3588 EUR/MW (mégawatt, pas kW). Seuil: >=50 MW.\n" +
+        "  Le radar expose ifer_nucleaire.tax_cents.\n" +
+        "  Set: bilan rule set 2026 ifer_nucleaire\n" +
+        "  puissance_mw <val> + tarif_mw_cents <val>.\n" +
+        "  Source: BOFiP BOI-TFP-IFER-20.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
