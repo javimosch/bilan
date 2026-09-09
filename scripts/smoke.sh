@@ -927,6 +927,51 @@ ok "la plafond 3000" 300000 "$(jq -r .lmnp_amortissement.plafond_cents <<<"$r")"
 ok "la dotation capped 3000" 300000 "$(jq -r .lmnp_amortissement.dotation_cents <<<"$r")"
 rm -f "$LADB2"
 
+# --- Quasi-usufruit art. 774 bis (déductibilité créance de restitution) ---
+# 100000 EUR créance, no exception → non-déductible (art. 774 bis I)
+QUDDB1="$(mktemp -u /tmp/bilan-qu1-XXXXXX.db)"
+BILAN_DB="$QUDDB1" $BIN rule set 2026 quasi_usufruit creance_restitution_cents 10000000 >/dev/null
+r=$(BILAN_DB="$QUDDB1" $BIN tax --year 2026)
+ok "qu creance 100000" 10000000 "$(jq -r .quasi_usufruit.creance_restitution_cents <<<"$r")"
+ok "qu deductible 0 (no exception)" 0 "$(jq -r .quasi_usufruit.deductible_cents <<<"$r")"
+rm -f "$QUDDB1"
+# 100000 EUR créance, exception cession non-fiscal → deductible
+QUDDB2="$(mktemp -u /tmp/bilan-qu2-XXXXXX.db)"
+BILAN_DB="$QUDDB2" $BIN rule set 2026 quasi_usufruit creance_restitution_cents 10000000 >/dev/null
+BILAN_DB="$QUDDB2" $BIN rule set 2026 quasi_usufruit exception_cession_non_fiscal 1 >/dev/null
+r=$(BILAN_DB="$QUDDB2" $BIN tax --year 2026)
+ok "qu deductible 100000 (cession exception)" 10000000 "$(jq -r .quasi_usufruit.deductible_cents <<<"$r")"
+rm -f "$QUDDB2"
+# 100000 EUR créance, exception usufruit légal conjoint → deductible
+QUDDB3="$(mktemp -u /tmp/bilan-qu3-XXXXXX.db)"
+BILAN_DB="$QUDDB3" $BIN rule set 2026 quasi_usufruit creance_restitution_cents 10000000 >/dev/null
+BILAN_DB="$QUDDB3" $BIN rule set 2026 quasi_usufruit exception_usufruit_legal_conjoint 1 >/dev/null
+r=$(BILAN_DB="$QUDDB3" $BIN tax --year 2026)
+ok "qu deductible 100000 (conjoint exception)" 10000000 "$(jq -r .quasi_usufruit.deductible_cents <<<"$r")"
+rm -f "$QUDDB3"
+
+# --- Démembrement temporaire art. 669 II (23%/10y plafonné viager) ---
+# 10y duration, age 55 (viager cap 50%) → 23% < 50% → usufruit 23%
+# Bien 100000 EUR → usufruit 23000 EUR = 2300000 cents, nue-propriété 77000 EUR
+DTDB1="$(mktemp -u /tmp/bilan-dt1-XXXXXX.db)"
+BILAN_DB="$DTDB1" $BIN rule set 2026 demembrement_temporaire duree_years 10 >/dev/null
+BILAN_DB="$DTDB1" $BIN rule set 2026 demembrement_temporaire bien_valeur_cents 10000000 >/dev/null
+BILAN_DB="$DTDB1" $BIN rule set 2026 demembrement_temporaire usufruitier_age 55 >/dev/null
+r=$(BILAN_DB="$DTDB1" $BIN tax --year 2026)
+ok "dt 10y usufruit 23%" 23 "$(jq -r .demembrement_temporaire.usufruit_pct <<<"$r")"
+ok "dt 10y usufruit valeur 23000" 2300000 "$(jq -r .demembrement_temporaire.usufruit_valeur_cents <<<"$r")"
+ok "dt 10y nue-propriete 77%" 77 "$(jq -r .demembrement_temporaire.nue_propriete_pct <<<"$r")"
+rm -f "$DTDB1"
+# 30y duration, age 75 (viager cap 30%) → 69% > 30% → capped at 30%
+DTDB2="$(mktemp -u /tmp/bilan-dt2-XXXXXX.db)"
+BILAN_DB="$DTDB2" $BIN rule set 2026 demembrement_temporaire duree_years 30 >/dev/null
+BILAN_DB="$DTDB2" $BIN rule set 2026 demembrement_temporaire bien_valeur_cents 10000000 >/dev/null
+BILAN_DB="$DTDB2" $BIN rule set 2026 demembrement_temporaire usufruitier_age 75 >/dev/null
+r=$(BILAN_DB="$DTDB2" $BIN tax --year 2026)
+ok "dt 30y capped at viager 30%" 30 "$(jq -r .demembrement_temporaire.usufruit_pct <<<"$r")"
+ok "dt 30y usufruit valeur 30000" 3000000 "$(jq -r .demembrement_temporaire.usufruit_valeur_cents <<<"$r")"
+rm -f "$DTDB2"
+
 # --- monuments historiques (art. 156, déduction 100%/50%) ---
 # 10000 charges (negative tx), fermé → 50% deduction = 5000 EUR = 500000 cents
 MHDB1="$(mktemp -u /tmp/bilan-mh1-XXXXXX.db)"

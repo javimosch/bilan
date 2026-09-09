@@ -169,7 +169,10 @@ func llms_txt() (t) {
         "    retraite dirigeants art. 150-0 D ter (500k fixe sur PV mobilières) + LMNP\n" +
         "    amortissement par composants art. 39 C (plafonné au loyer net, ARD) +\n" +
         "    option art. 150 VL pour métaux/objets d'art (régime PV art. 150 UA,\n" +
-        "    5%/an abattement, 22y exonération, radar reports the lower);\n" +
+        "    5%/an abattement, 22y exonération, radar reports the lower) +\n" +
+        "    quasi-usufruit art. 774 bis (déductibilité créance de restitution, LF 2024)\n" +
+        "    + démembrement temporaire art. 669 II (23%/10y plafonné viager) + art.\n" +
+        "    13-5 1° (cession = revenu catégoriel);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

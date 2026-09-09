@@ -735,6 +735,56 @@ func tax_json(db, year) (out, code, err) {
     if dem_age >= 81 && dem_age < 91 { dem_usufruit_pct = rule_int(db, year, "demembrement", "age_81_90_usufruit_pct_tenths", 200) }
     if dem_age >= 91 { dem_usufruit_pct = rule_int(db, year, "demembrement", "age_91_plus_usufruit_pct_tenths", 100) }
     dem_nue_propriete_pct := 1000 - dem_usufruit_pct
+    // Quasi-usufruit — article 774 bis CGI (loi de finances 2024). Dettes de
+    // restitution on sums of money whose deceased reserved the usufruit are
+    // NOT deductible from the actif successoral, with exceptions: (1) dettes
+    // on cession price of a bien (if not principally tax-motivated), (2)
+    // usufruits légaux art. 757/1094-1 C. civ. (conjoint survivant). The radar
+    // computes the deductible portion of the créance de restitution. Source:
+    // BOFiP BOI-ENR-DMTG-10-40-20-20.
+    qu_creance := rule_int(db, year, "quasi_usufruit", "creance_restitution_cents", 0)
+    qu_exc_cession := rule_int(db, year, "quasi_usufruit", "exception_cession_non_fiscal", 0)
+    qu_exc_conjoint := rule_int(db, year, "quasi_usufruit", "exception_usufruit_legal_conjoint", 0)
+    qu_deductible := qu_creance
+    qu_note := "déductible (no exception triggered)"
+    if qu_exc_cession == 1 || qu_exc_conjoint == 1 {
+        qu_deductible = qu_creance
+        qu_note = "déductible (exception art. 774 bis I: cession non-fiscal OR usufruit légal conjoint)"
+    } else {
+        qu_deductible = 0
+        qu_note = "non-déductible (art. 774 bis I — quasi-usufruit de sommes)"
+    }
+    // Démembrement temporaire — article 669 II CGI: usufruit temporaire = 23%
+    // per 10-year period, capped at the viager value for the same usufruitier
+    // age. Article 13-5 1° CGI: the cession price of a temporary usufruit on
+    // a bien producteur de revenus is taxed as revenu catégoriel (foncier,
+    // BIC), not as plus-value. The radar reports the fiscal valuation
+    // (informational). Source: BOFiP BOI-RPPM-PVMC-20-20.
+    dt_duree := rule_int(db, year, "demembrement_temporaire", "duree_years", 0)
+    dt_bien_valeur := rule_int(db, year, "demembrement_temporaire", "bien_valeur_cents", 0)
+    dt_age := rule_int(db, year, "demembrement_temporaire", "usufruitier_age", 0)
+    dt_taux_periode := rule_int(db, year, "demembrement_temporaire", "taux_par_periode_pct_tenths", 230)
+    dt_periode := rule_int(db, year, "demembrement_temporaire", "periode_years", 10)
+    // Compute the viager cap (reuse the demembrement age brackets)
+    dt_viager_pct := 0
+    if dt_age < 21 { dt_viager_pct = rule_int(db, year, "demembrement", "age_max_21_usufruit_pct_tenths", 900) }
+    if dt_age >= 21 && dt_age < 31 { dt_viager_pct = rule_int(db, year, "demembrement", "age_21_30_usufruit_pct_tenths", 800) }
+    if dt_age >= 31 && dt_age < 41 { dt_viager_pct = rule_int(db, year, "demembrement", "age_31_40_usufruit_pct_tenths", 700) }
+    if dt_age >= 41 && dt_age < 51 { dt_viager_pct = rule_int(db, year, "demembrement", "age_41_50_usufruit_pct_tenths", 600) }
+    if dt_age >= 51 && dt_age < 61 { dt_viager_pct = rule_int(db, year, "demembrement", "age_51_60_usufruit_pct_tenths", 500) }
+    if dt_age >= 61 && dt_age < 71 { dt_viager_pct = rule_int(db, year, "demembrement", "age_61_70_usufruit_pct_tenths", 400) }
+    if dt_age >= 71 && dt_age < 81 { dt_viager_pct = rule_int(db, year, "demembrement", "age_71_80_usufruit_pct_tenths", 300) }
+    if dt_age >= 81 && dt_age < 91 { dt_viager_pct = rule_int(db, year, "demembrement", "age_81_90_usufruit_pct_tenths", 200) }
+    if dt_age >= 91 { dt_viager_pct = rule_int(db, year, "demembrement", "age_91_plus_usufruit_pct_tenths", 100) }
+    // 23% per 10-year period (pro rata), capped at viager
+    dt_temporaire_pct := 0
+    if dt_periode > 0 && dt_duree > 0 {
+        dt_temporaire_pct = dt_duree * dt_taux_periode / dt_periode
+        if dt_temporaire_pct > dt_viager_pct { dt_temporaire_pct = dt_viager_pct }
+    }
+    dt_usufruit_valeur := dt_bien_valeur * dt_temporaire_pct / 1000
+    dt_nue_propriete_pct := 1000 - dt_temporaire_pct
+    dt_nue_propriete_valeur := dt_bien_valeur * dt_nue_propriete_pct / 1000
     // progressive IR barème + plafonnement QF + décote on the net imposable.
     // The foncier global imputation reduces the base (art. 156 CGI I.3°).
     ir_base := net_bnc + net_bic + net_fon + net_lmnp + net_lmnp_reel + net_salary - foncier_global_imputation - pension_deduction - per_deduction - mh_deduction
@@ -1319,6 +1369,8 @@ func tax_json(db, year) (out, code, err) {
     out = out + ",\"lmnp_amortissement\":{\"property_value_cents\":" + str(la_property_value) + ",\"property_value_eur\":\"" + fmt_cents(la_property_value) + "\",\"terrain_pct\":" + pct_str(la_terrain_pct) + ",\"building_value_cents\":" + str(la_building) + ",\"mobilier_value_cents\":" + str(la_mobilier_value) + ",\"mobilier_dotation_cents\":" + str(la_mobilier_dotation) + ",\"gros_oeuvre_dotation_cents\":" + str(la_go_dotation) + ",\"toiture_dotation_cents\":" + str(la_to_dotation) + ",\"reseaux_dotation_cents\":" + str(la_re_dotation) + ",\"agencements_dotation_cents\":" + str(la_ag_dotation) + ",\"dotation_brute_cents\":" + str(la_dotation_brute) + ",\"plafond_cents\":" + str(la_plafond) + ",\"dotation_cents\":" + str(la_dotation) + ",\"dotation_eur\":\"" + fmt_cents(la_dotation) + "\",\"ard_reportable_cents\":" + str(la_ard_reportable) + ",\"note\":\"art. 39 C CGI — amortissement linéaire par composants (gros œuvre 50y, toiture 30y, réseaux 25y, agencements 12y, mobilier 7y); terrain non amortissable; plafonnement: dotation ≤ loyer net (ne crée pas de déficit); excédent reportable (ARD); set: bilan rule set 2026 lmnp_amortissement property_value_cents <val>\"}"
     out = out + ",\"monuments_historiques\":{\"charges_cents\":" + str(mh_charges) + ",\"charges_eur\":\"" + fmt_cents(mh_charges) + "\",\"ouvert_public\":" + json(mh_ouvert == 1) + ",\"taux_pct\":" + pct_str(mh_taux) + ",\"deduction_cents\":" + str(mh_deduction) + ",\"deduction_eur\":\"" + fmt_cents(mh_deduction) + "\",\"note\":\"art. 156 I-3° et II-1° ter CGI — déduction charges foncières du revenu global (100% ouvert public / 50% fermé), sans plafond, hors plafonnement niches; engagement conservation 15y; record charges as negative txs in 'monument_historique' stream\"}"
     out = out + ",\"demembrement\":{\"usufruitier_age\":" + str(dem_age) + ",\"usufruit_pct\":" + pct_str(dem_usufruit_pct) + ",\"nue_propriete_pct\":" + pct_str(dem_nue_propriete_pct) + ",\"note\":\"art. 669 CGI — barème de l'usufruit viager selon l'âge de l'usufruitier; nue-propriété = complément à 100%; s'applique aux DMTG, droits d'enregistrement, IFI; set age: bilan rule set 2026 demembrement usufruitier_age <years>\"}"
+    out = out + ",\"quasi_usufruit\":{\"creance_restitution_cents\":" + str(qu_creance) + ",\"creance_restitution_eur\":\"" + fmt_cents(qu_creance) + "\",\"exception_cession_non_fiscal\":" + json(qu_exc_cession == 1) + ",\"exception_usufruit_legal_conjoint\":" + json(qu_exc_conjoint == 1) + ",\"deductible_cents\":" + str(qu_deductible) + ",\"deductible_eur\":\"" + fmt_cents(qu_deductible) + "\",\"note\":\"" + esc(qu_note) + " — art. 774 bis CGI (LF 2024); set: bilan rule set 2026 quasi_usufruit creance_restitution_cents <val> + exception flags\"}"
+    out = out + ",\"demembrement_temporaire\":{\"duree_years\":" + str(dt_duree) + ",\"bien_valeur_cents\":" + str(dt_bien_valeur) + ",\"bien_valeur_eur\":\"" + fmt_cents(dt_bien_valeur) + "\",\"usufruitier_age\":" + str(dt_age) + ",\"taux_par_periode_pct\":" + pct_str(dt_taux_periode) + ",\"periode_years\":" + str(dt_periode) + ",\"viager_cap_pct\":" + pct_str(dt_viager_pct) + ",\"usufruit_pct\":" + pct_str(dt_temporaire_pct) + ",\"usufruit_valeur_cents\":" + str(dt_usufruit_valeur) + ",\"usufruit_valeur_eur\":\"" + fmt_cents(dt_usufruit_valeur) + "\",\"nue_propriete_pct\":" + pct_str(dt_nue_propriete_pct) + ",\"nue_propriete_valeur_cents\":" + str(dt_nue_propriete_valeur) + ",\"note\":\"art. 669 II CGI — usufruit temporaire 23%/10y plafonné au viager (art. 669 I); art. 13-5 1°: cession prix = revenu catégoriel (non PV); set: bilan rule set 2026 demembrement_temporaire duree_years <val> + bien_valeur_cents <val> + usufruitier_age <val>\"}"
     out = out + ",\"totals\":{\"ir_cents\":" + str(ir_after_credit) + ",\"ir_eur\":\"" + fmt_cents(ir_after_credit) + "\",\"flat_tax_cents\":" + str(cap_tax+div_tax) + ",\"flat_tax_eur\":\"" + fmt_cents(cap_tax+div_tax) + "\",\"social_cents\":" + str(soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel) + ",\"social_eur\":\"" + fmt_cents(soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel) + "\",\"tva_cents\":" + str(tva_a_payer) + ",\"tva_eur\":\"" + fmt_cents(tva_a_payer) + "\",\"pv_immo_cents\":" + str(pv_immo_total) + ",\"pv_immo_eur\":\"" + fmt_cents(pv_immo_total) + "\",\"ifi_cents\":" + str(ifi_cents) + ",\"ifi_eur\":\"" + fmt_cents(ifi_cents) + "\",\"cfe_cents\":" + str(cfe_cents) + ",\"cfe_eur\":\"" + fmt_cents(cfe_cents) + "\",\"cvae_cents\":" + str(cvae_cents) + ",\"cvae_eur\":\"" + fmt_cents(cvae_cents) + "\",\"pvm_cents\":" + str(pvm_total_tax) + ",\"pvm_eur\":\"" + fmt_cents(pvm_total_tax) + "\",\"pv_immo_surtaxe_cents\":" + str(pv_surtaxe_cents) + ",\"pv_immo_surtaxe_eur\":\"" + fmt_cents(pv_surtaxe_cents) + "\",\"metaux_precieux_cents\":" + str(mp_effective_total) + ",\"metaux_precieux_eur\":\"" + fmt_cents(mp_effective_total) + "\",\"total_tax_cents\":" + str(ir_after_credit+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel+tva_a_payer+pv_immo_total+pv_surtaxe_cents+ifi_cents+cfe_cents+cvae_cents+mp_effective_total) + ",\"total_tax_eur\":\"" + fmt_cents(ir_after_credit+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel+tva_a_payer+pv_immo_total+pv_surtaxe_cents+ifi_cents+cfe_cents+cvae_cents+mp_effective_total) + "\"}"
     out = out + ",\"notes\":[\"estimates on the seeded rate card (2025 barème on 2024 income) — override with bilan rule set\",\"IR = progressive barème + plafonnement QF (situation-aware: default 1791/demi-part, parent_isole 4262 total, veuf 1807/demi-part+2011, personne_seule_invalide 3608) + décote; 10% frais per salary stream; BNC/BIC/LMNP deficits 6y; foncier deficit 10700 EUR on global + 10y on foncier (micro + réel)\",\"pension alimentaire (art. 156 II.2°): deductible from revenu global, cap 6794 EUR/child (2024 income)\",\"dons reduction (art. 200 CGI): 75% to 1000 EUR, 66% to 20% of revenu imposable — reduces IR\",\"pinel/denormandie reduction (art. 199 novovicies): 12/18/21% by engagement, cap 300000 EUR, spread over years — reduces IR\",\"malraux reduction (art. 199 tervicies): 30% PSMV / 22% PVAP, cap 400000 EUR, hors plafonnement niches — reduces IR\",\"censi-bouvard reduction (art. 199 sexvicies): 11% LMNP résidences de services, cap 300000 EUR, spread over 9y — reduces IR\",\"scolarité reduction (art. 199 quater F): forfait 61 collège / 153 lycée / 183 supérieur per child — reduces IR\",\"ir-pme reduction (art. 199 terdecies-0 A): 18% PME, cap 50000 single / 100000 couple — reduces IR (plafonnement niches NOT modeled)\",\"emploi à domicile (art. 199 sexdecies): 50% crédit, cap 12000 EUR — refundable (crédit, not réduction)\",\"frais de garde (art. 200 quater B): 50% crédit, cap 3500 EUR/child — refundable (crédit, not réduction)\",\"TVA franchise (art. 293 B): services 36800 / vente 91900 EUR — informational\",\"TVA régime simplifié (art. 302 septies A): services 254000 / vente 840000 EUR, TVA due < 15000 EUR\",\"TVA collectée/déductible (art. 271): TVA à payer = collectée - déductible (négatif = crédit reportable/remboursable)\",\"PAS taux neutre + personnalisé (art. 204 H): monthly estimate for provisioning — v1 simplification of the BOFiP formula\",\"régime réel foncier (art. 29-31): net = loyer - charges (intérêts d'emprunt, travaux), no abattement — combined with micro-foncier\",\"LMNP micro-BIC meublé (art. 50): 50% abattement, threshold 77700 EUR\",\"LMNP régime réel (art. 39): net = loyer - charges - amortissement, no abattement, deficit carry 6y\",\"micro-BNC/BIC/foncier cannot legally generate deficits (forfaitaire) — deficit carry-forward is a régime-réel feature applied to the micro base as a v1 simplification\",\"crypto exemption per form 2086: net gains under the threshold are not declarable\"]}"
     code = 0

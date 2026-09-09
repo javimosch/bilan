@@ -394,6 +394,27 @@ func guide_text(base) (t) {
         "  option_150vl_*, optimal, forfaitaire_total_cents. Source: BOFiP\n" +
         "  BOI-RPPM-PVBMC-20-20.\n" +
         "\n" +
+        "## Quasi-usufruit — article 774 bis CGI (LF 2024)\n" +
+        "  Dettes de restitution on sums of money whose deceased reserved the\n" +
+        "  usufruit are NOT deductible from the actif successoral, with\n" +
+        "  exceptions: (1) dettes on cession price of a bien (if not principally\n" +
+        "  tax-motivated), (2) usufruits légaux art. 757/1094-1 C. civ.\n" +
+        "  (conjoint survivant). The radar computes the deductible portion.\n" +
+        "  Set: bilan rule set 2026 quasi_usufruit creance_restitution_cents\n" +
+        "  <val> + exception flags. New quasi_usufruit JSON block. Source: BOFiP\n" +
+        "  BOI-ENR-DMTG-10-40-20-20.\n" +
+        "\n" +
+        "## Démembrement temporaire — article 669 II + art. 13-5 1° CGI\n" +
+        "  Usufruit temporaire = 23% per 10-year period (pro rata), capped at\n" +
+        "  the viager value for the same usufruitier age (art. 669 I). Article\n" +
+        "  13-5 1°: the cession price of a temporary usufruit on a bien\n" +
+        "  producteur de revenus is taxed as revenu catégoriel (foncier, BIC),\n" +
+        "  not as plus-value. The radar reports the fiscal valuation\n" +
+        "  (informational). Set: bilan rule set 2026 demembrement_temporaire\n" +
+        "  duree_years <val> + bien_valeur_cents <val> + usufruitier_age <val>.\n" +
+        "  New demembrement_temporaire JSON block. Source: BOFiP\n" +
+        "  BOI-RPPM-PVMC-20-20.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
@@ -425,11 +446,15 @@ func guide_text(base) (t) {
         "  départ retraite dirigeants (art. 150-0 D ter, 500k fixe sur PV mobilières)\n" +
         "  + LMNP amortissement par composants (art. 39 C, plafonné au loyer net, ARD)\n" +
         "  + option art. 150 VL pour métaux/objets d'art (régime PV art. 150 UA, 5%/an\n" +
-        "  abattement, 22y exonération, radar reports the lower).\n" +
+        "  abattement, 22y exonération, radar reports the lower) + quasi-usufruit\n" +
+        "  art. 774 bis (déductibilité créance de restitution, LF 2024) + démembrement\n" +
+        "  temporaire art. 669 II (23%/10y plafonné viager) + art. 13-5 1° (cession =\n" +
+        "  revenu catégoriel).\n" +
         "  It does NOT model: deficits beyond their windows, the full BOFiP PAS\n" +
-        "  formula, LMNP ARD carry-forward tracking across years, or quasi-usufruit\n" +
-        "  art. 774 bis. Output is an estimate to reason from, not tax advice — say\n" +
-        "  so to the human.\n" +
+        "  formula, LMNP ARD carry-forward tracking across years, or barème\n" +
+        "  économique DCF for démembrement temporaire (radar uses fiscal 669 II).\n" +
+        "  Output is an estimate to reason from, not tax advice — say so to the\n" +
+        "  human.\n" +
         "\n" +
         "## Brian — the cheap copilote (no inference in the platform)\n" +
         "  Brian is a PERSONA, not a service: install it into the harness your human\n" +

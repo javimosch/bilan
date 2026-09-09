@@ -297,6 +297,27 @@ func seed_rules(db) {
     // abattement. Source: BOFiP BOI-RPPM-PVBMI-20-40-10.
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pvm_depart_retraite', 'abattement_fixe_cents', '50000000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pvm_depart_retraite', 'eligible', '0')", []string{y})
+    // Quasi-usufruit — article 774 bis CGI (loi de finances 2024). Dettes de
+    // restitution on sums of money whose deceased reserved the usufruit are
+    // NOT deductible from the actif successoral, with exceptions: (1) dettes
+    // on cession price of a bien (if not principally tax-motivated), (2)
+    // usufruits légaux art. 757/1094-1 C. civ. (conjoint survivant). The
+    // non-deductible portion gives rise to DMTG calculated by degree of
+    // parenté between nu-propriétaire and usufruitier. Source: BOFiP
+    // BOI-ENR-DMTG-10-40-20-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'quasi_usufruit', 'creance_restitution_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'quasi_usufruit', 'exception_cession_non_fiscal', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'quasi_usufruit', 'exception_usufruit_legal_conjoint', '0')", []string{y})
+    // Démembrement temporaire — article 669 II CGI: usufruit temporaire = 23%
+    // per 10-year period, capped at the viager value for the same usufruitier
+    // age. Article 13-5 1° CGI: the cession price of a temporary usufruit on
+    // a bien producteur de revenus is taxed as revenu catégoriel (foncier,
+    // BIC), not as plus-value. Source: BOFiP BOI-RPPM-PVMC-20-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'demembrement_temporaire', 'taux_par_periode_pct_tenths', '230')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'demembrement_temporaire', 'periode_years', '10')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'demembrement_temporaire', 'duree_years', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'demembrement_temporaire', 'bien_valeur_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'demembrement_temporaire', 'usufruitier_age', '0')", []string{y})
     // FCPI/FIP (art. 199 terdecies-0 A VI CGI). 18% reduction, capped at 12,000
     // EUR single / 24,000 EUR couple. 25% for FIP Corse/Outre-Mer (until 2026).
     // Subject to plafonnement global. Record versements as positive txs in a
