@@ -216,7 +216,9 @@ func llms_txt() (t) {
         "    + versement mobilité art. L52-53 (≥11 salariés)\n" +
         "    + PASNR art. 182 A (non-résidents 0/12/20%)\n" +
         "    + prélèvement solidarité art. 119 bis 2\n" +
-        "    (25% dividendes, 30% PFU intérêts);\n" +
+        "    (25% dividendes, 30% PFU intérêts) + terrains\n" +
+        "    constructibles art. 1529 + 1605 nonies (10%\n" +
+        "    PV, 5%/10% ratio);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

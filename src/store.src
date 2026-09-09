@@ -795,6 +795,21 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'prelevement_solidarite', 'taux_dividendes_pct_hundredths', '2500')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'prelevement_solidarite', 'taux_ir_interets_pct_hundredths', '1280')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'prelevement_solidarite', 'taux_social_interets_pct_hundredths', '1720')", []string{y})
+    // Taxes sur cession de terrains nus devenus constructibles —
+    // articles 1529 + 1605 nonies CGI. Art. 1529: taxe forfaitaire
+    // 10% sur PV. Art. 1605 nonies: taxe 5%/10% avec abattement 1/10/an
+    // au-delà de la 8e année, exonération 18 ans, seuil 15000 EUR.
+    // Source: BOFiP BOI-RFPI-TDC-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'terrains_constructibles', 'prix_cession_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'terrains_constructibles', 'prix_acquisition_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'terrains_constructibles', 'annees_apres_constructible', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'terrains_constructibles', 'forfaitaire_sans_reference', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'terrains_constructibles', 'taux_1529_pct_hundredths', '1000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'terrains_constructibles', 'seuil_cession_cents', '1500000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'terrains_constructibles', 'ratio_min_tenths', '100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'terrains_constructibles', 'ratio_max_tenths', '300')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'terrains_constructibles', 'taux_1605_bas_pct_hundredths', '500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'terrains_constructibles', 'taux_1605_haut_pct_hundredths', '1000')", []string{y})
     // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
     // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
     // immeubles bâtis only (not terrains à bâtir). Brackets:

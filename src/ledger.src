@@ -2427,6 +2427,69 @@ func tax_json(db, year) (out, code, err) {
     ps_interets_social := ps_interets * ps_taux_social_interets / 10000
     ps_interets_tax := ps_interets_ir + ps_interets_social
     ps_total := ps_dividendes_tax + ps_interets_tax
+    // Taxes sur cession de terrains nus devenus constructibles —
+    // articles 1529 + 1605 nonies CGI. Art. 1529: taxe forfaitaire
+    // 10% sur PV (prix cession - prix acquisition actualisé). En
+    // l'absence de référence: 2/3 du prix de vente. Art. 1605 nonies:
+    // taxe 5% au profit Agence services/paiement. Même assiette.
+    // Abattement 1/10 par an au-delà de la 8e année (exonération 18
+    // ans). Taux 5% si ratio cession/acquisition >10 et ≤30, au-delà
+    // 10% sur la part restante. Exonération: prix cession <15000 EUR,
+    // ratio <10, >18 ans. Source: BOFiP BOI-RFPI-TDC-20.
+    tc_prix_cession := rule_int(db, year, "terrains_constructibles", "prix_cession_cents", 0)
+    tc_prix_acquisition := rule_int(db, year, "terrains_constructibles", "prix_acquisition_cents", 0)
+    tc_annees_constructible := rule_int(db, year, "terrains_constructibles", "annees_apres_constructible", 0)
+    tc_forfaitaire := rule_int(db, year, "terrains_constructibles", "forfaitaire_sans_reference", 0)
+    // Art. 1529 — taxe forfaitaire 10%
+    tc_1529_taux := rule_int(db, year, "terrains_constructibles", "taux_1529_pct_hundredths", 1000)
+    tc_pv := 0
+    if tc_forfaitaire == 1 {
+        // En l'absence de référence: 2/3 du prix de vente
+        tc_pv = tc_prix_cession * 2 / 3
+    } else {
+        tc_pv = tc_prix_cession - tc_prix_acquisition
+    }
+    tc_1529_tax := 0
+    if tc_pv > 0 && tc_prix_cession > 0 {
+        tc_1529_tax = tc_pv * tc_1529_taux / 10000
+    }
+    // Art. 1605 nonies — taxe 5%/10% avec abattement
+    tc_1605_seuil_cession := rule_int(db, year, "terrains_constructibles", "seuil_cession_cents", 1500000)
+    tc_1605_ratio_min := rule_int(db, year, "terrains_constructibles", "ratio_min_tenths", 100)
+    tc_1605_ratio_max := rule_int(db, year, "terrains_constructibles", "ratio_max_tenths", 300)
+    tc_1605_taux_bas := rule_int(db, year, "terrains_constructibles", "taux_1605_bas_pct_hundredths", 500)
+    tc_1605_taux_haut := rule_int(db, year, "terrains_constructibles", "taux_1605_haut_pct_hundredths", 1000)
+    tc_1605_tax := 0
+    tc_1605_eligible := false
+    tc_ratio := 0
+    if tc_prix_acquisition > 0 {
+        tc_ratio = tc_prix_cession * 10 / tc_prix_acquisition
+    }
+    // Abattement: 1/10 par an au-delà de la 8e année, exonération à 18 ans
+    tc_abattement_annees := 0
+    if tc_annees_constructible > 8 {
+        tc_abattement_annees = tc_annees_constructible - 8
+        if tc_abattement_annees > 10 { tc_abattement_annees = 10 }
+    }
+    tc_pv_apres_abattement := tc_pv - (tc_pv * tc_abattement_annees / 10)
+    if tc_pv_apres_abattement < 0 { tc_pv_apres_abattement = 0 }
+    // Eligibilité: prix cession ≥15000, ratio >10, ≤18 ans
+    if tc_prix_cession >= tc_1605_seuil_cession && tc_ratio > tc_1605_ratio_min && tc_annees_constructible <= 18 {
+        tc_1605_eligible = true
+        if tc_ratio <= tc_1605_ratio_max {
+            tc_1605_tax = tc_pv_apres_abattement * tc_1605_taux_bas / 10000
+        } else {
+            // Part jusqu'à ratio 30 à 5%, au-delà à 10%
+            tc_pv_ratio30 := tc_prix_acquisition * tc_1605_ratio_max / 10 - tc_prix_acquisition
+            if tc_pv_ratio30 < 0 { tc_pv_ratio30 = 0 }
+            tc_pv_ratio30_apres := tc_pv_ratio30 - (tc_pv_ratio30 * tc_abattement_annees / 10)
+            if tc_pv_ratio30_apres < 0 { tc_pv_ratio30_apres = 0 }
+            tc_pv_excedent := tc_pv_apres_abattement - tc_pv_ratio30_apres
+            if tc_pv_excedent < 0 { tc_pv_excedent = 0 }
+            tc_1605_tax = tc_pv_ratio30_apres * tc_1605_taux_bas / 10000 + tc_pv_excedent * tc_1605_taux_haut / 10000
+        }
+    }
+    tc_total := tc_1529_tax + tc_1605_tax
     // Prélèvement à la source — taux neutre mensuel (art. 204 H CGI). The radar
     // projects the annual net salary / 12 and applies the taux neutre grid to
     // estimate the monthly prepayment. This is the confidentiality grid (taux neutre),
@@ -2536,6 +2599,7 @@ func tax_json(db, year) (out, code, err) {
     out = out + ",\"versement_mobilite\":{\"effectif_moyen\":" + str(vm_effectif) + ",\"remunerations_cents\":" + str(vm_base) + ",\"remunerations_eur\":\"" + fmt_cents(vm_base) + "\",\"taux_pct_hundredths\":" + str(vm_taux) + ",\"eligible\":" + json(vm_eligible) + ",\"tax_cents\":" + str(vm_tax) + ",\"tax_eur\":\"" + fmt_cents(vm_tax) + "\",\"note\":\"art. L52-53 code des transports — versement mobilité: contribution patronale ≥11 salariés dans zone AOM; taux configurable (IDF 1.5-2.95%, VMRR 0.15% max hors IDF 2025); base = rémunérations soumises cotisations; set: bilan rule set 2026 versement_mobilite effectif_moyen <val> + remunerations_cents <val> + taux_pct_hundredths <val>\"}"
     out = out + ",\"pasnr\":{\"revenus_bruts_cents\":" + str(pasnr_base) + ",\"revenus_bruts_eur\":\"" + fmt_cents(pasnr_base) + "\",\"dom_eligible\":" + json(pasnr_dom == 1) + ",\"abattement_pct_tenths\":" + str(pasnr_abattement_pct) + ",\"revenus_net_cents\":" + str(pasnr_net) + ",\"revenus_net_eur\":\"" + fmt_cents(pasnr_net) + "\",\"t1_threshold_cents\":" + str(pasnr_t1_threshold) + ",\"t2_threshold_cents\":" + str(pasnr_t2_threshold) + ",\"rate1_pct_hundredths\":" + str(pasnr_rate1) + ",\"rate2_pct_hundredths\":" + str(pasnr_rate2) + ",\"tax_cents\":" + str(pasnr_tax) + ",\"tax_eur\":\"" + fmt_cents(pasnr_tax) + "\",\"note\":\"art. 182 A CGI — retenue à la source non-résidents: 0% ≤17122, 12% 17122-49667, 20% >49667 (DOM 0%/8%/14.4%); abattement 10% frais; set: bilan rule set 2026 pasnr revenus_bruts_cents <val> + dom_eligible <0|1>\"}"
     out = out + ",\"prelevement_solidarite\":{\"dividendes_cents\":" + str(ps_dividendes) + ",\"dividendes_eur\":\"" + fmt_cents(ps_dividendes) + "\",\"interets_cents\":" + str(ps_interets) + ",\"interets_eur\":\"" + fmt_cents(ps_interets) + "\",\"taux_dividendes_pct_hundredths\":" + str(ps_taux_dividendes) + ",\"dividendes_tax_cents\":" + str(ps_dividendes_tax) + ",\"dividendes_tax_eur\":\"" + fmt_cents(ps_dividendes_tax) + "\",\"taux_ir_interets_pct_hundredths\":" + str(ps_taux_ir_interets) + ",\"taux_social_interets_pct_hundredths\":" + str(ps_taux_social_interets) + ",\"interets_ir_cents\":" + str(ps_interets_ir) + ",\"interets_social_cents\":" + str(ps_interets_social) + ",\"interets_tax_cents\":" + str(ps_interets_tax) + ",\"interets_tax_eur\":\"" + fmt_cents(ps_interets_tax) + "\",\"total_cents\":" + str(ps_total) + ",\"total_eur\":\"" + fmt_cents(ps_total) + "\",\"note\":\"art. 119 bis 2 CGI — prélèvement de solidarité: 25% dividendes, 12.8% IR + 17.2% social = 30% PFU intérêts versés non-résidents; set: bilan rule set 2026 prelevement_solidarite dividendes_cents <val> + interets_cents <val>\"}"
+    out = out + ",\"terrains_constructibles\":{\"prix_cession_cents\":" + str(tc_prix_cession) + ",\"prix_cession_eur\":\"" + fmt_cents(tc_prix_cession) + "\",\"prix_acquisition_cents\":" + str(tc_prix_acquisition) + ",\"prix_acquisition_eur\":\"" + fmt_cents(tc_prix_acquisition) + "\",\"annees_apres_constructible\":" + str(tc_annees_constructible) + ",\"forfaitaire_sans_reference\":" + json(tc_forfaitaire == 1) + ",\"plus_value_cents\":" + str(tc_pv) + ",\"plus_value_eur\":\"" + fmt_cents(tc_pv) + "\",\"ratio_tenths\":" + str(tc_ratio) + ",\"abattement_annees\":" + str(tc_abattement_annees) + ",\"pv_apres_abattement_cents\":" + str(tc_pv_apres_abattement) + ",\"pv_apres_abattement_eur\":\"" + fmt_cents(tc_pv_apres_abattement) + "\",\"art_1529\":{\"taux_pct_hundredths\":" + str(tc_1529_taux) + ",\"tax_cents\":" + str(tc_1529_tax) + ",\"tax_eur\":\"" + fmt_cents(tc_1529_tax) + "\"},\"art_1605_nonies\":{\"eligible\":" + json(tc_1605_eligible) + ",\"taux_bas_pct_hundredths\":" + str(tc_1605_taux_bas) + ",\"taux_haut_pct_hundredths\":" + str(tc_1605_taux_haut) + ",\"tax_cents\":" + str(tc_1605_tax) + ",\"tax_eur\":\"" + fmt_cents(tc_1605_tax) + "\"},\"total_cents\":" + str(tc_total) + ",\"total_eur\":\"" + fmt_cents(tc_total) + "\",\"note\":\"art. 1529 + 1605 nonies CGI — taxes cession terrains nus devenus constructibles; art. 1529: 10% PV (forfaitaire 2/3 prix si pas référence); art. 1605 nonies: 5% ratio 10-30, 10% au-delà, abattement 1/10/an >8e année, exonération 18 ans, seuil cession 15000 EUR; set: bilan rule set 2026 terrains_constructibles prix_cession_cents <val> + prix_acquisition_cents <val> + annees_apres_constructible <val> + forfaitaire_sans_reference <0|1>\"}"
     out = out + ",\"pvm\":{\"base_cents\":" + str(pvm_base) + ",\"base_eur\":\"" + fmt_cents(pvm_base) + "\",\"detention_years\":" + str(pvm_detention) + ",\"abattement_pct\":" + pct_str(pvm_abat_pct) + ",\"depart_retraite_eligible\":" + json(pvm_dr_eligible == 1) + ",\"depart_retraite_abattement_cents\":" + str(pvm_dr_abattement) + ",\"ir_base_after_abattement_cents\":" + str(pvm_dr_ir_base) + ",\"pfu_ir_cents\":" + str(pvm_pfu_ir) + ",\"pfu_social_cents\":" + str(pvm_pfu_social) + ",\"pfu_total_cents\":" + str(pvm_pfu_total) + ",\"bareme_ir_cents\":" + str(pvm_bareme_ir) + ",\"bareme_social_cents\":" + str(pvm_bareme_social) + ",\"bareme_total_cents\":" + str(pvm_bareme_total) + ",\"optimal\":\"" + pvm_optimal + "\",\"ir_tax_cents\":" + str(pvm_ir_tax) + ",\"social_tax_cents\":" + str(pvm_social_tax) + ",\"total_tax_cents\":" + str(pvm_total_tax) + ",\"total_tax_eur\":\"" + fmt_cents(pvm_total_tax) + "\",\"note\":\"art. 200 A CGI — PFU 12.8% IR + 17.2% social by default; option barème progressif (case 2OP) with abattement durée de détention (50% 2-8y, 65% >8y, titres pré-2018); abattement fixe 500k art. 150-0 D ter (départ retraite dirigeants, social sur PV brute, IR sur PV après abattement); radar reports the lower\"}"
     out = out + ",\"metaux_precieux\":{\"metaux_cents\":" + str(g_metaux) + ",\"metaux_eur\":\"" + fmt_cents(g_metaux) + "\",\"objets_art_cents\":" + str(g_objets_art) + ",\"objets_art_eur\":\"" + fmt_cents(g_objets_art) + "\",\"taux_metaux_pct\":" + pct_str(taux_metaux) + ",\"taux_objets_art_pct\":" + pct_str(taux_objets_art) + ",\"metaux_tax_cents\":" + str(metaux_tax) + ",\"objets_art_tax_cents\":" + str(objets_art_tax) + ",\"forfaitaire_total_cents\":" + str(metaux_total_tax) + ",\"option_150vl_eligible\":" + json(mp_150vl_eligible == 1) + ",\"option_150vl_pv_cents\":" + str(mp_150vl_pv) + ",\"option_150vl_abattement_pct\":" + pct_str(mp_150vl_abattement_pct) + ",\"option_150vl_ir_cents\":" + str(mp_150vl_ir) + ",\"option_150vl_social_cents\":" + str(mp_150vl_social) + ",\"option_150vl_total_cents\":" + str(mp_150vl_total) + ",\"optimal\":\"" + mp_optimal + "\",\"total_tax_cents\":" + str(mp_effective_total) + ",\"total_tax_eur\":\"" + fmt_cents(mp_effective_total) + "\",\"note\":\"art. 150 VI/VK CGI — taxe forfaitaire (11% métaux, 6% objets d'art) by default; option art. 150 VL pour régime plus-values (art. 150 UA): 19% IR + 17.2% social sur PV nette, abattement 5%/an au-delà de 2y, exonération 22y; radar reports the lower\"}"
     out = out + ",\"lmnp_amortissement\":{\"property_value_cents\":" + str(la_property_value) + ",\"property_value_eur\":\"" + fmt_cents(la_property_value) + "\",\"terrain_pct\":" + pct_str(la_terrain_pct) + ",\"building_value_cents\":" + str(la_building) + ",\"mobilier_value_cents\":" + str(la_mobilier_value) + ",\"mobilier_dotation_cents\":" + str(la_mobilier_dotation) + ",\"gros_oeuvre_dotation_cents\":" + str(la_go_dotation) + ",\"toiture_dotation_cents\":" + str(la_to_dotation) + ",\"reseaux_dotation_cents\":" + str(la_re_dotation) + ",\"agencements_dotation_cents\":" + str(la_ag_dotation) + ",\"dotation_brute_cents\":" + str(la_dotation_brute) + ",\"plafond_cents\":" + str(la_plafond) + ",\"dotation_cents\":" + str(la_dotation) + ",\"dotation_eur\":\"" + fmt_cents(la_dotation) + "\",\"ard_reportable_cents\":" + str(la_ard_reportable) + ",\"ard_stock_prior_cents\":" + str(la_ard_stock) + ",\"ard_consumed_cents\":" + str(la_ard_consumed) + ",\"ard_stock_after_cents\":" + str(la_ard_stock_after) + ",\"note\":\"art. 39 C CGI — amortissement linéaire par composants (gros œuvre 50y, toiture 30y, réseaux 25y, agencements 12y, mobilier 7y); terrain non amortissable; plafonnement: dotation ≤ loyer net (ne crée pas de déficit); excédent reportable (ARD) sans limite de durée; set: bilan rule set 2026 lmnp_amortissement property_value_cents <val>\"}"

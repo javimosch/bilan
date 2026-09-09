@@ -1375,6 +1375,53 @@ ok "ps 10000 interets 30% PFU tax 300000" 300000 "$(jq -r .prelevement_solidarit
 ok "ps total 550000" 550000 "$(jq -r .prelevement_solidarite.total_cents <<<"$r")"
 rm -f "$PSDB1"
 
+# --- Terrains constructibles (art. 1529) — cession 200000, acquisition 50000, 0 ans ---
+# PV = 150000 EUR = 15000000 cents. Art. 1529: 10% × 150000 = 15000 EUR = 1500000 cents
+# ratio = 200000/50000 = 4 → <10 → art. 1605 nonies not eligible
+TCDB1="$(mktemp -u /tmp/bilan-tc1-XXXXXX.db)"
+BILAN_DB="$TCDB1" $BIN rule set 2026 terrains_constructibles prix_cession_cents 20000000 >/dev/null
+BILAN_DB="$TCDB1" $BIN rule set 2026 terrains_constructibles prix_acquisition_cents 5000000 >/dev/null
+r=$(BILAN_DB="$TCDB1" $BIN tax --year 2026)
+ok "tc art1529 PV 150000 10% tax 1500000" 1500000 "$(jq -r .terrains_constructibles.art_1529.tax_cents <<<"$r")"
+ok "tc art1605 ratio <10 not eligible" false "$(jq -r .terrains_constructibles.art_1605_nonies.eligible <<<"$r")"
+rm -f "$TCDB1"
+
+# --- Terrains constructibles (art. 1605 nonies) — ratio 20, 0 ans ---
+# cession 100000, acquisition 5000 → ratio 20, PV 95000
+# art. 1529: 10% × 95000 = 9500 EUR = 950000 cents
+# art. 1605: ratio 20 (between 10-30) → 5% × 95000 = 4750 EUR = 475000 cents
+TCDB2="$(mktemp -u /tmp/bilan-tc2-XXXXXX.db)"
+BILAN_DB="$TCDB2" $BIN rule set 2026 terrains_constructibles prix_cession_cents 10000000 >/dev/null
+BILAN_DB="$TCDB2" $BIN rule set 2026 terrains_constructibles prix_acquisition_cents 500000 >/dev/null
+r=$(BILAN_DB="$TCDB2" $BIN tax --year 2026)
+ok "tc art1529 PV 95000 10% tax 950000" 950000 "$(jq -r .terrains_constructibles.art_1529.tax_cents <<<"$r")"
+ok "tc art1605 ratio 20 eligible true" true "$(jq -r .terrains_constructibles.art_1605_nonies.eligible <<<"$r")"
+ok "tc art1605 ratio 20 5% tax 475000" 475000 "$(jq -r .terrains_constructibles.art_1605_nonies.tax_cents <<<"$r")"
+rm -f "$TCDB2"
+
+# --- Terrains constructibles (art. 1605 nonies) — abattement 10 ans ---
+# cession 100000, acquisition 5000, 10 ans → abattement 2/10
+# PV 95000, après abattement 95000 × 0.8 = 76000
+# art. 1605: 5% × 76000 = 3800 EUR = 380000 cents
+TCDB3="$(mktemp -u /tmp/bilan-tc3-XXXXXX.db)"
+BILAN_DB="$TCDB3" $BIN rule set 2026 terrains_constructibles prix_cession_cents 10000000 >/dev/null
+BILAN_DB="$TCDB3" $BIN rule set 2026 terrains_constructibles prix_acquisition_cents 500000 >/dev/null
+BILAN_DB="$TCDB3" $BIN rule set 2026 terrains_constructibles annees_apres_constructible 10 >/dev/null
+r=$(BILAN_DB="$TCDB3" $BIN tax --year 2026)
+ok "tc art1605 10ans abattement 2 pv_apres 7600000" 7600000 "$(jq -r .terrains_constructibles.pv_apres_abattement_cents <<<"$r")"
+ok "tc art1605 10ans 5% tax 380000" 380000 "$(jq -r .terrains_constructibles.art_1605_nonies.tax_cents <<<"$r")"
+rm -f "$TCDB3"
+
+# --- Terrains constructibles (art. 1529 forfaitaire) — pas de référence, 2/3 prix ---
+# cession 30000, forfaitaire=1 → PV = 2/3 × 30000 = 20000, 10% = 2000 EUR = 200000 cents
+TCDB4="$(mktemp -u /tmp/bilan-tc4-XXXXXX.db)"
+BILAN_DB="$TCDB4" $BIN rule set 2026 terrains_constructibles prix_cession_cents 3000000 >/dev/null
+BILAN_DB="$TCDB4" $BIN rule set 2026 terrains_constructibles forfaitaire_sans_reference 1 >/dev/null
+r=$(BILAN_DB="$TCDB4" $BIN tax --year 2026)
+ok "tc forfaitaire 2/3 30000 PV 2000000" 2000000 "$(jq -r .terrains_constructibles.plus_value_cents <<<"$r")"
+ok "tc forfaitaire 10% tax 200000" 200000 "$(jq -r .terrains_constructibles.art_1529.tax_cents <<<"$r")"
+rm -f "$TCDB4"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents

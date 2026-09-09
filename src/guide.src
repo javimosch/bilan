@@ -736,6 +736,22 @@ func guide_text(base) (t) {
         "  dividendes_cents <val> + interets_cents <val>.\n" +
         "  Source: BOFiP BOI-IR-DOMIC-10-20-50.\n" +
         "\n" +
+        "## Taxes sur cession de terrains nus devenus constructibles\n" +
+        "  — art. 1529 + 1605 nonies CGI\n" +
+        "  Art. 1529: taxe forfaitaire 10% sur PV (prix cession -\n" +
+        "  prix acquisition actualisé). Forfaitaire 2/3 prix si pas\n" +
+        "  de référence. Art. 1605 nonies: taxe 5% si ratio\n" +
+        "  cession/acquisition 10-30, 10% au-delà. Abattement 1/10\n" +
+        "  par an au-delà de la 8e année (exonération 18 ans).\n" +
+        "  Exonération: prix cession <15000 EUR, ratio <10.\n" +
+        "  Le radar expose terrains_constructibles.art_1529.tax_cents,\n" +
+        "  terrains_constructibles.art_1605_nonies.tax_cents.\n" +
+        "  Set: bilan rule set 2026 terrains_constructibles\n" +
+        "  prix_cession_cents <val> + prix_acquisition_cents <val>\n" +
+        "  + annees_apres_constructible <val>\n" +
+        "  + forfaitaire_sans_reference <0|1>.\n" +
+        "  Source: BOFiP BOI-RFPI-TDC-20.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
