@@ -827,6 +827,15 @@ func guide_text(base) (t) {
         "  + puissance_kw <val> + tarif_kw_cents <val>.\n" +
         "  Source: BOFiP BOI-TFP-IFER-30.\n" +
         "\n" +
+        "## IFER éoliennes — art. 1519 D CGI\n" +
+        "  IFER sur éoliennes terrestres + hydroliennes.\n" +
+        "  2026 tarif 8.62 EUR/kW puissance installée.\n" +
+        "  Seuil: >=100 kW.\n" +
+        "  Le radar expose ifer_eoliennes.tax_cents.\n" +
+        "  Set: bilan rule set 2026 ifer_eoliennes\n" +
+        "  puissance_kw <val> + tarif_kw_cents <val>.\n" +
+        "  Source: BOFiP BOI-TFP-IFER-10.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
