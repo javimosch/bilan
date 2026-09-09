@@ -63,14 +63,16 @@ func kind_ok(k) (ok) {
     if k == "plus_value_immo" { ok = 1  return ok }
     if k == "ifi_patrimoine" { ok = 1  return ok }
     if k == "heures_sup" { ok = 1  return ok }
+    if k == "metaux" { ok = 1  return ok }
+    if k == "objets_art" { ok = 1  return ok }
     if k == "other" { ok = 1  return ok }
 }
 
 // ── stream ──────────────────────────────────────────────────────────────────
 
 func stream_add(db, name, kind, cur) (out, code, err) {
-    if name == "" || kind == "" { return "", 80, "usage: bilan stream add <name> --kind salary|bnc|bic|rent|crypto|trading|dividends|dons|emploi_domicile|pinel|denormandie|malraux|foncier_reel|lmnp|lmnp_reel|censi_bouvard|tva_collectee|tva_deductible|frais_garde|scolarite|pension_alimentaire|ir_pme|per|fcpi_fip|sofica|forest|plus_value_immo|ifi_patrimoine|heures_sup|other [--currency EUR]" }
-    if kind_ok(kind) == 0 { return "", 80, "unknown kind: " + kind + " (salary|bnc|bic|rent|crypto|trading|dividends|dons|emploi_domicile|pinel|denormandie|malraux|foncier_reel|lmnp|lmnp_reel|censi_bouvard|tva_collectee|tva_deductible|frais_garde|scolarite|pension_alimentaire|ir_pme|per|fcpi_fip|sofica|forest|plus_value_immo|ifi_patrimoine|heures_sup|other)" }
+    if name == "" || kind == "" { return "", 80, "usage: bilan stream add <name> --kind salary|bnc|bic|rent|crypto|trading|dividends|dons|emploi_domicile|pinel|denormandie|malraux|foncier_reel|lmnp|lmnp_reel|censi_bouvard|tva_collectee|tva_deductible|frais_garde|scolarite|pension_alimentaire|ir_pme|per|fcpi_fip|sofica|forest|plus_value_immo|ifi_patrimoine|heures_sup|metaux|objets_art|other [--currency EUR]" }
+    if kind_ok(kind) == 0 { return "", 80, "unknown kind: " + kind + " (salary|bnc|bic|rent|crypto|trading|dividends|dons|emploi_domicile|pinel|denormandie|malraux|foncier_reel|lmnp|lmnp_reel|censi_bouvard|tva_collectee|tva_deductible|frais_garde|scolarite|pension_alimentaire|ir_pme|per|fcpi_fip|sofica|forest|plus_value_immo|ifi_patrimoine|heures_sup|metaux|objets_art|other)" }
     if stream_ref(db, name) != "" { return "", 93, "stream already exists: " + name }
     id := to_hex(rand_bytes(8))
     sqlite_exec(db, "INSERT INTO streams(id,name,kind,currency,created) VALUES(?,?,?,?,?)", []string{id, name, kind, cur, str(now_ms())})
@@ -935,6 +937,75 @@ func tax_json(db, year) (out, code, err) {
     pv_ir_tax := pv_ir_base * pv_ir_rate / 1000
     pv_social_tax := pv_social_base * pv_social_rate / 1000
     pv_immo_total := pv_ir_tax + pv_social_tax
+    // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
+    // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
+    // immeubles bâtis only (not terrains à bâtir). Brackets:
+    //   50k-60k: 2%, 60k-100k: 3%, 100k-150k: 4%, 150k-200k: 5%,
+    //   200k-250k: 6%, > 250k: 6%
+    // The surtaxe is computed on pv_ir_base (the net imposable after abattement).
+    // Source: BOFiP BOI-RFPI-TPVIE-20.
+    pv_surtaxe_threshold := rule_int(db, year, "pv_immo_surtaxe", "threshold_cents", 5000000)
+    pv_surtaxe_cents := 0
+    if pv_ir_base > pv_surtaxe_threshold {
+        // Progressive by brackets — each bracket taxes the portion within it
+        b1_max := rule_int(db, year, "pv_immo_surtaxe", "bracket1_max_cents", 6000000)
+        b1_rate := rule_int(db, year, "pv_immo_surtaxe", "bracket1_rate_pct_tenths", 20)
+        b2_max := rule_int(db, year, "pv_immo_surtaxe", "bracket2_max_cents", 10000000)
+        b2_rate := rule_int(db, year, "pv_immo_surtaxe", "bracket2_rate_pct_tenths", 30)
+        b3_max := rule_int(db, year, "pv_immo_surtaxe", "bracket3_max_cents", 15000000)
+        b3_rate := rule_int(db, year, "pv_immo_surtaxe", "bracket3_rate_pct_tenths", 40)
+        b4_max := rule_int(db, year, "pv_immo_surtaxe", "bracket4_max_cents", 20000000)
+        b4_rate := rule_int(db, year, "pv_immo_surtaxe", "bracket4_rate_pct_tenths", 50)
+        b5_max := rule_int(db, year, "pv_immo_surtaxe", "bracket5_max_cents", 25000000)
+        b5_rate := rule_int(db, year, "pv_immo_surtaxe", "bracket5_rate_pct_tenths", 60)
+        b6_rate := rule_int(db, year, "pv_immo_surtaxe", "bracket6_rate_pct_tenths", 60)
+        // Bracket 1: 50k-60k at 2%
+        b1_portion := pv_ir_base - pv_surtaxe_threshold
+        if b1_portion > (b1_max - pv_surtaxe_threshold) { b1_portion = b1_max - pv_surtaxe_threshold }
+        pv_surtaxe_cents = pv_surtaxe_cents + b1_portion * b1_rate / 1000
+        // Bracket 2: 60k-100k at 3%
+        if pv_ir_base > b1_max {
+            b2_portion := pv_ir_base - b1_max
+            if b2_portion > (b2_max - b1_max) { b2_portion = b2_max - b1_max }
+            pv_surtaxe_cents = pv_surtaxe_cents + b2_portion * b2_rate / 1000
+        }
+        // Bracket 3: 100k-150k at 4%
+        if pv_ir_base > b2_max {
+            b3_portion := pv_ir_base - b2_max
+            if b3_portion > (b3_max - b2_max) { b3_portion = b3_max - b2_max }
+            pv_surtaxe_cents = pv_surtaxe_cents + b3_portion * b3_rate / 1000
+        }
+        // Bracket 4: 150k-200k at 5%
+        if pv_ir_base > b3_max {
+            b4_portion := pv_ir_base - b3_max
+            if b4_portion > (b4_max - b3_max) { b4_portion = b4_max - b3_max }
+            pv_surtaxe_cents = pv_surtaxe_cents + b4_portion * b4_rate / 1000
+        }
+        // Bracket 5: 200k-250k at 6%
+        if pv_ir_base > b4_max {
+            b5_portion := pv_ir_base - b4_max
+            if b5_portion > (b5_max - b4_max) { b5_portion = b5_max - b4_max }
+            pv_surtaxe_cents = pv_surtaxe_cents + b5_portion * b5_rate / 1000
+        }
+        // Bracket 6: > 250k at 6%
+        if pv_ir_base > b5_max {
+            pv_surtaxe_cents = pv_surtaxe_cents + (pv_ir_base - b5_max) * b6_rate / 1000
+        }
+    }
+    // Taxe forfaitaire sur métaux précieux et objets d'art (art. 150 VI/VK CGI).
+    // Cessions or exports outside EU of: métaux précieux (11%), bijoux/objets
+    // d'art/collection/antiquité (6%). The radar computes the taxe forfaitaire
+    // on the gross cession price (not the plus-value). Record cessions in a
+    // 'metaux' or 'objets_art' stream. Source: BOFiP BOI-RPPM-PVMC-30.
+    g_metaux := kind_get(kinds, "metaux")
+    g_objets_art := kind_get(kinds, "objets_art")
+    taux_metaux := rule_int(db, year, "metaux_precieux", "taux_metaux_pct_tenths", 110)
+    taux_objets_art := rule_int(db, year, "metaux_precieux", "taux_objets_art_pct_tenths", 60)
+    metaux_tax := 0
+    if g_metaux > 0 { metaux_tax = g_metaux * taux_metaux / 1000 }
+    objets_art_tax := 0
+    if g_objets_art > 0 { objets_art_tax = g_objets_art * taux_objets_art / 1000 }
+    metaux_total_tax := metaux_tax + objets_art_tax
     // IFI — impôt sur la fortune immobilière (art. 977 CGI). Barème progressif
     // on net taxable patrimoine. Seuil déclenchement 1.3M (but taxation starts at
     // 800k). Décote for 1.3M-1.4M: 17500 - 1.25% × P. Record the net taxable
@@ -1086,12 +1157,13 @@ func tax_json(db, year) (out, code, err) {
     out = out + ",\"crypto\":{\"net_cents\":" + str(g_crypto) + ",\"net_eur\":\"" + fmt_cents(g_crypto) + "\",\"exempt\":" + json(crypto_exempt == 1) + ",\"threshold_cents\":" + str(thr) + "}"
     out = out + ",\"capital\":{\"taxable_cents\":" + str(taxable) + ",\"taxable_eur\":\"" + fmt_cents(taxable) + "\",\"tax_cents\":" + str(cap_tax) + ",\"tax_eur\":\"" + fmt_cents(cap_tax) + "\"}"
     out = out + ",\"dividends\":{\"gross_cents\":" + str(g_div) + ",\"tax_cents\":" + str(div_tax) + "}"
-    out = out + ",\"plus_values\":{\"immo\":{\"brute_cents\":" + str(pv_immo_brute) + ",\"brute_eur\":\"" + fmt_cents(pv_immo_brute) + "\",\"detention_years\":" + str(pv_detention) + ",\"ir_abattement_pct\":" + pct_str(pv_ir_abattement_pct) + ",\"social_abattement_pct\":" + pct_str(pv_social_abattement_pct) + ",\"ir_base_cents\":" + str(pv_ir_base) + ",\"social_base_cents\":" + str(pv_social_base) + ",\"ir_tax_cents\":" + str(pv_ir_tax) + ",\"social_tax_cents\":" + str(pv_social_tax) + ",\"total_tax_cents\":" + str(pv_immo_total) + ",\"total_tax_eur\":\"" + fmt_cents(pv_immo_total) + "\",\"note\":\"art. 150 U à 150 VH CGI — 19% IR + 17.2% social, abattement 6%/an IR (22y) + 1.65%/an social (30y)\"}}"
+    out = out + ",\"plus_values\":{\"immo\":{\"brute_cents\":" + str(pv_immo_brute) + ",\"brute_eur\":\"" + fmt_cents(pv_immo_brute) + "\",\"detention_years\":" + str(pv_detention) + ",\"ir_abattement_pct\":" + pct_str(pv_ir_abattement_pct) + ",\"social_abattement_pct\":" + pct_str(pv_social_abattement_pct) + ",\"ir_base_cents\":" + str(pv_ir_base) + ",\"social_base_cents\":" + str(pv_social_base) + ",\"ir_tax_cents\":" + str(pv_ir_tax) + ",\"social_tax_cents\":" + str(pv_social_tax) + ",\"total_tax_cents\":" + str(pv_immo_total) + ",\"total_tax_eur\":\"" + fmt_cents(pv_immo_total) + "\",\"surtaxe_cents\":" + str(pv_surtaxe_cents) + ",\"surtaxe_eur\":\"" + fmt_cents(pv_surtaxe_cents) + "\",\"note\":\"art. 150 U à 150 VH CGI — 19% IR + 17.2% social, abattement 6%/an IR (22y) + 1.65%/an social (30y); surtaxe art. 1609 nonies G (2%-6% on PV > 50k, immeubles bâtis)\"}}"
     out = out + ",\"ifi\":{\"patrimoine_net_cents\":" + str(ifi_patrimoine) + ",\"patrimoine_net_eur\":\"" + fmt_cents(ifi_patrimoine) + "\",\"seuil_cents\":" + str(ifi_seuil) + ",\"eligible\":" + json(ifi_patrimoine > ifi_seuil) + ",\"bareme_cents\":" + str(ifi_cents + ifi_decote_cents) + ",\"decote_cents\":" + str(ifi_decote_cents) + ",\"ifi_cents\":" + str(ifi_cents) + ",\"ifi_eur\":\"" + fmt_cents(ifi_cents) + "\",\"note\":\"art. 977 CGI — barème progressif 0.5%-1.5%, seuil 1.3M (taxation from 800k), décote 1.3M-1.4M\"}"
     out = out + ",\"cfe\":{\"ca_cents\":" + str(cfe_ca) + ",\"ca_eur\":\"" + fmt_cents(cfe_ca) + "\",\"bracket\":" + str(cfe_bracket) + ",\"base_cents\":" + str(cfe_base) + ",\"base_eur\":\"" + fmt_cents(cfe_base) + "\",\"rate_pct_tenths\":" + str(cfe_rate) + ",\"cfe_cents\":" + str(cfe_cents) + ",\"cfe_eur\":\"" + fmt_cents(cfe_cents) + "\",\"note\":\"art. 1647 D CGI — cotisation minimum (base midpoint × communal rate); exonération if CA ≤ 5000 EUR; override with bilan rule set <year> cfe rate_pct_tenths <val>\"}"
     out = out + ",\"cvae\":{\"ca_cents\":" + str(cvae_ca) + ",\"ca_eur\":\"" + fmt_cents(cvae_ca) + "\",\"assujettie\":" + json(cvae_assujettie == 1) + ",\"effective_rate_pct_hundredths\":" + str(cvae_effective_rate_pct_hundredths) + ",\"cvae_cents\":" + str(cvae_cents) + ",\"cvae_eur\":\"" + fmt_cents(cvae_cents) + "\",\"note\":\"art. 1586 ter CGI — progressive effective rate (0% < 500k, 0.25% at 3M, 0.7% at 10M, 0.75% > 50M); VA ≈ 45% of CA (simplified); 2024 reduction 25% (art. 79 LF 2024); being phased out (suppression 2027)\"}"
     out = out + ",\"pvm\":{\"base_cents\":" + str(pvm_base) + ",\"base_eur\":\"" + fmt_cents(pvm_base) + "\",\"detention_years\":" + str(pvm_detention) + ",\"abattement_pct\":" + pct_str(pvm_abat_pct) + ",\"pfu_ir_cents\":" + str(pvm_pfu_ir) + ",\"pfu_social_cents\":" + str(pvm_pfu_social) + ",\"pfu_total_cents\":" + str(pvm_pfu_total) + ",\"bareme_ir_cents\":" + str(pvm_bareme_ir) + ",\"bareme_social_cents\":" + str(pvm_bareme_social) + ",\"bareme_total_cents\":" + str(pvm_bareme_total) + ",\"optimal\":\"" + pvm_optimal + "\",\"ir_tax_cents\":" + str(pvm_ir_tax) + ",\"social_tax_cents\":" + str(pvm_social_tax) + ",\"total_tax_cents\":" + str(pvm_total_tax) + ",\"total_tax_eur\":\"" + fmt_cents(pvm_total_tax) + "\",\"note\":\"art. 200 A CGI — PFU 12.8% IR + 17.2% social by default; option barème progressif (case 2OP) with abattement durée de détention (50% 2-8y, 65% >8y, titres pré-2018); radar reports the lower\"}"
-    out = out + ",\"totals\":{\"ir_cents\":" + str(ir_after_credit) + ",\"ir_eur\":\"" + fmt_cents(ir_after_credit) + "\",\"flat_tax_cents\":" + str(cap_tax+div_tax) + ",\"flat_tax_eur\":\"" + fmt_cents(cap_tax+div_tax) + "\",\"social_cents\":" + str(soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel) + ",\"social_eur\":\"" + fmt_cents(soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel) + "\",\"tva_cents\":" + str(tva_a_payer) + ",\"tva_eur\":\"" + fmt_cents(tva_a_payer) + "\",\"pv_immo_cents\":" + str(pv_immo_total) + ",\"pv_immo_eur\":\"" + fmt_cents(pv_immo_total) + "\",\"ifi_cents\":" + str(ifi_cents) + ",\"ifi_eur\":\"" + fmt_cents(ifi_cents) + "\",\"cfe_cents\":" + str(cfe_cents) + ",\"cfe_eur\":\"" + fmt_cents(cfe_cents) + "\",\"cvae_cents\":" + str(cvae_cents) + ",\"cvae_eur\":\"" + fmt_cents(cvae_cents) + "\",\"pvm_cents\":" + str(pvm_total_tax) + ",\"pvm_eur\":\"" + fmt_cents(pvm_total_tax) + "\",\"total_tax_cents\":" + str(ir_after_credit+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel+tva_a_payer+pv_immo_total+ifi_cents+cfe_cents+cvae_cents) + ",\"total_tax_eur\":\"" + fmt_cents(ir_after_credit+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel+tva_a_payer+pv_immo_total+ifi_cents+cfe_cents+cvae_cents) + "\"}"
+    out = out + ",\"metaux_precieux\":{\"metaux_cents\":" + str(g_metaux) + ",\"metaux_eur\":\"" + fmt_cents(g_metaux) + "\",\"objets_art_cents\":" + str(g_objets_art) + ",\"objets_art_eur\":\"" + fmt_cents(g_objets_art) + "\",\"taux_metaux_pct\":" + pct_str(taux_metaux) + ",\"taux_objets_art_pct\":" + pct_str(taux_objets_art) + ",\"metaux_tax_cents\":" + str(metaux_tax) + ",\"objets_art_tax_cents\":" + str(objets_art_tax) + ",\"total_tax_cents\":" + str(metaux_total_tax) + ",\"total_tax_eur\":\"" + fmt_cents(metaux_total_tax) + "\",\"note\":\"art. 150 VI/VK CGI — taxe forfaitaire sur cessions/exports hors UE: 11% métaux précieux, 6% bijoux/objets d'art/collection/antiquité; option art. 150 VL pour régime plus-values mobilières\"}"
+    out = out + ",\"totals\":{\"ir_cents\":" + str(ir_after_credit) + ",\"ir_eur\":\"" + fmt_cents(ir_after_credit) + "\",\"flat_tax_cents\":" + str(cap_tax+div_tax) + ",\"flat_tax_eur\":\"" + fmt_cents(cap_tax+div_tax) + "\",\"social_cents\":" + str(soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel) + ",\"social_eur\":\"" + fmt_cents(soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel) + "\",\"tva_cents\":" + str(tva_a_payer) + ",\"tva_eur\":\"" + fmt_cents(tva_a_payer) + "\",\"pv_immo_cents\":" + str(pv_immo_total) + ",\"pv_immo_eur\":\"" + fmt_cents(pv_immo_total) + "\",\"ifi_cents\":" + str(ifi_cents) + ",\"ifi_eur\":\"" + fmt_cents(ifi_cents) + "\",\"cfe_cents\":" + str(cfe_cents) + ",\"cfe_eur\":\"" + fmt_cents(cfe_cents) + "\",\"cvae_cents\":" + str(cvae_cents) + ",\"cvae_eur\":\"" + fmt_cents(cvae_cents) + "\",\"pvm_cents\":" + str(pvm_total_tax) + ",\"pvm_eur\":\"" + fmt_cents(pvm_total_tax) + "\",\"pv_immo_surtaxe_cents\":" + str(pv_surtaxe_cents) + ",\"pv_immo_surtaxe_eur\":\"" + fmt_cents(pv_surtaxe_cents) + "\",\"metaux_precieux_cents\":" + str(metaux_total_tax) + ",\"metaux_precieux_eur\":\"" + fmt_cents(metaux_total_tax) + "\",\"total_tax_cents\":" + str(ir_after_credit+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel+tva_a_payer+pv_immo_total+pv_surtaxe_cents+ifi_cents+cfe_cents+cvae_cents+metaux_total_tax) + ",\"total_tax_eur\":\"" + fmt_cents(ir_after_credit+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel+tva_a_payer+pv_immo_total+pv_surtaxe_cents+ifi_cents+cfe_cents+cvae_cents+metaux_total_tax) + "\"}"
     out = out + ",\"notes\":[\"estimates on the seeded rate card (2025 barème on 2024 income) — override with bilan rule set\",\"IR = progressive barème + plafonnement QF (situation-aware: default 1791/demi-part, parent_isole 4262 total, veuf 1807/demi-part+2011, personne_seule_invalide 3608) + décote; 10% frais per salary stream; BNC/BIC/LMNP deficits 6y; foncier deficit 10700 EUR on global + 10y on foncier (micro + réel)\",\"pension alimentaire (art. 156 II.2°): deductible from revenu global, cap 6794 EUR/child (2024 income)\",\"dons reduction (art. 200 CGI): 75% to 1000 EUR, 66% to 20% of revenu imposable — reduces IR\",\"pinel/denormandie reduction (art. 199 novovicies): 12/18/21% by engagement, cap 300000 EUR, spread over years — reduces IR\",\"malraux reduction (art. 199 tervicies): 30% PSMV / 22% PVAP, cap 400000 EUR, hors plafonnement niches — reduces IR\",\"censi-bouvard reduction (art. 199 sexvicies): 11% LMNP résidences de services, cap 300000 EUR, spread over 9y — reduces IR\",\"scolarité reduction (art. 199 quater F): forfait 61 collège / 153 lycée / 183 supérieur per child — reduces IR\",\"ir-pme reduction (art. 199 terdecies-0 A): 18% PME, cap 50000 single / 100000 couple — reduces IR (plafonnement niches NOT modeled)\",\"emploi à domicile (art. 199 sexdecies): 50% crédit, cap 12000 EUR — refundable (crédit, not réduction)\",\"frais de garde (art. 200 quater B): 50% crédit, cap 3500 EUR/child — refundable (crédit, not réduction)\",\"TVA franchise (art. 293 B): services 36800 / vente 91900 EUR — informational\",\"TVA régime simplifié (art. 302 septies A): services 254000 / vente 840000 EUR, TVA due < 15000 EUR\",\"TVA collectée/déductible (art. 271): TVA à payer = collectée - déductible (négatif = crédit reportable/remboursable)\",\"PAS taux neutre + personnalisé (art. 204 H): monthly estimate for provisioning — v1 simplification of the BOFiP formula\",\"régime réel foncier (art. 29-31): net = loyer - charges (intérêts d'emprunt, travaux), no abattement — combined with micro-foncier\",\"LMNP micro-BIC meublé (art. 50): 50% abattement, threshold 77700 EUR\",\"LMNP régime réel (art. 39): net = loyer - charges - amortissement, no abattement, deficit carry 6y\",\"micro-BNC/BIC/foncier cannot legally generate deficits (forfaitaire) — deficit carry-forward is a régime-réel feature applied to the micro base as a v1 simplification\",\"crypto exemption per form 2086: net gains under the threshold are not declarable\"]}"
     code = 0
     err = ""

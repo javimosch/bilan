@@ -811,6 +811,54 @@ ok "cvae CA 1M effective rate 5" 5 "$(jq -r .cvae.effective_rate_pct_hundredths 
 ok "cvae CA 1M cvae 16875" 16875 "$(jq -r .cvae.cvae_cents <<<"$r")"
 rm -f "$CVAEDB3"
 
+# --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
+# PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
+# Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents
+# Bracket 2: 60k-80k at 3% = 20000 × 3% = 600 EUR = 60000 cents
+# Total surtaxe = 800 EUR = 80000 cents
+STDB1="$(mktemp -u /tmp/bilan-surtaxe1-XXXXXX.db)"
+BILAN_DB="$STDB1" $BIN stream add im --kind plus_value_immo >/dev/null
+BILAN_DB="$STDB1" $BIN tx add im 2026-06-30 80000 >/dev/null
+r=$(BILAN_DB="$STDB1" $BIN tax --year 2026)
+ok "pv immo 80k surtaxe 800" 80000 "$(jq -r .plus_values.immo.surtaxe_cents <<<"$r")"
+ok "pv immo 80k totals surtaxe 800" 80000 "$(jq -r .totals.pv_immo_surtaxe_cents <<<"$r")"
+rm -f "$STDB1"
+# PV immo 40000 → below threshold → no surtaxe
+STDB2="$(mktemp -u /tmp/bilan-surtaxe2-XXXXXX.db)"
+BILAN_DB="$STDB2" $BIN stream add im --kind plus_value_immo >/dev/null
+BILAN_DB="$STDB2" $BIN tx add im 2026-06-30 40000 >/dev/null
+r=$(BILAN_DB="$STDB2" $BIN tax --year 2026)
+ok "pv immo 40k no surtaxe" 0 "$(jq -r .plus_values.immo.surtaxe_cents <<<"$r")"
+rm -f "$STDB2"
+# PV immo 300000 → all brackets
+# B1: 10k × 2% = 200; B2: 40k × 3% = 1200; B3: 50k × 4% = 2000; B4: 50k × 5% = 2500; B5: 50k × 6% = 3000; B6: 50k × 6% = 3000
+# Total = 200+1200+2000+2500+3000+3000 = 11900 EUR = 1190000 cents
+STDB3="$(mktemp -u /tmp/bilan-surtaxe3-XXXXXX.db)"
+BILAN_DB="$STDB3" $BIN stream add im --kind plus_value_immo >/dev/null
+BILAN_DB="$STDB3" $BIN tx add im 2026-06-30 300000 >/dev/null
+r=$(BILAN_DB="$STDB3" $BIN tax --year 2026)
+ok "pv immo 300k surtaxe 11900" 1190000 "$(jq -r .plus_values.immo.surtaxe_cents <<<"$r")"
+rm -f "$STDB3"
+
+# --- taxe forfaitaire métaux précieux et objets d'art (art. 150 VI/VK) ---
+# 10000 métaux × 11% = 1100 EUR = 110000 cents
+MPDB1="$(mktemp -u /tmp/bilan-metaux1-XXXXXX.db)"
+BILAN_DB="$MPDB1" $BIN stream add or --kind metaux >/dev/null
+BILAN_DB="$MPDB1" $BIN tx add or 2026-06-30 10000 >/dev/null
+r=$(BILAN_DB="$MPDB1" $BIN tax --year 2026)
+ok "metaux 10k tax 1100" 110000 "$(jq -r .metaux_precieux.metaux_tax_cents <<<"$r")"
+ok "metaux 10k total 1100" 110000 "$(jq -r .metaux_precieux.total_tax_cents <<<"$r")"
+ok "metaux 10k totals 1100" 110000 "$(jq -r .totals.metaux_precieux_cents <<<"$r")"
+rm -f "$MPDB1"
+# 10000 objets d'art × 6% = 600 EUR = 60000 cents
+MPDB2="$(mktemp -u /tmp/bilan-metaux2-XXXXXX.db)"
+BILAN_DB="$MPDB2" $BIN stream add art --kind objets_art >/dev/null
+BILAN_DB="$MPDB2" $BIN tx add art 2026-06-30 10000 >/dev/null
+r=$(BILAN_DB="$MPDB2" $BIN tax --year 2026)
+ok "objets_art 10k tax 600" 60000 "$(jq -r .metaux_precieux.objets_art_tax_cents <<<"$r")"
+ok "objets_art 10k total 600" 60000 "$(jq -r .metaux_precieux.total_tax_cents <<<"$r")"
+rm -f "$MPDB2"
+
 # --- deficits carried forward (BNC: prior-year loss offsets current-year gross) ---
 DFDB="$(mktemp -u /tmp/bilan-deficit-XXXXXX.db)"
 BILAN_DB="$DFDB" $BIN stream add biz --kind bnc >/dev/null

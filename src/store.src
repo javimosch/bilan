@@ -389,6 +389,31 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cvae', 'bracket4_ca_cents', '5000000000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cvae', 'bracket4_rate_pct_hundredths', '75')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cvae', 'reduction_2024_pct_tenths', '250')", []string{y})
+    // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
+    // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
+    // immeubles bâtis only (not terrains à bâtir). Brackets:
+    //   50k-60k: 2%, 60k-100k: 3%, 100k-150k: 4%, 150k-200k: 5%,
+    //   200k-250k: 6%, > 250k: 6%
+    // With lissage formula to avoid bracket thresholds. Source: BOFiP
+    // BOI-RFPI-TPVIE-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_immo_surtaxe', 'threshold_cents', '5000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_immo_surtaxe', 'bracket1_max_cents', '6000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_immo_surtaxe', 'bracket1_rate_pct_tenths', '20')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_immo_surtaxe', 'bracket2_max_cents', '10000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_immo_surtaxe', 'bracket2_rate_pct_tenths', '30')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_immo_surtaxe', 'bracket3_max_cents', '15000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_immo_surtaxe', 'bracket3_rate_pct_tenths', '40')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_immo_surtaxe', 'bracket4_max_cents', '20000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_immo_surtaxe', 'bracket4_rate_pct_tenths', '50')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_immo_surtaxe', 'bracket5_max_cents', '25000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_immo_surtaxe', 'bracket5_rate_pct_tenths', '60')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_immo_surtaxe', 'bracket6_rate_pct_tenths', '60')", []string{y})
+    // Taxe forfaitaire sur métaux précieux et objets d'art (art. 150 VI/VK CGI).
+    // Cessions or exports outside EU of: métaux précieux (11%), bijoux/objets
+    // d'art/collection/antiquité (6%). Option for régime des plus-values
+    // mobilières (art. 150 VL). Source: BOFiP BOI-RPPM-PVMC-30.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'metaux_precieux', 'taux_metaux_pct_tenths', '110')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'metaux_precieux', 'taux_objets_art_pct_tenths', '60')", []string{y})
 }
 
 type Rulevalrow struct { value string }

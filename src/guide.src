@@ -317,6 +317,23 @@ func guide_text(base) (t) {
         "  reports the lower (optimal field). New pvm JSON block + totals.pvm_cents.\n" +
         "  Source: BOFiP BOI-RPPM-PVMC-20.\n" +
         "\n" +
+        "## Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI)\n" +
+        "  Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to\n" +
+        "  immeubles bâtis only (not terrains à bâtir). Brackets: 2% (50k-60k),\n" +
+        "  3% (60k-100k), 4% (100k-150k), 5% (150k-200k), 6% (200k-250k), 6%\n" +
+        "  (> 250k). Computed on pv_ir_base (net imposable after abattement).\n" +
+        "  New plus_values.immo.surtaxe_cents + totals.pv_immo_surtaxe_cents.\n" +
+        "  Source: BOFiP BOI-RFPI-TPVIE-20.\n" +
+        "\n" +
+        "## Taxe forfaitaire sur métaux précieux et objets d'art (art. 150 VI/VK CGI)\n" +
+        "  Cessions or exports outside EU of: métaux précieux (11%), bijoux/objets\n" +
+        "  d'art/collection/antiquité (6%). The radar computes the taxe forfaitaire\n" +
+        "  on the gross cession price (not the plus-value). Record cessions in a\n" +
+        "  'metaux' or 'objets_art' stream. Option art. 150 VL for régime plus-values\n" +
+        "  mobilières (not modeled — the radar uses the forfaitaire by default).\n" +
+        "  New metaux_precieux JSON block + totals.metaux_precieux_cents. New stream\n" +
+        "  kinds: metaux, objets_art. Source: BOFiP BOI-RPPM-PVMC-30.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
@@ -339,15 +356,15 @@ func guide_text(base) (t) {
         "  rate, exonération CA ≤ 5000) + CVAE (art. 1586 ter, progressive effective\n" +
         "  rate 0%-0.75%, VA ≈ 45% of CA, 2024 reduction 25%, being phased out) +\n" +
         "  plus-values mobilières (art. 200 A, PFU 12.8%+17.2% vs barème option with\n" +
-        "  abattement durée de détention 50%/65%, radar reports the lower). It does\n" +
-        "  NOT model: deficits beyond their windows, the full BOFiP PAS formula,\n" +
+        "  abattement durée de détention 50%/65%, radar reports the lower) + surtaxe PV\n" +
+        "  immo élevées (art. 1609 nonies G, 2%-6% on PV > 50k, immeubles bâtis) +\n" +
+        "  taxe forfaitaire métaux précieux/objets d'art (art. 150 VI/VK, 11%/6%). It\n" +
+        "  does NOT model: deficits beyond their windows, the full BOFiP PAS formula,\n" +
         "  the article 154 bis TNS PER plafond (10% bénéfice + 15% between 1-8 PASS\n" +
         "  — record versements in 'per' and the radar applies the 163 quatervicies\n" +
-        "  cap), plus-values sur autres actifs (métaux précieux, meubles), surtaxe\n" +
-        "  sur plus-values immobilières élevées, or LMNP amortissement tables\n" +
-        "  (record the amortissement as a negative tx in the 'lmnp_reel' stream).\n" +
-        "  Output is an estimate to reason from, not tax advice — say so to the\n" +
-        "  human.\n" +
+        "  cap), or LMNP amortissement tables (record the amortissement as a\n" +
+        "  negative tx in the 'lmnp_reel' stream). Output is an estimate to reason\n" +
+        "  from, not tax advice — say so to the human.\n" +
         "\n" +
         "## Brian — the cheap copilote (no inference in the platform)\n" +
         "  Brian is a PERSONA, not a service: install it into the harness your human\n" +

@@ -160,7 +160,9 @@ func llms_txt() (t) {
         "    art. 1586 ter (progressive effective rate 0%-0.75%, VA ≈ 45% of CA, 2024\n" +
         "    reduction 25%, being phased out) + plus-values mobilières art. 200 A\n" +
         "    (PFU 12.8%+17.2% vs barème option with abattement durée de détention\n" +
-        "    50%/65%, radar reports the lower);\n" +
+        "    50%/65%, radar reports the lower) + surtaxe PV immo élevées art. 1609\n" +
+        "    nonies G (2%-6% on PV > 50k, immeubles bâtis) + taxe forfaitaire métaux\n" +
+        "    précieux/objets d'art art. 150 VI/VK (11% métaux, 6% objets d'art);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +
