@@ -211,7 +211,9 @@ func llms_txt() (t) {
         "    cap 400k PME) + plafonnement CET art. 1647 B sexies\n" +
         "    (CFE+CVAE > 1.438% VA → dégrèvement, floor CFE\n" +
         "    minimum) + TSB art. 231 ter (bureaux IDF 4\n" +
-        "    circonscriptions, PACA) + TSS stationnement;\n" +
+        "    circonscriptions, PACA) + TSS stationnement + CRL\n" +
+        "    art. 234 nonies (2.5% loyers personnes morales)\n" +
+        "    + versement mobilité art. L52-53 (≥11 salariés);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

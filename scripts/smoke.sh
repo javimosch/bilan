@@ -1280,6 +1280,52 @@ ok "tsb stationnement 400m2 exoneré 0" 0 "$(jq -r .tsb.tax_cents <<<"$r")"
 ok "tsb stationnement 400m2 tss 0" 0 "$(jq -r .tsb.tss.tax_cents <<<"$r")"
 rm -f "$TSBDB6"
 
+# --- CRL (art. 234 nonies) — basic 2.5% on 50000 EUR loyers ---
+# 50000 EUR = 5000000 cents → 2.5% × 50000 = 1250 EUR = 125000 cents
+CRLDB1="$(mktemp -u /tmp/bilan-crl1-XXXXXX.db)"
+BILAN_DB="$CRLDB1" $BIN rule set 2026 crl loyers_cents 5000000 >/dev/null
+r=$(BILAN_DB="$CRLDB1" $BIN tax --year 2026)
+ok "crl 50000 loyers 2.5% tax 125000" 125000 "$(jq -r .crl.tax_cents <<<"$r")"
+rm -f "$CRLDB1"
+
+# --- CRL (art. 234 nonies) — exonération loyer < 1830 EUR ---
+# 1000 EUR = 100000 cents → < 183000 → exonéré
+CRLDB2="$(mktemp -u /tmp/bilan-crl2-XXXXXX.db)"
+BILAN_DB="$CRLDB2" $BIN rule set 2026 crl loyers_cents 100000 >/dev/null
+r=$(BILAN_DB="$CRLDB2" $BIN tax --year 2026)
+ok "crl 1000 loyers exoneré 0" 0 "$(jq -r .crl.tax_cents <<<"$r")"
+ok "crl 1000 loyers exoneré flag true" true "$(jq -r .crl.exonere <<<"$r")"
+rm -f "$CRLDB2"
+
+# --- CRL (art. 234 nonies) — exonération TVA ---
+# 50000 EUR loyers, TVA assujettie → exonéré
+CRLDB3="$(mktemp -u /tmp/bilan-crl3-XXXXXX.db)"
+BILAN_DB="$CRLDB3" $BIN rule set 2026 crl loyers_cents 5000000 >/dev/null
+BILAN_DB="$CRLDB3" $BIN rule set 2026 crl tva_assujettie 1 >/dev/null
+r=$(BILAN_DB="$CRLDB3" $BIN tax --year 2026)
+ok "crl 50000 TVA exoneré 0" 0 "$(jq -r .crl.tax_cents <<<"$r")"
+ok "crl 50000 TVA exoneré flag true" true "$(jq -r .crl.exonere <<<"$r")"
+rm -f "$CRLDB3"
+
+# --- Versement mobilité (art. L52-53) — 15 salariés, 1.5%, 100000 EUR ---
+# 100000 EUR = 10000000 cents → 1.5% × 100000 = 1500 EUR = 150000 cents
+VMDB1="$(mktemp -u /tmp/bilan-vm1-XXXXXX.db)"
+BILAN_DB="$VMDB1" $BIN rule set 2026 versement_mobilite effectif_moyen 15 >/dev/null
+BILAN_DB="$VMDB1" $BIN rule set 2026 versement_mobilite remunerations_cents 10000000 >/dev/null
+BILAN_DB="$VMDB1" $BIN rule set 2026 versement_mobilite taux_pct_hundredths 150 >/dev/null
+r=$(BILAN_DB="$VMDB1" $BIN tax --year 2026)
+ok "vm 15 sal 1.5% 100000 tax 150000" 150000 "$(jq -r .versement_mobilite.tax_cents <<<"$r")"
+rm -f "$VMDB1"
+
+# --- Versement mobilité (art. L52-53) — <11 salariés → not eligible ---
+VMDB2="$(mktemp -u /tmp/bilan-vm2-XXXXXX.db)"
+BILAN_DB="$VMDB2" $BIN rule set 2026 versement_mobilite effectif_moyen 10 >/dev/null
+BILAN_DB="$VMDB2" $BIN rule set 2026 versement_mobilite remunerations_cents 10000000 >/dev/null
+r=$(BILAN_DB="$VMDB2" $BIN tax --year 2026)
+ok "vm 10 sal not eligible 0" 0 "$(jq -r .versement_mobilite.tax_cents <<<"$r")"
+ok "vm 10 sal eligible flag false" false "$(jq -r .versement_mobilite.eligible <<<"$r")"
+rm -f "$VMDB2"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents

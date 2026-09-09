@@ -704,6 +704,23 @@ func guide_text(base) (t) {
         "  + region <idf|paca> + circonscription <1-4>.\n" +
         "  Source: BOFiP BOI-IF-TF-10, service-public.gouv.fr.\n" +
         "\n" +
+        "## Contribution sur les revenus locatifs (CRL) — art. 234 nonies CGI\n" +
+        "  2.5% sur loyers perçus par personnes morales sur immeubles\n" +
+        "  achevés ≥15 ans. Exonération: loyer <1830 EUR/local/an,\n" +
+        "  ou soumis à TVA. Le radar expose crl.tax_cents.\n" +
+        "  Set: bilan rule set 2026 crl loyers_cents <val>\n" +
+        "  + tva_assujettie <0|1>. Source: BOFiP BOI-RFPI-CTRL-20.\n" +
+        "\n" +
+        "## Versement mobilité (VM) — art. L52-53 code des transports\n" +
+        "  Contribution patronale pour employeurs ≥11 salariés dans\n" +
+        "  zone AOM. Taux configurable (IDF 1.5-2.95%, VMRR 0.15%\n" +
+        "  max hors IDF 2025). Base = rémunérations soumises à\n" +
+        "  cotisations sociales. Le radar expose\n" +
+        "  versement_mobilite.tax_cents.\n" +
+        "  Set: bilan rule set 2026 versement_mobilite\n" +
+        "  effectif_moyen <val> + remunerations_cents <val>\n" +
+        "  + taux_pct_hundredths <val>. Source: urssaf.fr.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

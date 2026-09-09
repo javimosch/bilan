@@ -759,6 +759,21 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'paca_commercial_cents', '41')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'paca_stockage_cents', '22')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsb', 'paca_stationnement_cents', '10')", []string{y})
+    // Contribution sur les revenus locatifs (CRL) — article 234 nonies
+    // CGI. 2.5% on loyers perçus par personnes morales sur immeubles
+    // achevés ≥15 ans. Exonération: loyer <1830 EUR/local/an, ou TVA.
+    // Source: BOFiP BOI-RFPI-CTRL-20, service-public.gouv.fr.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'crl', 'loyers_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'crl', 'tva_assujettie', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'crl', 'taux_pct_hundredths', '250')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'crl', 'seuil_exoneration_cents', '183000')", []string{y})
+    // Versement mobilité (VM) — article L52-53 du code des transports.
+    // Contribution patronale pour employeurs ≥11 salariés dans zone AOM.
+    // Taux configurable (IDF 1.5-2.95%, VMRR 0.15% max hors IDF 2025).
+    // Source: urssaf.fr, service-public.gouv.fr.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'versement_mobilite', 'effectif_moyen', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'versement_mobilite', 'remunerations_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'versement_mobilite', 'taux_pct_hundredths', '150')", []string{y})
     // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
     // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
     // immeubles bâtis only (not terrains à bâtir). Brackets:
