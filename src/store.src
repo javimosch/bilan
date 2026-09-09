@@ -741,6 +741,11 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'peec', 'taux_pct_hundredths', '45')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'peec', 'taux_penalite_pct_hundredths', '200')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'peec', 'non_investi', '0')", []string{y})
+    // Contribution au dialogue social — article L 2135-15-1
+    // code du travail. Charge patronale 0.016% masse
+    // salariale brute. Source: BOFiP, urssaf.fr.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dialogue_social', 'masse_salariale_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dialogue_social', 'taux_pct_hundredths', '16')", []string{y})
     // Plafonnement de la CET — article 1647 B sexies CGI. If CFE + CVAE
     // > taux × VA, dégrèvement = CET - plafond. Floor: CET après
     // dégrèvement ≥ cotisation minimum CFE (art. 1647 D). Taux 1.438%

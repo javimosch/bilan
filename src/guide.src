@@ -709,6 +709,18 @@ func guide_text(base) (t) {
         "  non_investi <0|1>.\n" +
         "  Source: BOFiP BOI-TPS-PEEC-20.\n" +
         "\n" +
+        "## Contribution au dialogue social — art. L 2135-15-1 C trav\n" +
+        "  Charge patronale 0.016% de la masse salariale\n" +
+        "  brute (soumise à cotisations SS). Due par tous\n" +
+        "  les employeurs de droit privé dès le premier\n" +
+        "  salarié. Finance le fonds paritaire national pour\n" +
+        "  l'indépendance des organisations syndicales et\n" +
+        "  patronales.\n" +
+        "  Le radar expose dialogue_social.tax_cents.\n" +
+        "  Set: bilan rule set 2026 dialogue_social\n" +
+        "  masse_salariale_cents <val>.\n" +
+        "  Source: BOFiP, urssaf.fr.\n" +
+        "\n" +
         "## Plafonnement de la CET — art. 1647 B sexies CGI\n" +
         "  Si CFE + CVAE > taux × valeur ajoutée, dégrèvement =\n" +
         "  CET - plafond. Taux 1.438% (2025), 1.531% (2026/2027).\n" +

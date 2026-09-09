@@ -213,6 +213,8 @@ func llms_txt() (t) {
         "    category) + PEEC art. L 313-1 CCH\n" +
         "    (0.45% masse salariale ≥50\n" +
         "    salariés, 2% si non investi) +\n" +
+        "    dialogue social art. L 2135-15-1\n" +
+        "    (0.016% masse salariale) +\n" +
         "    plafonnement CET art. 1647 B sexies\n" +
         "    (CFE+CVAE > 1.438% VA → dégrèvement, floor CFE\n" +
         "    minimum) + TSB art. 231 ter (bureaux IDF 4\n" +
