@@ -814,6 +814,19 @@ func guide_text(base) (t) {
         "  ventes_cents <val> + chiffre_affaires_cents <val>.\n" +
         "  Source: BOFiP BOI-TCA-EOL.\n" +
         "\n" +
+        "## IFER centrales — art. 1519 F CGI\n" +
+        "  IFER sur centrales production électricité\n" +
+        "  photovoltaïque/hydraulique. 2026 tarif:\n" +
+        "  hydraulique 3.588 EUR/kW, photovoltaïque\n" +
+        "  avant 2021 8.62 EUR/kW, photovoltaïque\n" +
+        "  après 2021 3.588 EUR/kW (20 premières\n" +
+        "  années). Seuil: puissance >=100 kW.\n" +
+        "  Le radar expose ifer_centrales.tax_cents.\n" +
+        "  Set: bilan rule set 2026 ifer_centrales\n" +
+        "  type_centrale <hydraulique|photovoltaique>\n" +
+        "  + puissance_kw <val> + tarif_kw_cents <val>.\n" +
+        "  Source: BOFiP BOI-TFP-IFER-30.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

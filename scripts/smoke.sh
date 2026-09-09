@@ -1594,6 +1594,32 @@ ok "te CA 50k below seuil not eligible false" false "$(jq -r .taxe_edition.eligi
 ok "te not eligible tax 0" 0 "$(jq -r .taxe_edition.tax_cents <<<"$r")"
 rm -f "$TEDB2"
 
+# --- IFER centrales (art. 1519 F) — hydraulique 500 kW × 3.588 EUR = 1794 EUR ---
+# 500 × 3588 cents = 1794000 cents = 17940 EUR
+ICDB1="$(mktemp -u /tmp/bilan-ic1-XXXXXX.db)"
+BILAN_DB="$ICDB1" $BIN rule set 2026 ifer_centrales type_centrale hydraulique >/dev/null
+BILAN_DB="$ICDB1" $BIN rule set 2026 ifer_centrales puissance_kw 500 >/dev/null
+r=$(BILAN_DB="$ICDB1" $BIN tax --year 2026)
+ok "ic hydraulique 500kW tax 1794000" 1794000 "$(jq -r .ifer_centrales.tax_cents <<<"$r")"
+rm -f "$ICDB1"
+
+# --- IFER centrales (art. 1519 F) — photovoltaïque avant 2021, 200 kW × 8.62 EUR ---
+# 200 × 862 cents = 172400 cents = 1724 EUR
+ICDB2="$(mktemp -u /tmp/bilan-ic2-XXXXXX.db)"
+BILAN_DB="$ICDB2" $BIN rule set 2026 ifer_centrales type_centrale photovoltaique >/dev/null
+BILAN_DB="$ICDB2" $BIN rule set 2026 ifer_centrales puissance_kw 200 >/dev/null
+BILAN_DB="$ICDB2" $BIN rule set 2026 ifer_centrales tarif_kw_cents 862 >/dev/null
+r=$(BILAN_DB="$ICDB2" $BIN tax --year 2026)
+ok "ic photovoltaique 200kW 8.62EUR tax 172400" 172400 "$(jq -r .ifer_centrales.tax_cents <<<"$r")"
+rm -f "$ICDB2"
+
+# --- IFER centrales (art. 1519 F) — below seuil 100 kW, no tax ---
+ICDB3="$(mktemp -u /tmp/bilan-ic3-XXXXXX.db)"
+BILAN_DB="$ICDB3" $BIN rule set 2026 ifer_centrales puissance_kw 50 >/dev/null
+r=$(BILAN_DB="$ICDB3" $BIN tax --year 2026)
+ok "ic 50kW below seuil tax 0" 0 "$(jq -r .ifer_centrales.tax_cents <<<"$r")"
+rm -f "$ICDB3"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents
