@@ -235,7 +235,9 @@ func llms_txt() (t) {
         "    + IFER éoliennes art. 1519 D\n" +
         "    (8.62 EUR/kW) + IFER nucléaire/\n" +
         "    thermique art. 1519 E (3588\n" +
-        "    EUR/MW);\n" +
+        "    EUR/MW) + IFER ferroviaire art.\n" +
+        "    1599 quater A (9 catégories\n" +
+        "    matériel roulant);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

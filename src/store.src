@@ -908,6 +908,28 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_nucleaire', 'puissance_mw', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_nucleaire', 'tarif_mw_cents', '358800')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_nucleaire', 'seuil_mw', '50')", []string{y})
+    // IFER sur le matériel roulant ferroviaire — article
+    // 1599 quater A CGI. Matériel roulant réseau ferré national
+    // transport voyageurs. 9 catégories tarifs 2026 (EUR).
+    // Source: BOFiP BOI-TFP-IFER-70.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'nb_automoteur', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'nb_locomotive_diesel', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'nb_automotrice', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'nb_locomotive_electrique', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'nb_motrice_gv', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'nb_automotrice_tramtrain', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'nb_remorque_passagers', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'nb_remorque_gv', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'nb_remorque_tramtrain', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'tarif_automoteur_cents', '3695000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'tarif_locomotive_diesel_cents', '3695000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'tarif_automotrice_cents', '2832900')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'tarif_locomotive_electrique_cents', '2463500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'tarif_motrice_gv_cents', '4311000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'tarif_automotrice_tramtrain_cents', '1416700')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'tarif_remorque_passagers_cents', '591300')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'tarif_remorque_gv_cents', '1231600')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_ferroviaire', 'tarif_remorque_tramtrain_cents', '295600')", []string{y})
     // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
     // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
     // immeubles bâtis only (not terrains à bâtir). Brackets:

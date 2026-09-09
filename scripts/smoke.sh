@@ -1650,6 +1650,21 @@ r=$(BILAN_DB="$INDB2" $BIN tax --year 2026)
 ok "in 40MW below seuil tax 0" 0 "$(jq -r .ifer_nucleaire.tax_cents <<<"$r")"
 rm -f "$INDB2"
 
+# --- IFER ferroviaire (art. 1599 quater A) — 2 automoteurs + 1 motrice GV ---
+# 2 × 3695000 + 1 × 4311000 = 7390000 + 4311000 = 11701000 cents = 117010 EUR
+IFDB1="$(mktemp -u /tmp/bilan-if1-XXXXXX.db)"
+BILAN_DB="$IFDB1" $BIN rule set 2026 ifer_ferroviaire nb_automoteur 2 >/dev/null
+BILAN_DB="$IFDB1" $BIN rule set 2026 ifer_ferroviaire nb_motrice_gv 1 >/dev/null
+r=$(BILAN_DB="$IFDB1" $BIN tax --year 2026)
+ok "if 2 automoteurs + 1 motrice GV tax 11701000" 11701000 "$(jq -r .ifer_ferroviaire.tax_cents <<<"$r")"
+rm -f "$IFDB1"
+
+# --- IFER ferroviaire (art. 1599 quater A) — 0 matériel, tax 0 ---
+IFDB2="$(mktemp -u /tmp/bilan-if2-XXXXXX.db)"
+r=$(BILAN_DB="$IFDB2" $BIN tax --year 2026)
+ok "if no matériel tax 0" 0 "$(jq -r .ifer_ferroviaire.tax_cents <<<"$r")"
+rm -f "$IFDB2"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents

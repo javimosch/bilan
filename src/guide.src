@@ -845,6 +845,20 @@ func guide_text(base) (t) {
         "  puissance_mw <val> + tarif_mw_cents <val>.\n" +
         "  Source: BOFiP BOI-TFP-IFER-20.\n" +
         "\n" +
+        "## IFER ferroviaire — art. 1599 quater A CGI\n" +
+        "  IFER sur matériel roulant réseau ferré national\n" +
+        "  transport voyageurs. 9 catégories tarifs 2026:\n" +
+        "  automoteur 36950, loco diesel 36950,\n" +
+        "  automotrice 28329, loco électrique 24635,\n" +
+        "  motrice GV 43110, automotrice tram-train\n" +
+        "  14167, remorque passagers 5913, remorque\n" +
+        "  GV 12316, remorque tram-train 2956 EUR.\n" +
+        "  Le radar expose ifer_ferroviaire.tax_cents.\n" +
+        "  Set: bilan rule set 2026 ifer_ferroviaire\n" +
+        "  nb_automoteur <val> + nb_locomotive_diesel\n" +
+        "  <val> + nb_automotrice <val> + ...\n" +
+        "  Source: BOFiP BOI-TFP-IFER-70.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
