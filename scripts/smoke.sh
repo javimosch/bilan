@@ -859,6 +859,74 @@ ok "objets_art 10k tax 600" 60000 "$(jq -r .metaux_precieux.objets_art_tax_cents
 ok "objets_art 10k total 600" 60000 "$(jq -r .metaux_precieux.total_tax_cents <<<"$r")"
 rm -f "$MPDB2"
 
+# --- Option art. 150 VL (régime PV art. 150 UA for métaux/objets d'art) ---
+# 10000 EUR cession, acquisition 8000 EUR, detention 5y → PV = 2000
+# Abattement 5% × (5-2) = 15% → base = 2000 × 0.85 = 1700
+# IR 19% × 1700 = 323; social 17.2% × 1700 = 292.4; total = 615.4 EUR = 61540 cents
+# Forfaitaire = 10000 × 11% = 1100 EUR = 110000 cents → 150 VL is lower
+VLDB1="$(mktemp -u /tmp/bilan-vl1-XXXXXX.db)"
+BILAN_DB="$VLDB1" $BIN stream add or --kind metaux >/dev/null
+BILAN_DB="$VLDB1" $BIN tx add or 2026-06-30 10000 >/dev/null
+BILAN_DB="$VLDB1" $BIN rule set 2026 metaux_precieux option_150vl_eligible 1 >/dev/null
+BILAN_DB="$VLDB1" $BIN rule set 2026 metaux_precieux option_150vl_acquisition_cents 800000 >/dev/null
+BILAN_DB="$VLDB1" $BIN rule set 2026 metaux_precieux option_150vl_detention_years 5 >/dev/null
+r=$(BILAN_DB="$VLDB1" $BIN tax --year 2026)
+ok "vl pv 2000" 200000 "$(jq -r .metaux_precieux.option_150vl_pv_cents <<<"$r")"
+ok "vl abattement 15%" 15 "$(jq -r .metaux_precieux.option_150vl_abattement_pct <<<"$r")"
+ok "vl ir 323" 32300 "$(jq -r .metaux_precieux.option_150vl_ir_cents <<<"$r")"
+ok "vl total 615.4" 61540 "$(jq -r .metaux_precieux.option_150vl_total_cents <<<"$r")"
+ok "vl optimal 150_vl" "150_vl" "$(jq -r .metaux_precieux.optimal <<<"$r")"
+ok "vl effective total 615.4" 61540 "$(jq -r .metaux_precieux.total_tax_cents <<<"$r")"
+rm -f "$VLDB1"
+# 22y detention → exonération (abattement 100%), PV = 0, forfaitaire wins
+VLDB2="$(mktemp -u /tmp/bilan-vl2-XXXXXX.db)"
+BILAN_DB="$VLDB2" $BIN stream add or --kind metaux >/dev/null
+BILAN_DB="$VLDB2" $BIN tx add or 2026-06-30 10000 >/dev/null
+BILAN_DB="$VLDB2" $BIN rule set 2026 metaux_precieux option_150vl_eligible 1 >/dev/null
+BILAN_DB="$VLDB2" $BIN rule set 2026 metaux_precieux option_150vl_acquisition_cents 800000 >/dev/null
+BILAN_DB="$VLDB2" $BIN rule set 2026 metaux_precieux option_150vl_detention_years 22 >/dev/null
+r=$(BILAN_DB="$VLDB2" $BIN tax --year 2026)
+ok "vl 22y abattement 100%" 100 "$(jq -r .metaux_precieux.option_150vl_abattement_pct <<<"$r")"
+ok "vl 22y total 0" 0 "$(jq -r .metaux_precieux.option_150vl_total_cents <<<"$r")"
+ok "vl 22y optimal 150_vl" "150_vl" "$(jq -r .metaux_precieux.optimal <<<"$r")"
+rm -f "$VLDB2"
+
+# --- LMNP amortissement art. 39 C (component-based, plafonné) ---
+# Property 200000 EUR, terrain 15% → building 170000 EUR
+# Components: gros œuvre 55% 50y, toiture 12% 30y, réseaux 13% 25y, agencements 20% 12y
+# Mobilier 5000 EUR, 7y → 714.29 EUR/y
+# Gros œuvre: 170000 × 0.55 / 50 = 1870 EUR/y
+# Toiture: 170000 × 0.12 / 30 = 680 EUR/y
+# Réseaux: 170000 × 0.13 / 25 = 884 EUR/y
+# Agencements: 170000 × 0.20 / 12 = 2833.33 EUR/y (integer: 283333 cents)
+# Total dotation brute = 1870 + 680 + 884 + 2833.33 + 714.29 = 6981.62 EUR
+# Loyer net (g_lmnp_reel) = 10000 EUR → plafond 10000 > dotation → no cap
+LADB1="$(mktemp -u /tmp/bilan-la1-XXXXXX.db)"
+BILAN_DB="$LADB1" $BIN stream add lm --kind lmnp_reel >/dev/null
+BILAN_DB="$LADB1" $BIN tx add lm 2026-06-30 10000 >/dev/null
+BILAN_DB="$LADB1" $BIN rule set 2026 lmnp_amortissement property_value_cents 20000000 >/dev/null
+BILAN_DB="$LADB1" $BIN rule set 2026 lmnp_amortissement mobilier_value_cents 500000 >/dev/null
+r=$(BILAN_DB="$LADB1" $BIN tax --year 2026)
+ok "la building 170000" 17000000 "$(jq -r .lmnp_amortissement.building_value_cents <<<"$r")"
+ok "la gros oeuvre 1870" 187000 "$(jq -r .lmnp_amortissement.gros_oeuvre_dotation_cents <<<"$r")"
+ok "la toiture 680" 68000 "$(jq -r .lmnp_amortissement.toiture_dotation_cents <<<"$r")"
+ok "la reseaux 884" 88400 "$(jq -r .lmnp_amortissement.reseaux_dotation_cents <<<"$r")"
+ok "la agencements 283333" 283333 "$(jq -r .lmnp_amortissement.agencements_dotation_cents <<<"$r")"
+ok "la mobilier 71428" 71428 "$(jq -r .lmnp_amortissement.mobilier_dotation_cents <<<"$r")"
+ok "la plafond 10000" 1000000 "$(jq -r .lmnp_amortissement.plafond_cents <<<"$r")"
+ok "la ard 0" 0 "$(jq -r .lmnp_amortissement.ard_reportable_cents <<<"$r")"
+rm -f "$LADB1"
+# Plafonnement: loyer 3000 < dotation 6981 → dotation capped at 3000, ARD = 3981
+LADB2="$(mktemp -u /tmp/bilan-la2-XXXXXX.db)"
+BILAN_DB="$LADB2" $BIN stream add lm --kind lmnp_reel >/dev/null
+BILAN_DB="$LADB2" $BIN tx add lm 2026-06-30 3000 >/dev/null
+BILAN_DB="$LADB2" $BIN rule set 2026 lmnp_amortissement property_value_cents 20000000 >/dev/null
+BILAN_DB="$LADB2" $BIN rule set 2026 lmnp_amortissement mobilier_value_cents 500000 >/dev/null
+r=$(BILAN_DB="$LADB2" $BIN tax --year 2026)
+ok "la plafond 3000" 300000 "$(jq -r .lmnp_amortissement.plafond_cents <<<"$r")"
+ok "la dotation capped 3000" 300000 "$(jq -r .lmnp_amortissement.dotation_cents <<<"$r")"
+rm -f "$LADB2"
+
 # --- monuments historiques (art. 156, déduction 100%/50%) ---
 # 10000 charges (negative tx), fermé → 50% deduction = 5000 EUR = 500000 cents
 MHDB1="$(mktemp -u /tmp/bilan-mh1-XXXXXX.db)"

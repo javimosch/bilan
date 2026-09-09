@@ -1080,6 +1080,85 @@ func tax_json(db, year) (out, code, err) {
     objets_art_tax := 0
     if g_objets_art > 0 { objets_art_tax = g_objets_art * taux_objets_art / 1000 }
     metaux_total_tax := metaux_tax + objets_art_tax
+    // Option article 150 VL CGI — régime des plus-values (art. 150 UA) for
+    // métaux précieux and objets d'art. The seller can opt for the PV regime
+    // instead of the taxe forfaitaire. PV = prix cession - prix acquisition.
+    // Abattement 5% per year beyond year 2, exonération after 22 years. Tax:
+    // 19% IR + 17.2% social on the net PV after abattement. The radar computes
+    // both and reports the lower. Set: bilan rule set 2026 metaux_precieux
+    // option_150vl_eligible 1, option_150vl_acquisition_cents <price>,
+    // option_150vl_detention_years <years>. Source: BOFiP BOI-RPPM-PVBMC-20-20.
+    mp_150vl_eligible := rule_int(db, year, "metaux_precieux", "option_150vl_eligible", 0)
+    mp_150vl_acquisition := rule_int(db, year, "metaux_precieux", "option_150vl_acquisition_cents", 0)
+    mp_150vl_detention := rule_int(db, year, "metaux_precieux", "option_150vl_detention_years", 0)
+    mp_150vl_abat_per_year := rule_int(db, year, "metaux_precieux", "option_150vl_abattement_per_year_pct_tenths", 50)
+    mp_150vl_exoneration_years := rule_int(db, year, "metaux_precieux", "option_150vl_exoneration_years", 22)
+    mp_150vl_ir_rate := rule_int(db, year, "metaux_precieux", "option_150vl_ir_rate_pct_tenths", 190)
+    mp_150vl_social_rate := rule_int(db, year, "metaux_precieux", "option_150vl_social_rate_pct_tenths", 172)
+    mp_cession_total := g_metaux + g_objets_art
+    mp_150vl_pv := 0
+    mp_150vl_abattement_pct := 0
+    mp_150vl_ir := 0
+    mp_150vl_social := 0
+    mp_150vl_total := 0
+    if mp_150vl_eligible == 1 && mp_cession_total > mp_150vl_acquisition {
+        mp_150vl_pv = mp_cession_total - mp_150vl_acquisition
+        // Abattement 5% per year beyond year 2, capped at 100% (exonération at 22y)
+        if mp_150vl_detention > 2 {
+            mp_150vl_abattement_pct = (mp_150vl_detention - 2) * mp_150vl_abat_per_year
+            if mp_150vl_abattement_pct > 1000 { mp_150vl_abattement_pct = 1000 }
+        }
+        mp_150vl_base := mp_150vl_pv * (1000 - mp_150vl_abattement_pct) / 1000
+        mp_150vl_ir = mp_150vl_base * mp_150vl_ir_rate / 1000
+        mp_150vl_social = mp_150vl_base * mp_150vl_social_rate / 1000
+        mp_150vl_total = mp_150vl_ir + mp_150vl_social
+    }
+    // Choose the lower: forfaitaire (metaux_total_tax) vs 150 VL option
+    mp_effective_total := metaux_total_tax
+    mp_optimal := "forfaitaire"
+    if mp_150vl_eligible == 1 && mp_150vl_total < metaux_total_tax {
+        mp_effective_total = mp_150vl_total
+        mp_optimal = "150_vl"
+    }
+    // LMNP amortissement — article 39 C CGI. Component-based linear
+    // amortissement for LMNP régime réel. Terrain is never amortissable.
+    // Plafonnement: the dotation can't exceed the loyer net of other charges
+    // (can't create a deficit). Set property_value and mobilier_value via rule
+    // set. Source: BOFiP BOI-BIC-AMT-10-40.
+    la_property_value := rule_int(db, year, "lmnp_amortissement", "property_value_cents", 0)
+    la_terrain_pct := rule_int(db, year, "lmnp_amortissement", "terrain_pct_tenths", 150)
+    la_mobilier_value := rule_int(db, year, "lmnp_amortissement", "mobilier_value_cents", 0)
+    la_mobilier_duration := rule_int(db, year, "lmnp_amortissement", "mobilier_duration_years", 7)
+    la_go_pct := rule_int(db, year, "lmnp_amortissement", "gros_oeuvre_pct_tenths", 550)
+    la_go_duration := rule_int(db, year, "lmnp_amortissement", "gros_oeuvre_duration_years", 50)
+    la_to_pct := rule_int(db, year, "lmnp_amortissement", "toiture_pct_tenths", 120)
+    la_to_duration := rule_int(db, year, "lmnp_amortissement", "toiture_duration_years", 30)
+    la_re_pct := rule_int(db, year, "lmnp_amortissement", "reseaux_pct_tenths", 130)
+    la_re_duration := rule_int(db, year, "lmnp_amortissement", "reseaux_duration_years", 25)
+    la_ag_pct := rule_int(db, year, "lmnp_amortissement", "agencements_pct_tenths", 200)
+    la_ag_duration := rule_int(db, year, "lmnp_amortissement", "agencements_duration_years", 12)
+    // Building value = property value - terrain portion
+    la_building := la_property_value * (1000 - la_terrain_pct) / 1000
+    // Component dotations (linear: value / duration)
+    la_go_dotation := 0
+    if la_go_duration > 0 { la_go_dotation = la_building * la_go_pct / 1000 / la_go_duration }
+    la_to_dotation := 0
+    if la_to_duration > 0 { la_to_dotation = la_building * la_to_pct / 1000 / la_to_duration }
+    la_re_dotation := 0
+    if la_re_duration > 0 { la_re_dotation = la_building * la_re_pct / 1000 / la_re_duration }
+    la_ag_dotation := 0
+    if la_ag_duration > 0 { la_ag_dotation = la_building * la_ag_pct / 1000 / la_ag_duration }
+    la_mobilier_dotation := 0
+    if la_mobilier_duration > 0 { la_mobilier_dotation = la_mobilier_value / la_mobilier_duration }
+    la_dotation_brute := la_go_dotation + la_to_dotation + la_re_dotation + la_ag_dotation + la_mobilier_dotation
+    // Plafonnement art. 39 C: dotation can't exceed loyer net of other charges.
+    // The loyer net is g_lmnp_reel (signed sum: positive loyer - negative charges).
+    // If g_lmnp_reel <= 0, no amortissement can be deducted (can't create deficit).
+    la_plafond := 0
+    if g_lmnp_reel > 0 { la_plafond = g_lmnp_reel }
+    la_dotation := la_dotation_brute
+    if la_dotation > la_plafond { la_dotation = la_plafond }
+    la_ard_reportable := la_dotation_brute - la_dotation
     // IFI — impôt sur la fortune immobilière (art. 977 CGI). Barème progressif
     // on net taxable patrimoine. Seuil déclenchement 1.3M (but taxation starts at
     // 800k). Décote for 1.3M-1.4M: 17500 - 1.25% × P. Record the net taxable
@@ -1236,10 +1315,11 @@ func tax_json(db, year) (out, code, err) {
     out = out + ",\"cfe\":{\"ca_cents\":" + str(cfe_ca) + ",\"ca_eur\":\"" + fmt_cents(cfe_ca) + "\",\"bracket\":" + str(cfe_bracket) + ",\"base_cents\":" + str(cfe_base) + ",\"base_eur\":\"" + fmt_cents(cfe_base) + "\",\"rate_pct_tenths\":" + str(cfe_rate) + ",\"cfe_cents\":" + str(cfe_cents) + ",\"cfe_eur\":\"" + fmt_cents(cfe_cents) + "\",\"note\":\"art. 1647 D CGI — cotisation minimum (base midpoint × communal rate); exonération if CA ≤ 5000 EUR; override with bilan rule set <year> cfe rate_pct_tenths <val>\"}"
     out = out + ",\"cvae\":{\"ca_cents\":" + str(cvae_ca) + ",\"ca_eur\":\"" + fmt_cents(cvae_ca) + "\",\"assujettie\":" + json(cvae_assujettie == 1) + ",\"effective_rate_pct_hundredths\":" + str(cvae_effective_rate_pct_hundredths) + ",\"cvae_cents\":" + str(cvae_cents) + ",\"cvae_eur\":\"" + fmt_cents(cvae_cents) + "\",\"note\":\"art. 1586 ter CGI — progressive effective rate (0% < 500k, 0.25% at 3M, 0.7% at 10M, 0.75% > 50M); VA ≈ 45% of CA (simplified); 2024 reduction 25% (art. 79 LF 2024); being phased out (suppression 2027)\"}"
     out = out + ",\"pvm\":{\"base_cents\":" + str(pvm_base) + ",\"base_eur\":\"" + fmt_cents(pvm_base) + "\",\"detention_years\":" + str(pvm_detention) + ",\"abattement_pct\":" + pct_str(pvm_abat_pct) + ",\"depart_retraite_eligible\":" + json(pvm_dr_eligible == 1) + ",\"depart_retraite_abattement_cents\":" + str(pvm_dr_abattement) + ",\"ir_base_after_abattement_cents\":" + str(pvm_dr_ir_base) + ",\"pfu_ir_cents\":" + str(pvm_pfu_ir) + ",\"pfu_social_cents\":" + str(pvm_pfu_social) + ",\"pfu_total_cents\":" + str(pvm_pfu_total) + ",\"bareme_ir_cents\":" + str(pvm_bareme_ir) + ",\"bareme_social_cents\":" + str(pvm_bareme_social) + ",\"bareme_total_cents\":" + str(pvm_bareme_total) + ",\"optimal\":\"" + pvm_optimal + "\",\"ir_tax_cents\":" + str(pvm_ir_tax) + ",\"social_tax_cents\":" + str(pvm_social_tax) + ",\"total_tax_cents\":" + str(pvm_total_tax) + ",\"total_tax_eur\":\"" + fmt_cents(pvm_total_tax) + "\",\"note\":\"art. 200 A CGI — PFU 12.8% IR + 17.2% social by default; option barème progressif (case 2OP) with abattement durée de détention (50% 2-8y, 65% >8y, titres pré-2018); abattement fixe 500k art. 150-0 D ter (départ retraite dirigeants, social sur PV brute, IR sur PV après abattement); radar reports the lower\"}"
-    out = out + ",\"metaux_precieux\":{\"metaux_cents\":" + str(g_metaux) + ",\"metaux_eur\":\"" + fmt_cents(g_metaux) + "\",\"objets_art_cents\":" + str(g_objets_art) + ",\"objets_art_eur\":\"" + fmt_cents(g_objets_art) + "\",\"taux_metaux_pct\":" + pct_str(taux_metaux) + ",\"taux_objets_art_pct\":" + pct_str(taux_objets_art) + ",\"metaux_tax_cents\":" + str(metaux_tax) + ",\"objets_art_tax_cents\":" + str(objets_art_tax) + ",\"total_tax_cents\":" + str(metaux_total_tax) + ",\"total_tax_eur\":\"" + fmt_cents(metaux_total_tax) + "\",\"note\":\"art. 150 VI/VK CGI — taxe forfaitaire sur cessions/exports hors UE: 11% métaux précieux, 6% bijoux/objets d'art/collection/antiquité; option art. 150 VL pour régime plus-values mobilières\"}"
+    out = out + ",\"metaux_precieux\":{\"metaux_cents\":" + str(g_metaux) + ",\"metaux_eur\":\"" + fmt_cents(g_metaux) + "\",\"objets_art_cents\":" + str(g_objets_art) + ",\"objets_art_eur\":\"" + fmt_cents(g_objets_art) + "\",\"taux_metaux_pct\":" + pct_str(taux_metaux) + ",\"taux_objets_art_pct\":" + pct_str(taux_objets_art) + ",\"metaux_tax_cents\":" + str(metaux_tax) + ",\"objets_art_tax_cents\":" + str(objets_art_tax) + ",\"forfaitaire_total_cents\":" + str(metaux_total_tax) + ",\"option_150vl_eligible\":" + json(mp_150vl_eligible == 1) + ",\"option_150vl_pv_cents\":" + str(mp_150vl_pv) + ",\"option_150vl_abattement_pct\":" + pct_str(mp_150vl_abattement_pct) + ",\"option_150vl_ir_cents\":" + str(mp_150vl_ir) + ",\"option_150vl_social_cents\":" + str(mp_150vl_social) + ",\"option_150vl_total_cents\":" + str(mp_150vl_total) + ",\"optimal\":\"" + mp_optimal + "\",\"total_tax_cents\":" + str(mp_effective_total) + ",\"total_tax_eur\":\"" + fmt_cents(mp_effective_total) + "\",\"note\":\"art. 150 VI/VK CGI — taxe forfaitaire (11% métaux, 6% objets d'art) by default; option art. 150 VL pour régime plus-values (art. 150 UA): 19% IR + 17.2% social sur PV nette, abattement 5%/an au-delà de 2y, exonération 22y; radar reports the lower\"}"
+    out = out + ",\"lmnp_amortissement\":{\"property_value_cents\":" + str(la_property_value) + ",\"property_value_eur\":\"" + fmt_cents(la_property_value) + "\",\"terrain_pct\":" + pct_str(la_terrain_pct) + ",\"building_value_cents\":" + str(la_building) + ",\"mobilier_value_cents\":" + str(la_mobilier_value) + ",\"mobilier_dotation_cents\":" + str(la_mobilier_dotation) + ",\"gros_oeuvre_dotation_cents\":" + str(la_go_dotation) + ",\"toiture_dotation_cents\":" + str(la_to_dotation) + ",\"reseaux_dotation_cents\":" + str(la_re_dotation) + ",\"agencements_dotation_cents\":" + str(la_ag_dotation) + ",\"dotation_brute_cents\":" + str(la_dotation_brute) + ",\"plafond_cents\":" + str(la_plafond) + ",\"dotation_cents\":" + str(la_dotation) + ",\"dotation_eur\":\"" + fmt_cents(la_dotation) + "\",\"ard_reportable_cents\":" + str(la_ard_reportable) + ",\"note\":\"art. 39 C CGI — amortissement linéaire par composants (gros œuvre 50y, toiture 30y, réseaux 25y, agencements 12y, mobilier 7y); terrain non amortissable; plafonnement: dotation ≤ loyer net (ne crée pas de déficit); excédent reportable (ARD); set: bilan rule set 2026 lmnp_amortissement property_value_cents <val>\"}"
     out = out + ",\"monuments_historiques\":{\"charges_cents\":" + str(mh_charges) + ",\"charges_eur\":\"" + fmt_cents(mh_charges) + "\",\"ouvert_public\":" + json(mh_ouvert == 1) + ",\"taux_pct\":" + pct_str(mh_taux) + ",\"deduction_cents\":" + str(mh_deduction) + ",\"deduction_eur\":\"" + fmt_cents(mh_deduction) + "\",\"note\":\"art. 156 I-3° et II-1° ter CGI — déduction charges foncières du revenu global (100% ouvert public / 50% fermé), sans plafond, hors plafonnement niches; engagement conservation 15y; record charges as negative txs in 'monument_historique' stream\"}"
     out = out + ",\"demembrement\":{\"usufruitier_age\":" + str(dem_age) + ",\"usufruit_pct\":" + pct_str(dem_usufruit_pct) + ",\"nue_propriete_pct\":" + pct_str(dem_nue_propriete_pct) + ",\"note\":\"art. 669 CGI — barème de l'usufruit viager selon l'âge de l'usufruitier; nue-propriété = complément à 100%; s'applique aux DMTG, droits d'enregistrement, IFI; set age: bilan rule set 2026 demembrement usufruitier_age <years>\"}"
-    out = out + ",\"totals\":{\"ir_cents\":" + str(ir_after_credit) + ",\"ir_eur\":\"" + fmt_cents(ir_after_credit) + "\",\"flat_tax_cents\":" + str(cap_tax+div_tax) + ",\"flat_tax_eur\":\"" + fmt_cents(cap_tax+div_tax) + "\",\"social_cents\":" + str(soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel) + ",\"social_eur\":\"" + fmt_cents(soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel) + "\",\"tva_cents\":" + str(tva_a_payer) + ",\"tva_eur\":\"" + fmt_cents(tva_a_payer) + "\",\"pv_immo_cents\":" + str(pv_immo_total) + ",\"pv_immo_eur\":\"" + fmt_cents(pv_immo_total) + "\",\"ifi_cents\":" + str(ifi_cents) + ",\"ifi_eur\":\"" + fmt_cents(ifi_cents) + "\",\"cfe_cents\":" + str(cfe_cents) + ",\"cfe_eur\":\"" + fmt_cents(cfe_cents) + "\",\"cvae_cents\":" + str(cvae_cents) + ",\"cvae_eur\":\"" + fmt_cents(cvae_cents) + "\",\"pvm_cents\":" + str(pvm_total_tax) + ",\"pvm_eur\":\"" + fmt_cents(pvm_total_tax) + "\",\"pv_immo_surtaxe_cents\":" + str(pv_surtaxe_cents) + ",\"pv_immo_surtaxe_eur\":\"" + fmt_cents(pv_surtaxe_cents) + "\",\"metaux_precieux_cents\":" + str(metaux_total_tax) + ",\"metaux_precieux_eur\":\"" + fmt_cents(metaux_total_tax) + "\",\"total_tax_cents\":" + str(ir_after_credit+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel+tva_a_payer+pv_immo_total+pv_surtaxe_cents+ifi_cents+cfe_cents+cvae_cents+metaux_total_tax) + ",\"total_tax_eur\":\"" + fmt_cents(ir_after_credit+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel+tva_a_payer+pv_immo_total+pv_surtaxe_cents+ifi_cents+cfe_cents+cvae_cents+metaux_total_tax) + "\"}"
+    out = out + ",\"totals\":{\"ir_cents\":" + str(ir_after_credit) + ",\"ir_eur\":\"" + fmt_cents(ir_after_credit) + "\",\"flat_tax_cents\":" + str(cap_tax+div_tax) + ",\"flat_tax_eur\":\"" + fmt_cents(cap_tax+div_tax) + "\",\"social_cents\":" + str(soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel) + ",\"social_eur\":\"" + fmt_cents(soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel) + "\",\"tva_cents\":" + str(tva_a_payer) + ",\"tva_eur\":\"" + fmt_cents(tva_a_payer) + "\",\"pv_immo_cents\":" + str(pv_immo_total) + ",\"pv_immo_eur\":\"" + fmt_cents(pv_immo_total) + "\",\"ifi_cents\":" + str(ifi_cents) + ",\"ifi_eur\":\"" + fmt_cents(ifi_cents) + "\",\"cfe_cents\":" + str(cfe_cents) + ",\"cfe_eur\":\"" + fmt_cents(cfe_cents) + "\",\"cvae_cents\":" + str(cvae_cents) + ",\"cvae_eur\":\"" + fmt_cents(cvae_cents) + "\",\"pvm_cents\":" + str(pvm_total_tax) + ",\"pvm_eur\":\"" + fmt_cents(pvm_total_tax) + "\",\"pv_immo_surtaxe_cents\":" + str(pv_surtaxe_cents) + ",\"pv_immo_surtaxe_eur\":\"" + fmt_cents(pv_surtaxe_cents) + "\",\"metaux_precieux_cents\":" + str(mp_effective_total) + ",\"metaux_precieux_eur\":\"" + fmt_cents(mp_effective_total) + "\",\"total_tax_cents\":" + str(ir_after_credit+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel+tva_a_payer+pv_immo_total+pv_surtaxe_cents+ifi_cents+cfe_cents+cvae_cents+mp_effective_total) + ",\"total_tax_eur\":\"" + fmt_cents(ir_after_credit+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel+tva_a_payer+pv_immo_total+pv_surtaxe_cents+ifi_cents+cfe_cents+cvae_cents+mp_effective_total) + "\"}"
     out = out + ",\"notes\":[\"estimates on the seeded rate card (2025 barème on 2024 income) — override with bilan rule set\",\"IR = progressive barème + plafonnement QF (situation-aware: default 1791/demi-part, parent_isole 4262 total, veuf 1807/demi-part+2011, personne_seule_invalide 3608) + décote; 10% frais per salary stream; BNC/BIC/LMNP deficits 6y; foncier deficit 10700 EUR on global + 10y on foncier (micro + réel)\",\"pension alimentaire (art. 156 II.2°): deductible from revenu global, cap 6794 EUR/child (2024 income)\",\"dons reduction (art. 200 CGI): 75% to 1000 EUR, 66% to 20% of revenu imposable — reduces IR\",\"pinel/denormandie reduction (art. 199 novovicies): 12/18/21% by engagement, cap 300000 EUR, spread over years — reduces IR\",\"malraux reduction (art. 199 tervicies): 30% PSMV / 22% PVAP, cap 400000 EUR, hors plafonnement niches — reduces IR\",\"censi-bouvard reduction (art. 199 sexvicies): 11% LMNP résidences de services, cap 300000 EUR, spread over 9y — reduces IR\",\"scolarité reduction (art. 199 quater F): forfait 61 collège / 153 lycée / 183 supérieur per child — reduces IR\",\"ir-pme reduction (art. 199 terdecies-0 A): 18% PME, cap 50000 single / 100000 couple — reduces IR (plafonnement niches NOT modeled)\",\"emploi à domicile (art. 199 sexdecies): 50% crédit, cap 12000 EUR — refundable (crédit, not réduction)\",\"frais de garde (art. 200 quater B): 50% crédit, cap 3500 EUR/child — refundable (crédit, not réduction)\",\"TVA franchise (art. 293 B): services 36800 / vente 91900 EUR — informational\",\"TVA régime simplifié (art. 302 septies A): services 254000 / vente 840000 EUR, TVA due < 15000 EUR\",\"TVA collectée/déductible (art. 271): TVA à payer = collectée - déductible (négatif = crédit reportable/remboursable)\",\"PAS taux neutre + personnalisé (art. 204 H): monthly estimate for provisioning — v1 simplification of the BOFiP formula\",\"régime réel foncier (art. 29-31): net = loyer - charges (intérêts d'emprunt, travaux), no abattement — combined with micro-foncier\",\"LMNP micro-BIC meublé (art. 50): 50% abattement, threshold 77700 EUR\",\"LMNP régime réel (art. 39): net = loyer - charges - amortissement, no abattement, deficit carry 6y\",\"micro-BNC/BIC/foncier cannot legally generate deficits (forfaitaire) — deficit carry-forward is a régime-réel feature applied to the micro base as a v1 simplification\",\"crypto exemption per form 2086: net gains under the threshold are not declarable\"]}"
     code = 0
     err = ""

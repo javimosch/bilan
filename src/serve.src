@@ -166,7 +166,10 @@ func llms_txt() (t) {
         "    monuments historiques art. 156 (déduction 100%/50% charges, sans plafond,\n" +
         "    hors niche) + démembrement art. 669 (barème usufruit/nue-propriété par âge)\n" +
         "    + PER TNS art. 154 bis (10% bénéfice + 15% 1-8 PASS) + abattement départ\n" +
-        "    retraite dirigeants art. 150-0 D ter (500k fixe sur PV mobilières);\n" +
+        "    retraite dirigeants art. 150-0 D ter (500k fixe sur PV mobilières) + LMNP\n" +
+        "    amortissement par composants art. 39 C (plafonné au loyer net, ARD) +\n" +
+        "    option art. 150 VL pour métaux/objets d'art (régime PV art. 150 UA,\n" +
+        "    5%/an abattement, 22y exonération, radar reports the lower);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

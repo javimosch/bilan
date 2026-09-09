@@ -434,6 +434,36 @@ func seed_rules(db) {
     // mobilières (art. 150 VL). Source: BOFiP BOI-RPPM-PVMC-30.
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'metaux_precieux', 'taux_metaux_pct_tenths', '110')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'metaux_precieux', 'taux_objets_art_pct_tenths', '60')", []string{y})
+    // LMNP amortissement — article 39 C CGI. Component-based linear
+    // amortissement for LMNP régime réel. Terrain is never amortissable.
+    // Plafonnement: the dotation can't exceed the loyer net of other charges
+    // (can't create a deficit). Set property_value and mobilier_value via rule
+    // set. Source: BOFiP BOI-BIC-AMT-10-40.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'lmnp_amortissement', 'property_value_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'lmnp_amortissement', 'terrain_pct_tenths', '150')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'lmnp_amortissement', 'mobilier_value_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'lmnp_amortissement', 'mobilier_duration_years', '7')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'lmnp_amortissement', 'gros_oeuvre_pct_tenths', '550')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'lmnp_amortissement', 'gros_oeuvre_duration_years', '50')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'lmnp_amortissement', 'toiture_pct_tenths', '120')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'lmnp_amortissement', 'toiture_duration_years', '30')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'lmnp_amortissement', 'reseaux_pct_tenths', '130')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'lmnp_amortissement', 'reseaux_duration_years', '25')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'lmnp_amortissement', 'agencements_pct_tenths', '200')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'lmnp_amortissement', 'agencements_duration_years', '12')", []string{y})
+    // Option article 150 VL CGI — régime des plus-values (art. 150 UA) for
+    // métaux précieux and objets d'art. The seller can opt for the PV regime
+    // instead of the taxe forfaitaire. PV = prix cession - prix acquisition.
+    // Abattement 5% per year of detention beyond year 2, exonération after 22
+    // years. Tax: 19% IR + 17.2% social on the net PV after abattement. Set
+    // acquisition_price_cents and detention_years. Source: BOFiP BOI-RPPM-PVBMC-20-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'metaux_precieux', 'option_150vl_eligible', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'metaux_precieux', 'option_150vl_acquisition_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'metaux_precieux', 'option_150vl_detention_years', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'metaux_precieux', 'option_150vl_abattement_per_year_pct_tenths', '50')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'metaux_precieux', 'option_150vl_exoneration_years', '22')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'metaux_precieux', 'option_150vl_ir_rate_pct_tenths', '190')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'metaux_precieux', 'option_150vl_social_rate_pct_tenths', '172')", []string{y})
     // Monuments historiques (art. 156 I-3° et II-1° ter CGI). Déduction des
     // charges foncières du revenu global — 100% if open to public, 50%
     // otherwise. No cap (hors plafonnement global des niches). 15-year

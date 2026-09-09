@@ -371,6 +371,29 @@ func guide_text(base) (t) {
         "  depart_retraite_eligible, depart_retraite_abattement_cents,\n" +
         "  ir_base_after_abattement_cents. Source: BOFiP BOI-RPPM-PVBMI-20-40-10.\n" +
         "\n" +
+        "## LMNP amortissement — article 39 C CGI\n" +
+        "  Amortissement linéaire par composants for LMNP régime réel. The radar\n" +
+        "  computes the annual dotation based on property value and component\n" +
+        "  durations (gros œuvre 50y, toiture 30y, réseaux 25y, agencements 12y,\n" +
+        "  mobilier 7y). Terrain is never amortissable (default 15% of property\n" +
+        "  value). Plafonnement art. 39 C: the dotation can't exceed the loyer net\n" +
+        "  of other charges (can't create a deficit); the excess is reportable\n" +
+        "  (ARD). Set: bilan rule set 2026 lmnp_amortissement property_value_cents\n" +
+        "  <val> and mobilier_value_cents <val>. New lmnp_amortissement JSON block.\n" +
+        "  Source: BOFiP BOI-BIC-AMT-10-40.\n" +
+        "\n" +
+        "## Option art. 150 VL — régime plus-values for métaux/objets d'art\n" +
+        "  The seller of métaux précieux or objets d'art can opt for the régime\n" +
+        "  des plus-values (art. 150 UA) instead of the taxe forfaitaire (art. 150\n" +
+        "  VI). PV = prix cession - prix acquisition. Abattement 5% per year of\n" +
+        "  detention beyond year 2, exonération after 22 years. Tax: 19% IR +\n" +
+        "  17.2% social on the net PV after abattement. The radar computes both and\n" +
+        "  reports the lower. Set: bilan rule set 2026 metaux_precieux\n" +
+        "  option_150vl_eligible 1, option_150vl_acquisition_cents <price>,\n" +
+        "  option_150vl_detention_years <years>. New metaux_precieux fields:\n" +
+        "  option_150vl_*, optimal, forfaitaire_total_cents. Source: BOFiP\n" +
+        "  BOI-RPPM-PVBMC-20-20.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
@@ -399,11 +422,14 @@ func guide_text(base) (t) {
         "  monuments historiques (art. 156, déduction 100%/50% charges, sans plafond,\n" +
         "  hors niche) + démembrement barème (art. 669, usufruit/nue-propriété par\n" +
         "  âge) + PER TNS (art. 154 bis, 10% bénéfice + 15% 1-8 PASS) + abattement\n" +
-        "  départ retraite dirigeants (art. 150-0 D ter, 500k fixe sur PV mobilières).\n" +
+        "  départ retraite dirigeants (art. 150-0 D ter, 500k fixe sur PV mobilières)\n" +
+        "  + LMNP amortissement par composants (art. 39 C, plafonné au loyer net, ARD)\n" +
+        "  + option art. 150 VL pour métaux/objets d'art (régime PV art. 150 UA, 5%/an\n" +
+        "  abattement, 22y exonération, radar reports the lower).\n" +
         "  It does NOT model: deficits beyond their windows, the full BOFiP PAS\n" +
-        "  formula, or LMNP amortissement tables (record the amortissement as a\n" +
-        "  negative tx in the 'lmnp_reel' stream). Output is an estimate to reason\n" +
-        "  from, not tax advice — say so to the human.\n" +
+        "  formula, LMNP ARD carry-forward tracking across years, or quasi-usufruit\n" +
+        "  art. 774 bis. Output is an estimate to reason from, not tax advice — say\n" +
+        "  so to the human.\n" +
         "\n" +
         "## Brian — the cheap copilote (no inference in the platform)\n" +
         "  Brian is a PERSONA, not a service: install it into the harness your human\n" +
