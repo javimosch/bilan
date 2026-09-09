@@ -1079,6 +1079,40 @@ ok "av base 757b 19500" 1950000 "$(jq -r .assurance_vie.base_757b_cents <<<"$r")
 ok "av tax 757b > 0" 1 "$(if [ "$(jq -r .assurance_vie.tax_757b_cents <<<"$r")" -gt 0 ]; then echo 1; else echo 0; fi)"
 rm -f "$AVDB3"
 
+# --- PER TNS cumul art. 154 bis + 163 quatervicies ---
+# No TNS benefice → 154 bis = plancher 10% PASS N = 463670
+# revenus N-1 = 50000 → 163 cap = 10% * 50000 = 5000 EUR = 500000 cents
+# Combined = 463670 + 500000 = 963670 cents
+PCDB1="$(mktemp -u /tmp/bilan-pc1-XXXXXX.db)"
+BILAN_DB="$PCDB1" $BIN rule set 2026 per_cumul revenus_n1_cents 5000000 >/dev/null
+r=$(BILAN_DB="$PCDB1" $BIN tax --year 2026)
+ok "pc revenus n1 50000" 5000000 "$(jq -r .per_cumul.revenus_n1_cents <<<"$r")"
+ok "pc 163 cap 500000" 500000 "$(jq -r .per_cumul.plafond_163_quatervicies_cents <<<"$r")"
+ok "pc combined > 0" 1 "$(if [ "$(jq -r .per_cumul.combined_ceiling_cents <<<"$r")" -gt 0 ]; then echo 1; else echo 0; fi)"
+rm -f "$PCDB1"
+
+# --- Assurance-vie démembrement clause bénéficiaire art. 669 prorata ---
+# 300000 capital, usufruitier age 75 (NP 70%), 3 NP
+# NP share per NP = 300000 * 70% / 3 = 70000 EUR = 7000000 cents
+# NP abattement per NP = 152500 * 70% / 3 = 35583.33 EUR = 3558333 cents
+# NP taxable per NP = 7000000 - 3558333 = 3441667 cents
+# NP tax per NP = 3441667 * 20% / 100 = 688333 cents (20% = 2000 hundredths)
+# Total NP tax = 688333 * 3 = 2065000 cents
+AVDDB1="$(mktemp -u /tmp/bilan-avd1-XXXXXX.db)"
+BILAN_DB="$AVDDB1" $BIN rule set 2026 assurance_vie capital_avant_70_cents 30000000 >/dev/null
+BILAN_DB="$AVDDB1" $BIN rule set 2026 assurance_vie demembrement_eligible 1 >/dev/null
+BILAN_DB="$AVDDB1" $BIN rule set 2026 assurance_vie demembrement_usufruitier_age 75 >/dev/null
+BILAN_DB="$AVDDB1" $BIN rule set 2026 assurance_vie demembrement_np_count 3 >/dev/null
+r=$(BILAN_DB="$AVDDB1" $BIN tax --year 2026)
+ok "avd eligible" true "$(jq -r .assurance_vie.demembrement.eligible <<<"$r")"
+ok "avd age 75" 75 "$(jq -r .assurance_vie.demembrement.usufruitier_age <<<"$r")"
+ok "avd np_count 3" 3 "$(jq -r .assurance_vie.demembrement.np_count <<<"$r")"
+ok "avd usufruit 30%" 30 "$(jq -r .assurance_vie.demembrement.usufruit_pct <<<"$r")"
+ok "avd nue_propriete 70%" 70 "$(jq -r .assurance_vie.demembrement.nue_propriete_pct <<<"$r")"
+ok "avd np_share 7000000" 7000000 "$(jq -r .assurance_vie.demembrement.np_share_cents <<<"$r")"
+ok "avd total_np_tax > 0" 1 "$(if [ "$(jq -r .assurance_vie.demembrement.total_np_tax_cents <<<"$r")" -gt 0 ]; then echo 1; else echo 0; fi)"
+rm -f "$AVDDB1"
+
 # --- monuments historiques (art. 156, déduction 100%/50%) ---
 # 10000 charges (negative tx), fermé → 50% deduction = 5000 EUR = 500000 cents
 MHDB1="$(mktemp -u /tmp/bilan-mh1-XXXXXX.db)"

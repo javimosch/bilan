@@ -460,6 +460,25 @@ func guide_text(base) (t) {
         "  primes_apres_70_cents <val>. New assurance_vie JSON block. Source:\n" +
         "  BOFiP BOI-ENR-ASSUR-10/20.\n" +
         "\n" +
+        "## PER TNS cumul — articles 154 bis + 163 quatervicies CGI\n" +
+        "  A TNS can cumulate both ceilings for the same year (if no prior\n" +
+        "  versements): 154 bis (10% bénéfice N + 15% 1-8 PASS, plancher 10%\n" +
+        "  PASS N) + 163 quatervicies (10% revenus N-1, plancher 10% PASS\n" +
+        "  N-1). The same cotisation can't be deducted twice. The radar computes\n" +
+        "  the combined ceiling. Set: bilan rule set 2026 per_cumul\n" +
+        "  revenus_n1_cents <val>. New per_cumul JSON block. Source: BOFiP\n" +
+        "  BOI-RPPM-RCM-20-20.\n" +
+        "\n" +
+        "## Assurance-vie démembrement clause bénéficiaire — art. 669 prorata\n" +
+        "  When the clause is démembrée (usufruitier + nus-propriétaires), the\n" +
+        "  abattement 990 I (152500) is réparti between usufruitier and NP\n" +
+        "  according to the art. 669 barème by age of usufruitier. The\n" +
+        "  usufruitier (conjoint) is exoneré, so only the NP share is taxed.\n" +
+        "  Set: bilan rule set 2026 assurance_vie demembrement_eligible 1 +\n" +
+        "  demembrement_usufruitier_age <val> + demembrement_np_count <val>.\n" +
+        "  New assurance_vie.demembrement JSON sub-block. Source: BOFiP\n" +
+        "  BOI-TCAS-AUT-60 §310.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

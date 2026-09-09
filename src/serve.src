@@ -178,7 +178,10 @@ func llms_txt() (t) {
         "    777 (barème by degré, ligne directe/conjoint/frère-sœur/4e degré/tiers,\n" +
         "    art. 774 bis II quasi-usufruit non-déductible) + assurance-vie art. 990\n" +
         "    I (primes avant 70 ans: abattement 152500, 20%/31.25%) + art. 757 B\n" +
-        "    (primes après 70 ans: abattement 30500, barème DMTG);\n" +
+        "    (primes après 70 ans: abattement 30500, barème DMTG) + PER TNS cumul\n" +
+        "    art. 154 bis + 163 quatervicies (combined ceiling, same cotisation\n" +
+        "    not deducted twice) + assurance-vie démembrement clause bénéficiaire\n" +
+        "    art. 669 prorata (abattement réparti, usufruitier exoneré);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

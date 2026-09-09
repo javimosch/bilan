@@ -379,6 +379,24 @@ func seed_rules(db) {
     // Source: BOFiP BOI-ENR-ASSUR-20.
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_vie', 'primes_apres_70_cents', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_vie', 'abattement_757b_cents', '3050000')", []string{y})
+    // PER TNS cumul — articles 154 bis + 163 quatervicies CGI. A TNS can
+    // cumulate both ceilings for the same year (if no prior versements): 154
+    // bis (10% bénéfice N + 15% 1-8 PASS, plancher 10% PASS N) + 163
+    // quatervicies (10% revenus N-1, plancher 10% PASS N-1). The same
+    // cotisation can't be deducted twice. The radar computes the combined
+    // ceiling. Source: BOFiP BOI-RPPM-RCM-20-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'per_cumul', 'revenus_n1_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'per_cumul', 'pass_n_cents', '4636700')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'per_cumul', 'pass_n1_cents', '4399200')", []string{y})
+    // Assurance-vie démembrement clause bénéficiaire — article 669 CGI
+    // prorata. When the clause is démembrée (usufruitier + nus-propriétaires),
+    // the abattement 990 I (152500) is réparti between usufruitier and NP
+    // according to the art. 669 barème by age of usufruitier. The usufruitier
+    // (conjoint) is exoneré, so only the NP share is taxed. Source: BOFiP
+    // BOI-TCAS-AUT-60 §310.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_vie', 'demembrement_eligible', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_vie', 'demembrement_usufruitier_age', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_vie', 'demembrement_np_count', '0')", []string{y})
     // FCPI/FIP (art. 199 terdecies-0 A VI CGI). 18% reduction, capped at 12,000
     // EUR single / 24,000 EUR couple. 25% for FIP Corse/Outre-Mer (until 2026).
     // Subject to plafonnement global. Record versements as positive txs in a

@@ -762,6 +762,29 @@ func tax_json(db, year) (out, code, err) {
     }
     per_deduction := g_per_pos
     if per_deduction > per_effective_cap { per_deduction = per_effective_cap }
+    // PER TNS cumul — articles 154 bis + 163 quatervicies CGI. A TNS can
+    // cumulate both ceilings for the same year (if no prior versements). The
+    // same cotisation can't be deducted twice. The radar computes the combined
+    // ceiling = 154 bis plafond + 163 quatervicies cap (on revenus N-1).
+    // Source: BOFiP BOI-RPPM-RCM-20-20.
+    pc_revenus_n1 := rule_int(db, year, "per_cumul", "revenus_n1_cents", 0)
+    pc_pass_n := rule_int(db, year, "per_cumul", "pass_n_cents", 4636700)
+    pc_pass_n1 := rule_int(db, year, "per_cumul", "pass_n1_cents", 4399200)
+    // 163 quatervicies cap on revenus N-1: 10% of revenus N-1, capped at 8 PASS
+    // N-1, plancher 10% PASS N-1
+    pc_163_cap := 0
+    if pc_revenus_n1 > 0 {
+        rev_capped := pc_revenus_n1
+        pass8_n1 := pc_pass_n1 * 8
+        if rev_capped > pass8_n1 { rev_capped = pass8_n1 }
+        pc_163_cap = rev_capped / 10
+        pc_163_plancher := pc_pass_n1 / 10
+        if pc_163_cap < pc_163_plancher { pc_163_cap = pc_163_plancher }
+    } else {
+        pc_163_cap = pc_pass_n1 / 10
+    }
+    // Combined ceiling = 154 bis plafond + 163 quatervicies cap
+    pc_combined_ceiling := per_tns_plafond + pc_163_cap
     // Monuments historiques (art. 156 I-3° et II-1° ter CGI). Déduction des
     // charges foncières du revenu global — 100% if open to public, 50%
     // otherwise. No cap (hors plafonnement global des niches). 15-year
@@ -966,6 +989,62 @@ func tax_json(db, year) (out, code, err) {
         }
     }
     av_total_tax := av_tax_990i + av_tax_757b
+    // Assurance-vie démembrement clause bénéficiaire — article 669 CGI
+    // prorata. When the clause is démembrée (usufruitier + nus-propriétaires),
+    // the abattement 990 I (152500) is réparti between usufruitier and NP
+    // according to the art. 669 barème by age of usufruitier. The usufruitier
+    // (conjoint) is exoneré, so only the NP share is taxed. Source: BOFiP
+    // BOI-TCAS-AUT-60 §310.
+    avd_eligible := rule_int(db, year, "assurance_vie", "demembrement_eligible", 0)
+    avd_age := rule_int(db, year, "assurance_vie", "demembrement_usufruitier_age", 0)
+    avd_np_count := rule_int(db, year, "assurance_vie", "demembrement_np_count", 0)
+    avd_usufruit_pct := 0
+    avd_nue_propriete_pct := 0
+    if avd_eligible == 1 {
+        // Reuse the existing demembrement art. 669 barème (stored as tenths)
+        if avd_age <= 20 {
+            avd_usufruit_pct = 900; avd_nue_propriete_pct = 100
+        } else if avd_age <= 30 {
+            avd_usufruit_pct = 800; avd_nue_propriete_pct = 200
+        } else if avd_age <= 40 {
+            avd_usufruit_pct = 700; avd_nue_propriete_pct = 300
+        } else if avd_age <= 50 {
+            avd_usufruit_pct = 600; avd_nue_propriete_pct = 400
+        } else if avd_age <= 60 {
+            avd_usufruit_pct = 500; avd_nue_propriete_pct = 500
+        } else if avd_age <= 70 {
+            avd_usufruit_pct = 400; avd_nue_propriete_pct = 600
+        } else if avd_age <= 80 {
+            avd_usufruit_pct = 300; avd_nue_propriete_pct = 700
+        } else if avd_age <= 90 {
+            avd_usufruit_pct = 200; avd_nue_propriete_pct = 800
+        } else {
+            avd_usufruit_pct = 100; avd_nue_propriete_pct = 900
+        }
+    }
+    // NP share of capital (per NP): capital * NP% / np_count
+    avd_np_share_cents := 0
+    avd_np_abattement_cents := 0
+    avd_np_taxable_cents := 0
+    avd_np_tax_cents := 0
+    if avd_eligible == 1 && avd_np_count > 0 {
+        avd_np_share_cents = av_capital_avant_70 * avd_nue_propriete_pct / 1000 / avd_np_count
+        // Abattement 990 I réparti by NP% (usufruitier exoneré, so full
+        // abattement goes to NP share, divided by np_count)
+        avd_np_abattement_cents = av_abattement_990i * avd_nue_propriete_pct / 1000 / avd_np_count
+        avd_np_taxable_cents = avd_np_share_cents - avd_np_abattement_cents
+        if avd_np_taxable_cents < 0 { avd_np_taxable_cents = 0 }
+        // Apply 990 I brackets (20% < 700000, 31.25% >)
+        if avd_np_taxable_cents > av_thresh_1 {
+            hi := avd_np_taxable_cents
+            if hi > av_thresh_2 { hi = av_thresh_2 }
+            avd_np_tax_cents = avd_np_tax_cents + (hi - av_thresh_1) * av_taux_1 / 10000
+        }
+        if avd_np_taxable_cents > av_thresh_2 {
+            avd_np_tax_cents = avd_np_tax_cents + (avd_np_taxable_cents - av_thresh_2) * av_taux_2 / 10000
+        }
+    }
+    avd_total_np_tax_cents := avd_np_tax_cents * avd_np_count
     // Démembrement temporaire — article 669 II CGI: usufruit temporaire = 23%
     // per 10-year period, capped at the viager value for the same usufruitier
     // age. Article 13-5 1° CGI: the cession price of a temporary usufruit on
@@ -1649,7 +1728,8 @@ func tax_json(db, year) (out, code, err) {
     out = out + ",\"demembrement_temporaire\":{\"duree_years\":" + str(dt_duree) + ",\"bien_valeur_cents\":" + str(dt_bien_valeur) + ",\"bien_valeur_eur\":\"" + fmt_cents(dt_bien_valeur) + "\",\"usufruitier_age\":" + str(dt_age) + ",\"taux_par_periode_pct\":" + pct_str(dt_taux_periode) + ",\"periode_years\":" + str(dt_periode) + ",\"viager_cap_pct\":" + pct_str(dt_viager_pct) + ",\"usufruit_pct\":" + pct_str(dt_temporaire_pct) + ",\"usufruit_valeur_cents\":" + str(dt_usufruit_valeur) + ",\"usufruit_valeur_eur\":\"" + fmt_cents(dt_usufruit_valeur) + "\",\"nue_propriete_pct\":" + pct_str(dt_nue_propriete_pct) + ",\"nue_propriete_valeur_cents\":" + str(dt_nue_propriete_valeur) + ",\"note\":\"art. 669 II CGI — usufruit temporaire 23%/10y plafonné au viager (art. 669 I); art. 13-5 1°: cession prix = revenu catégoriel (non PV); set: bilan rule set 2026 demembrement_temporaire duree_years <val> + bien_valeur_cents <val> + usufruitier_age <val>\"}"
     out = out + ",\"pas_individualise\":{\"conjoint1_revenu_perso_cents\":" + str(pi_c1_rev) + ",\"conjoint2_revenu_perso_cents\":" + str(pi_c2_rev) + ",\"revenus_communs_cents\":" + str(pi_communs) + ",\"parts_foyer\":" + str(pi_parts) + ",\"conjoint1_taux_tenths\":" + str(pi_c1_taux_tenths) + ",\"conjoint2_taux_tenths\":" + str(pi_c2_taux_tenths) + ",\"conjoint1_taux_pct\":" + pct_str(pi_c1_taux_tenths) + ",\"conjoint2_taux_pct\":" + pct_str(pi_c2_taux_tenths) + ",\"foyer_ir_cents\":" + str(pi_foyer_ir) + ",\"low_conjoint_ir_cents\":" + str(pi_low_ir) + ",\"communs_ir_cents\":" + str(pi_communs_ir) + ",\"note\":\"art. 204 M CGI (LF 2024, applicable 1er sept 2025) — taux individualisé default for couples mariés/PACS; conjoint faible = IR sur (rev_perso + ½ communs) avec ½ parts; conjoint fort = (IR_foyer - IR_faible - IR_communs) / rev_perso_fort; set: bilan rule set 2026 pas_individualise conjoint1_revenu_perso_cents <val> + conjoint2_revenu_perso_cents <val> + revenus_communs_cents <val>\"}"
     out = out + ",\"dmtg\":{\"actif_taxable_cents\":" + str(dmtg_actif) + ",\"actif_taxable_eur\":\"" + fmt_cents(dmtg_actif) + "\",\"degre_parente\":\"" + dmtg_degre + "\",\"abattement_cents\":" + str(dmtg_abattement) + ",\"abattement_eur\":\"" + fmt_cents(dmtg_abattement) + "\",\"tax_cents\":" + str(dmtg_tax) + ",\"tax_eur\":\"" + fmt_cents(dmtg_tax) + "\",\"quasi_usufruit_non_deductible_cents\":" + str(dmtg_qu_non_deductible) + ",\"quasi_usufruit_tax_cents\":" + str(dmtg_qu_tax) + ",\"quasi_usufruit_tax_eur\":\"" + fmt_cents(dmtg_qu_tax) + "\",\"note\":\"art. 777 CGI — barème DMTG by degré (ligne directe 5-45%, conjoint exonéré, frère-sœur 35/45%, 4e degré 55%, tiers 60%); art. 774 bis II: DMTG sur créance non-déductible; set: bilan rule set 2026 dmtg actif_taxable_cents <val> + degre_parente <ligne_directe|conjoint|frere_soeur|quatrieme_degre|tiers>\"}"
-    out = out + ",\"assurance_vie\":{\"capital_avant_70_cents\":" + str(av_capital_avant_70) + ",\"capital_avant_70_eur\":\"" + fmt_cents(av_capital_avant_70) + "\",\"abattement_990i_cents\":" + str(av_abattement_990i) + ",\"base_990i_cents\":" + str(av_base_990i) + ",\"tax_990i_cents\":" + str(av_tax_990i) + ",\"tax_990i_eur\":\"" + fmt_cents(av_tax_990i) + "\",\"primes_apres_70_cents\":" + str(av_primes_apres_70) + ",\"primes_apres_70_eur\":\"" + fmt_cents(av_primes_apres_70) + "\",\"abattement_757b_cents\":" + str(av_abattement_757b) + ",\"base_757b_cents\":" + str(av_base_757b) + ",\"tax_757b_cents\":" + str(av_tax_757b) + ",\"tax_757b_eur\":\"" + fmt_cents(av_tax_757b) + "\",\"total_tax_cents\":" + str(av_total_tax) + ",\"total_tax_eur\":\"" + fmt_cents(av_total_tax) + "\",\"note\":\"art. 990 I CGI (primes avant 70 ans): abattement 152500/bénéficiaire, 20% <700000, 31.25% >; art. 757 B (primes après 70 ans): abattement 30500 global, barème DMTG art. 777; set: bilan rule set 2026 assurance_vie capital_avant_70_cents <val> + primes_apres_70_cents <val>\"}"
+    out = out + ",\"assurance_vie\":{\"capital_avant_70_cents\":" + str(av_capital_avant_70) + ",\"capital_avant_70_eur\":\"" + fmt_cents(av_capital_avant_70) + "\",\"abattement_990i_cents\":" + str(av_abattement_990i) + ",\"base_990i_cents\":" + str(av_base_990i) + ",\"tax_990i_cents\":" + str(av_tax_990i) + ",\"tax_990i_eur\":\"" + fmt_cents(av_tax_990i) + "\",\"primes_apres_70_cents\":" + str(av_primes_apres_70) + ",\"primes_apres_70_eur\":\"" + fmt_cents(av_primes_apres_70) + "\",\"abattement_757b_cents\":" + str(av_abattement_757b) + ",\"base_757b_cents\":" + str(av_base_757b) + ",\"tax_757b_cents\":" + str(av_tax_757b) + ",\"tax_757b_eur\":\"" + fmt_cents(av_tax_757b) + "\",\"total_tax_cents\":" + str(av_total_tax) + ",\"total_tax_eur\":\"" + fmt_cents(av_total_tax) + "\",\"demembrement\":{\"eligible\":" + json(avd_eligible == 1) + ",\"usufruitier_age\":" + str(avd_age) + ",\"np_count\":" + str(avd_np_count) + ",\"usufruit_pct\":" + pct_str(avd_usufruit_pct) + ",\"nue_propriete_pct\":" + pct_str(avd_nue_propriete_pct) + ",\"np_share_cents\":" + str(avd_np_share_cents) + ",\"np_abattement_cents\":" + str(avd_np_abattement_cents) + ",\"np_taxable_cents\":" + str(avd_np_taxable_cents) + ",\"np_tax_cents\":" + str(avd_np_tax_cents) + ",\"total_np_tax_cents\":" + str(avd_total_np_tax_cents) + ",\"note\":\"art. 669 CGI prorata — démembrement clause bénéficiaire: abattement 990 I réparti by NP%, usufruitier (conjoint) exoneré; set: bilan rule set 2026 assurance_vie demembrement_eligible 1 + demembrement_usufruitier_age <val> + demembrement_np_count <val>\"},\"note\":\"art. 990 I CGI (primes avant 70 ans): abattement 152500/bénéficiaire, 20% <700000, 31.25% >; art. 757 B (primes après 70 ans): abattement 30500 global, barème DMTG art. 777; set: bilan rule set 2026 assurance_vie capital_avant_70_cents <val> + primes_apres_70_cents <val>\"}"
+    out = out + ",\"per_cumul\":{\"revenus_n1_cents\":" + str(pc_revenus_n1) + ",\"pass_n_cents\":" + str(pc_pass_n) + ",\"pass_n1_cents\":" + str(pc_pass_n1) + ",\"plafond_154_bis_cents\":" + str(per_tns_plafond) + ",\"plafond_163_quatervicies_cents\":" + str(pc_163_cap) + ",\"combined_ceiling_cents\":" + str(pc_combined_ceiling) + ",\"combined_ceiling_eur\":\"" + fmt_cents(pc_combined_ceiling) + "\",\"note\":\"cumul art. 154 bis + 163 quatervicies CGI — TNS can cumulate both ceilings (same cotisation not deducted twice); 154 bis: 10% bénéfice N + 15% 1-8 PASS, plancher 10% PASS N; 163 quatervicies: 10% revenus N-1, plancher 10% PASS N-1; set: bilan rule set 2026 per_cumul revenus_n1_cents <val>\"}"
     out = out + ",\"totals\":{\"ir_cents\":" + str(ir_after_credit) + ",\"ir_eur\":\"" + fmt_cents(ir_after_credit) + "\",\"flat_tax_cents\":" + str(cap_tax+div_tax) + ",\"flat_tax_eur\":\"" + fmt_cents(cap_tax+div_tax) + "\",\"social_cents\":" + str(soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel) + ",\"social_eur\":\"" + fmt_cents(soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel) + "\",\"tva_cents\":" + str(tva_a_payer) + ",\"tva_eur\":\"" + fmt_cents(tva_a_payer) + "\",\"pv_immo_cents\":" + str(pv_immo_total) + ",\"pv_immo_eur\":\"" + fmt_cents(pv_immo_total) + "\",\"ifi_cents\":" + str(ifi_cents) + ",\"ifi_eur\":\"" + fmt_cents(ifi_cents) + "\",\"cfe_cents\":" + str(cfe_cents) + ",\"cfe_eur\":\"" + fmt_cents(cfe_cents) + "\",\"cvae_cents\":" + str(cvae_cents) + ",\"cvae_eur\":\"" + fmt_cents(cvae_cents) + "\",\"pvm_cents\":" + str(pvm_total_tax) + ",\"pvm_eur\":\"" + fmt_cents(pvm_total_tax) + "\",\"pv_immo_surtaxe_cents\":" + str(pv_surtaxe_cents) + ",\"pv_immo_surtaxe_eur\":\"" + fmt_cents(pv_surtaxe_cents) + "\",\"metaux_precieux_cents\":" + str(mp_effective_total) + ",\"metaux_precieux_eur\":\"" + fmt_cents(mp_effective_total) + "\",\"total_tax_cents\":" + str(ir_after_credit+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel+tva_a_payer+pv_immo_total+pv_surtaxe_cents+ifi_cents+cfe_cents+cvae_cents+mp_effective_total) + ",\"total_tax_eur\":\"" + fmt_cents(ir_after_credit+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel+tva_a_payer+pv_immo_total+pv_surtaxe_cents+ifi_cents+cfe_cents+cvae_cents+mp_effective_total) + "\"}"
     out = out + ",\"notes\":[\"estimates on the seeded rate card (2025 barème on 2024 income) — override with bilan rule set\",\"IR = progressive barème + plafonnement QF (situation-aware: default 1791/demi-part, parent_isole 4262 total, veuf 1807/demi-part+2011, personne_seule_invalide 3608) + décote; 10% frais per salary stream; BNC/BIC/LMNP deficits 6y; foncier deficit 10700 EUR on global + 10y on foncier (micro + réel)\",\"pension alimentaire (art. 156 II.2°): deductible from revenu global, cap 6794 EUR/child (2024 income)\",\"dons reduction (art. 200 CGI): 75% to 1000 EUR, 66% to 20% of revenu imposable — reduces IR\",\"pinel/denormandie reduction (art. 199 novovicies): 12/18/21% by engagement, cap 300000 EUR, spread over years — reduces IR\",\"malraux reduction (art. 199 tervicies): 30% PSMV / 22% PVAP, cap 400000 EUR, hors plafonnement niches — reduces IR\",\"censi-bouvard reduction (art. 199 sexvicies): 11% LMNP résidences de services, cap 300000 EUR, spread over 9y — reduces IR\",\"scolarité reduction (art. 199 quater F): forfait 61 collège / 153 lycée / 183 supérieur per child — reduces IR\",\"ir-pme reduction (art. 199 terdecies-0 A): 18% PME, cap 50000 single / 100000 couple — reduces IR (plafonnement niches NOT modeled)\",\"emploi à domicile (art. 199 sexdecies): 50% crédit, cap 12000 EUR — refundable (crédit, not réduction)\",\"frais de garde (art. 200 quater B): 50% crédit, cap 3500 EUR/child — refundable (crédit, not réduction)\",\"TVA franchise (art. 293 B): services 36800 / vente 91900 EUR — informational\",\"TVA régime simplifié (art. 302 septies A): services 254000 / vente 840000 EUR, TVA due < 15000 EUR\",\"TVA collectée/déductible (art. 271): TVA à payer = collectée - déductible (négatif = crédit reportable/remboursable)\",\"PAS taux neutre + personnalisé (art. 204 H): monthly estimate for provisioning — v1 simplification of the BOFiP formula\",\"régime réel foncier (art. 29-31): net = loyer - charges (intérêts d'emprunt, travaux), no abattement — combined with micro-foncier\",\"LMNP micro-BIC meublé (art. 50): 50% abattement, threshold 77700 EUR\",\"LMNP régime réel (art. 39): net = loyer - charges - amortissement, no abattement, deficit carry 6y\",\"micro-BNC/BIC/foncier cannot legally generate deficits (forfaitaire) — deficit carry-forward is a régime-réel feature applied to the micro base as a v1 simplification\",\"crypto exemption per form 2086: net gains under the threshold are not declarable\"]}"
     code = 0
