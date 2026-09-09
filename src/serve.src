@@ -228,6 +228,8 @@ func llms_txt() (t) {
         "    (0.30% assiette assurance maladie) +\n" +
         "    formation pro art. L 6331-1/L 6331-3\n" +
         "    (0.55% <11, 1% ≥11 salariés) +\n" +
+        "    CPF-CDD art. L 6331-6\n" +
+        "    (1% salaires CDD) +\n" +
         "    plafonnement CET art. 1647 B sexies\n" +
         "    (CFE+CVAE > 1.438% VA → dégrèvement, floor CFE\n" +
         "    minimum) + TSB art. 231 ter (bureaux IDF 4\n" +

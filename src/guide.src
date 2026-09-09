@@ -793,6 +793,20 @@ func guide_text(base) (t) {
         "  masse_salariale_cents <val>.\n" +
         "  Source: BOFiP, code.travail.gouv.fr.\n" +
         "\n" +
+        "## CPF-CDD — art. L 6331-6 C trav\n" +
+        "  Contribution dédiée au financement du CPF\n" +
+        "  pour les titulaires d'un CDD. 1% des\n" +
+        "  salaires versés aux titulaires d'un CDD\n" +
+        "  (assiette = revenu d'activité retenu\n" +
+        "  pour cotisations SS des CDD).\n" +
+        "  Exonérations: apprentissage,\n" +
+        "  professionnalisation, accompagnement\n" +
+        "  dans l'emploi, saisonniers.\n" +
+        "  Le radar expose cpf_cdd.tax_cents.\n" +
+        "  Set: bilan rule set 2026 cpf_cdd\n" +
+        "  salaires_cdd_cents <val>.\n" +
+        "  Source: BOFiP, code.travail.gouv.fr.\n" +
+        "\n" +
         "## Plafonnement de la CET — art. 1647 B sexies CGI\n" +
         "  Si CFE + CVAE > taux × valeur ajoutée, dégrèvement =\n" +
         "  CET - plafond. Taux 1.438% (2025), 1.531% (2026/2027).\n" +

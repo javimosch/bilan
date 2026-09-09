@@ -781,6 +781,11 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'formation_pro', 'taux_reduit_pct_hundredths', '55')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'formation_pro', 'taux_plein_pct_hundredths', '100')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'formation_pro', 'seuil_effectif', '11')", []string{y})
+    // CPF-CDD — article L 6331-6 code du travail.
+    // 1% des salaires versés aux titulaires d'un CDD.
+    // Source: BOFiP, code.travail.gouv.fr.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cpf_cdd', 'salaires_cdd_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cpf_cdd', 'taux_pct_hundredths', '100')", []string{y})
     // Plafonnement de la CET — article 1647 B sexies CGI. If CFE + CVAE
     // > taux × VA, dégrèvement = CET - plafond. Floor: CET après
     // dégrèvement ≥ cotisation minimum CFE (art. 1647 D). Taux 1.438%

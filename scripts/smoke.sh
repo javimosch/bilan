@@ -1877,6 +1877,19 @@ r=$(BILAN_DB="$FPDB3" $BIN tax --year 2026)
 ok "fp 0 masse tax 0" 0 "$(jq -r .formation_pro.tax_cents <<<"$r")"
 rm -f "$FPDB3"
 
+# --- CPF-CDD (art. L 6331-6 C trav) — 50000 EUR CDD, 1% = 50000 ---
+CPFCDDDB1="$(mktemp -u /tmp/bilan-cpfcdd1-XXXXXX.db)"
+BILAN_DB="$CPFCDDDB1" $BIN rule set 2026 cpf_cdd salaires_cdd_cents 5000000 >/dev/null
+r=$(BILAN_DB="$CPFCDDDB1" $BIN tax --year 2026)
+ok "cpfcdd 50k EUR CDD 1% tax 50000" 50000 "$(jq -r .cpf_cdd.tax_cents <<<"$r")"
+rm -f "$CPFCDDDB1"
+
+# --- CPF-CDD (art. L 6331-6 C trav) — 0 CDD, tax 0 ---
+CPFCDDDB2="$(mktemp -u /tmp/bilan-cpfcdd2-XXXXXX.db)"
+r=$(BILAN_DB="$CPFCDDDB2" $BIN tax --year 2026)
+ok "cpfcdd 0 CDD tax 0" 0 "$(jq -r .cpf_cdd.tax_cents <<<"$r")"
+rm -f "$CPFCDDDB2"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents
