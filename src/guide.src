@@ -694,6 +694,21 @@ func guide_text(base) (t) {
         "  base_taux_8_cents <val>.\n" +
         "  Source: BOFiP BOI-CS-CIR, urssaf.fr.\n" +
         "\n" +
+        "## PEEC — art. L 313-1 CCH\n" +
+        "  Participation des employeurs à l'effort de\n" +
+        "  construction (1% logement). Employeurs ≥50\n" +
+        "  salariés assujettis taxe sur les salaires art.\n" +
+        "  231. Taux 0.45% de la masse salariale (N-1).\n" +
+        "  Cotisation 2% si non investi dans délai 1 an.\n" +
+        "  Seuil 20 salariés: dispense 3 ans + réduction\n" +
+        "  75%/50%/25% années suivantes.\n" +
+        "  Le radar expose peec.tax_cents.\n" +
+        "  Set: bilan rule set 2026 peec\n" +
+        "  effectif_moyen <val> +\n" +
+        "  masse_salariale_cents <val> +\n" +
+        "  non_investi <0|1>.\n" +
+        "  Source: BOFiP BOI-TPS-PEEC-20.\n" +
+        "\n" +
         "## Plafonnement de la CET — art. 1647 B sexies CGI\n" +
         "  Si CFE + CVAE > taux × valeur ajoutée, dégrèvement =\n" +
         "  CET - plafond. Taux 1.438% (2025), 1.531% (2026/2027).\n" +

@@ -1742,6 +1742,31 @@ r=$(BILAN_DB="$FSDB2" $BIN tax --year 2026)
 ok "fs 0 base tax 0" 0 "$(jq -r .forfait_social.tax_cents <<<"$r")"
 rm -f "$FSDB2"
 
+# --- PEEC (art. L 313-1 CCH) — 100 salariés, 1000000 EUR, non_investi=0 → 0.45% = 450000 ---
+PEECDB1="$(mktemp -u /tmp/bilan-peec1-XXXXXX.db)"
+BILAN_DB="$PEECDB1" $BIN rule set 2026 peec effectif_moyen 100 >/dev/null
+BILAN_DB="$PEECDB1" $BIN rule set 2026 peec masse_salariale_cents 100000000 >/dev/null
+r=$(BILAN_DB="$PEECDB1" $BIN tax --year 2026)
+ok "peec 100 salariés 1M EUR normal tax 450000" 450000 "$(jq -r .peec.tax_cents <<<"$r")"
+rm -f "$PEECDB1"
+
+# --- PEEC (art. L 313-1 CCH) — 100 salariés, 1000000 EUR, non_investi=1 → 2% = 2000000 ---
+PEECDB2="$(mktemp -u /tmp/bilan-peec2-XXXXXX.db)"
+BILAN_DB="$PEECDB2" $BIN rule set 2026 peec effectif_moyen 100 >/dev/null
+BILAN_DB="$PEECDB2" $BIN rule set 2026 peec masse_salariale_cents 100000000 >/dev/null
+BILAN_DB="$PEECDB2" $BIN rule set 2026 peec non_investi 1 >/dev/null
+r=$(BILAN_DB="$PEECDB2" $BIN tax --year 2026)
+ok "peec 100 salariés 1M EUR penalite tax 2000000" 2000000 "$(jq -r .peec.tax_cents <<<"$r")"
+rm -f "$PEECDB2"
+
+# --- PEEC (art. L 313-1 CCH) — 30 salariés (below threshold), tax 0 ---
+PEECDB3="$(mktemp -u /tmp/bilan-peec3-XXXXXX.db)"
+BILAN_DB="$PEECDB3" $BIN rule set 2026 peec effectif_moyen 30 >/dev/null
+BILAN_DB="$PEECDB3" $BIN rule set 2026 peec masse_salariale_cents 100000000 >/dev/null
+r=$(BILAN_DB="$PEECDB3" $BIN tax --year 2026)
+ok "peec 30 salariés below threshold tax 0" 0 "$(jq -r .peec.tax_cents <<<"$r")"
+rm -f "$PEECDB3"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents

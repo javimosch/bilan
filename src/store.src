@@ -732,6 +732,15 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'forfait_social', 'taux_16_pct_hundredths', '1600')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'forfait_social', 'taux_10_pct_hundredths', '1000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'forfait_social', 'taux_8_pct_hundredths', '800')", []string{y})
+    // Participation des employeurs à l'effort de construction
+    // (PEEC / 1% logement) — article L 313-1 CCH.
+    // Employeurs ≥50 salariés. Taux 0.45%, pénalité 2%.
+    // Source: BOFiP BOI-TPS-PEEC-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'peec', 'effectif_moyen', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'peec', 'masse_salariale_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'peec', 'taux_pct_hundredths', '45')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'peec', 'taux_penalite_pct_hundredths', '200')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'peec', 'non_investi', '0')", []string{y})
     // Plafonnement de la CET — article 1647 B sexies CGI. If CFE + CVAE
     // > taux × VA, dégrèvement = CET - plafond. Floor: CET après
     // dégrèvement ≥ cotisation minimum CFE (art. 1647 D). Taux 1.438%

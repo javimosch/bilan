@@ -210,7 +210,10 @@ func llms_txt() (t) {
         "    50%, JEI refundable) + CII art. 244 quater B bis (20%, 60% DOM,\n" +
         "    cap 400k PME) + forfait social art.\n" +
         "    L 137-15 CSS (20%/16%/10%/8% by\n" +
-        "    category) + plafonnement CET art. 1647 B sexies\n" +
+        "    category) + PEEC art. L 313-1 CCH\n" +
+        "    (0.45% masse salariale ≥50\n" +
+        "    salariés, 2% si non investi) +\n" +
+        "    plafonnement CET art. 1647 B sexies\n" +
         "    (CFE+CVAE > 1.438% VA → dégrèvement, floor CFE\n" +
         "    minimum) + TSB art. 231 ter (bureaux IDF 4\n" +
         "    circonscriptions, PACA) + TSS stationnement + CRL\n" +
