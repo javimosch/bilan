@@ -720,6 +720,18 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cir', 'cii_rate_pct_hundredths', '2000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cir', 'cii_rate_dom_pct_hundredths', '6000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cir', 'cii_cap_cents', '40000000')", []string{y})
+    // Forfait social — article L 137-15 CSS. Contribution
+    // patronale sur rémunérations CSG-exonérées SS.
+    // Taux général 20%, réduits 16%/10%/8%.
+    // Source: BOFiP BOI-CS-CIR, urssaf.fr.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'forfait_social', 'base_taux_20_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'forfait_social', 'base_taux_16_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'forfait_social', 'base_taux_10_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'forfait_social', 'base_taux_8_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'forfait_social', 'taux_20_pct_hundredths', '2000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'forfait_social', 'taux_16_pct_hundredths', '1600')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'forfait_social', 'taux_10_pct_hundredths', '1000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'forfait_social', 'taux_8_pct_hundredths', '800')", []string{y})
     // Plafonnement de la CET — article 1647 B sexies CGI. If CFE + CVAE
     // > taux × VA, dégrèvement = CET - plafond. Floor: CET après
     // dégrèvement ≥ cotisation minimum CFE (art. 1647 D). Taux 1.438%

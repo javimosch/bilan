@@ -679,6 +679,21 @@ func guide_text(base) (t) {
         "  Set: bilan rule set 2026 cir cii_depenses_cents <val>\n" +
         "  + cii_dom_eligible <0|1>. Source: BOFiP BOI-BIC-RICI-10-15-20.\n" +
         "\n" +
+        "## Forfait social — art. L 137-15 CSS\n" +
+        "  Contribution patronale sur rémunérations soumises à\n" +
+        "  la CSG mais exonérées de cotisations Sécurité sociale.\n" +
+        "  Taux général 20% (retraite supplémentaire, épargne\n" +
+        "  salariale, prévoyance ≥11 salariés), 16% (prévoyance\n" +
+        "  certains cas), 10% (intéressement <250 salariés), 8%\n" +
+        "  (participation/abondements <50 salariés).\n" +
+        "  Le radar expose forfait_social.tax_cents.\n" +
+        "  Set: bilan rule set 2026 forfait_social\n" +
+        "  base_taux_20_cents <val> +\n" +
+        "  base_taux_16_cents <val> +\n" +
+        "  base_taux_10_cents <val> +\n" +
+        "  base_taux_8_cents <val>.\n" +
+        "  Source: BOFiP BOI-CS-CIR, urssaf.fr.\n" +
+        "\n" +
         "## Plafonnement de la CET — art. 1647 B sexies CGI\n" +
         "  Si CFE + CVAE > taux × valeur ajoutée, dégrèvement =\n" +
         "  CET - plafond. Taux 1.438% (2025), 1.531% (2026/2027).\n" +

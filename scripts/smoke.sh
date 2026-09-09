@@ -1726,6 +1726,22 @@ r=$(BILAN_DB="$IGDB2" $BIN tax --year 2026)
 ok "ig 0 installations tax 0" 0 "$(jq -r .ifer_gaz.tax_cents <<<"$r")"
 rm -f "$IGDB2"
 
+# --- Forfait social (art. L 137-15 CSS) — 10000 EUR @20% + 5000 EUR @10% + 3000 EUR @8% ---
+# 2000000 × 2000/10000 + 500000 × 1000/10000 + 300000 × 800/10000 = 400000 + 50000 + 24000 = 474000
+FSDB1="$(mktemp -u /tmp/bilan-fs1-XXXXXX.db)"
+BILAN_DB="$FSDB1" $BIN rule set 2026 forfait_social base_taux_20_cents 2000000 >/dev/null
+BILAN_DB="$FSDB1" $BIN rule set 2026 forfait_social base_taux_10_cents 500000 >/dev/null
+BILAN_DB="$FSDB1" $BIN rule set 2026 forfait_social base_taux_8_cents 300000 >/dev/null
+r=$(BILAN_DB="$FSDB1" $BIN tax --year 2026)
+ok "fs 10k@20% + 5k@10% + 3k@8% tax 474000" 474000 "$(jq -r .forfait_social.tax_cents <<<"$r")"
+rm -f "$FSDB1"
+
+# --- Forfait social (art. L 137-15 CSS) — 0 base, tax 0 ---
+FSDB2="$(mktemp -u /tmp/bilan-fs2-XXXXXX.db)"
+r=$(BILAN_DB="$FSDB2" $BIN tax --year 2026)
+ok "fs 0 base tax 0" 0 "$(jq -r .forfait_social.tax_cents <<<"$r")"
+rm -f "$FSDB2"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents
