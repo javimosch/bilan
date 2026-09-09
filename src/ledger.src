@@ -317,6 +317,60 @@ func deficit_carried(db, year, kind) (deficit) {
     if deficit < 0 { deficit = 0 }
 }
 
+// ard_stock — LMNP amortissements réputés différés (art. 39 C II.2 CGI). The
+// ARD stock is the cumulative amortissement that exceeded the plafond in prior
+// years, reportable sans limite de durée. Unlike deficit_carried (6y), ARD has
+// no time limit. The radar computes the stock by walking prior years: each
+// year, if the loyer net (g_lmnp_reel) was positive, the dotation was capped at
+// it and the excess was added to the stock; if the loyer net was negative, the
+// full dotation brute was deferred. The stock is consumed when a future year's
+// plafond exceeds the dotation brute (the surplus consumes ARD). Returns the
+// available ARD stock in cents (0 if none). Source: BOFiP BOI-BIC-AMT-20-40-10.
+func ard_stock(db, year) (stock) {
+    stock = 0
+    yi := parse_int(year)
+    i := 10
+    for i > 0 {
+        py := yi - i
+        pys := str(py)
+        sums := kind_sums(db, pys+"-01-01", pys+"-12-31")
+        g_reel := kind_get(sums, "lmnp_reel")
+        // Compute the dotation brute for that year (same component formula)
+        pv := rule_int(db, pys, "lmnp_amortissement", "property_value_cents", 0)
+        if pv == 0 { i = i - 1  continue }
+        tp := rule_int(db, pys, "lmnp_amortissement", "terrain_pct_tenths", 150)
+        mv := rule_int(db, pys, "lmnp_amortissement", "mobilier_value_cents", 0)
+        md := rule_int(db, pys, "lmnp_amortissement", "mobilier_duration_years", 7)
+        gp := rule_int(db, pys, "lmnp_amortissement", "gros_oeuvre_pct_tenths", 550)
+        gd := rule_int(db, pys, "lmnp_amortissement", "gros_oeuvre_duration_years", 50)
+        top := rule_int(db, pys, "lmnp_amortissement", "toiture_pct_tenths", 120)
+        tod := rule_int(db, pys, "lmnp_amortissement", "toiture_duration_years", 30)
+        rep := rule_int(db, pys, "lmnp_amortissement", "reseaux_pct_tenths", 130)
+        red := rule_int(db, pys, "lmnp_amortissement", "reseaux_duration_years", 25)
+        agp := rule_int(db, pys, "lmnp_amortissement", "agencements_pct_tenths", 200)
+        agd := rule_int(db, pys, "lmnp_amortissement", "agencements_duration_years", 12)
+        building := pv * (1000 - tp) / 1000
+        dotation := 0
+        if gd > 0 { dotation = dotation + building * gp / 1000 / gd }
+        if tod > 0 { dotation = dotation + building * top / 1000 / tod }
+        if red > 0 { dotation = dotation + building * rep / 1000 / red }
+        if agd > 0 { dotation = dotation + building * agp / 1000 / agd }
+        if md > 0 { dotation = dotation + mv / md }
+        plafond := 0
+        if g_reel > 0 { plafond = g_reel }
+        if dotation > plafond {
+            stock = stock + (dotation - plafond)
+        } else {
+            // Surplus plafond consumes prior ARD stock
+            consume := plafond - dotation
+            if consume > stock { consume = stock }
+            stock = stock - consume
+        }
+        i = i - 1
+    }
+    if stock < 0 { stock = 0 }
+}
+
 // bareme_on_quotient — the 5-bracket progressive scale applied to one quotient (the
 // net imposable divided by parts). Returns the IR for ONE part at that quotient, plus
 // the marginal rate tenths. The caller multiplies by parts. Brackets are DATA.
@@ -1209,6 +1263,16 @@ func tax_json(db, year) (out, code, err) {
     la_dotation := la_dotation_brute
     if la_dotation > la_plafond { la_dotation = la_plafond }
     la_ard_reportable := la_dotation_brute - la_dotation
+    // ARD stock from prior years (art. 39 C II.2 — reportable sans limite)
+    la_ard_stock := ard_stock(db, year)
+    // Current-year ARD consumption: if plafond > dotation_brute, the surplus
+    // consumes prior-year ARD stock
+    la_ard_consumed := 0
+    if la_plafond > la_dotation_brute {
+        la_ard_consumed = la_plafond - la_dotation_brute
+        if la_ard_consumed > la_ard_stock { la_ard_consumed = la_ard_stock }
+    }
+    la_ard_stock_after := la_ard_stock - la_ard_consumed + la_ard_reportable
     // IFI — impôt sur la fortune immobilière (art. 977 CGI). Barème progressif
     // on net taxable patrimoine. Seuil déclenchement 1.3M (but taxation starts at
     // 800k). Décote for 1.3M-1.4M: 17500 - 1.25% × P. Record the net taxable
@@ -1366,7 +1430,7 @@ func tax_json(db, year) (out, code, err) {
     out = out + ",\"cvae\":{\"ca_cents\":" + str(cvae_ca) + ",\"ca_eur\":\"" + fmt_cents(cvae_ca) + "\",\"assujettie\":" + json(cvae_assujettie == 1) + ",\"effective_rate_pct_hundredths\":" + str(cvae_effective_rate_pct_hundredths) + ",\"cvae_cents\":" + str(cvae_cents) + ",\"cvae_eur\":\"" + fmt_cents(cvae_cents) + "\",\"note\":\"art. 1586 ter CGI — progressive effective rate (0% < 500k, 0.25% at 3M, 0.7% at 10M, 0.75% > 50M); VA ≈ 45% of CA (simplified); 2024 reduction 25% (art. 79 LF 2024); being phased out (suppression 2027)\"}"
     out = out + ",\"pvm\":{\"base_cents\":" + str(pvm_base) + ",\"base_eur\":\"" + fmt_cents(pvm_base) + "\",\"detention_years\":" + str(pvm_detention) + ",\"abattement_pct\":" + pct_str(pvm_abat_pct) + ",\"depart_retraite_eligible\":" + json(pvm_dr_eligible == 1) + ",\"depart_retraite_abattement_cents\":" + str(pvm_dr_abattement) + ",\"ir_base_after_abattement_cents\":" + str(pvm_dr_ir_base) + ",\"pfu_ir_cents\":" + str(pvm_pfu_ir) + ",\"pfu_social_cents\":" + str(pvm_pfu_social) + ",\"pfu_total_cents\":" + str(pvm_pfu_total) + ",\"bareme_ir_cents\":" + str(pvm_bareme_ir) + ",\"bareme_social_cents\":" + str(pvm_bareme_social) + ",\"bareme_total_cents\":" + str(pvm_bareme_total) + ",\"optimal\":\"" + pvm_optimal + "\",\"ir_tax_cents\":" + str(pvm_ir_tax) + ",\"social_tax_cents\":" + str(pvm_social_tax) + ",\"total_tax_cents\":" + str(pvm_total_tax) + ",\"total_tax_eur\":\"" + fmt_cents(pvm_total_tax) + "\",\"note\":\"art. 200 A CGI — PFU 12.8% IR + 17.2% social by default; option barème progressif (case 2OP) with abattement durée de détention (50% 2-8y, 65% >8y, titres pré-2018); abattement fixe 500k art. 150-0 D ter (départ retraite dirigeants, social sur PV brute, IR sur PV après abattement); radar reports the lower\"}"
     out = out + ",\"metaux_precieux\":{\"metaux_cents\":" + str(g_metaux) + ",\"metaux_eur\":\"" + fmt_cents(g_metaux) + "\",\"objets_art_cents\":" + str(g_objets_art) + ",\"objets_art_eur\":\"" + fmt_cents(g_objets_art) + "\",\"taux_metaux_pct\":" + pct_str(taux_metaux) + ",\"taux_objets_art_pct\":" + pct_str(taux_objets_art) + ",\"metaux_tax_cents\":" + str(metaux_tax) + ",\"objets_art_tax_cents\":" + str(objets_art_tax) + ",\"forfaitaire_total_cents\":" + str(metaux_total_tax) + ",\"option_150vl_eligible\":" + json(mp_150vl_eligible == 1) + ",\"option_150vl_pv_cents\":" + str(mp_150vl_pv) + ",\"option_150vl_abattement_pct\":" + pct_str(mp_150vl_abattement_pct) + ",\"option_150vl_ir_cents\":" + str(mp_150vl_ir) + ",\"option_150vl_social_cents\":" + str(mp_150vl_social) + ",\"option_150vl_total_cents\":" + str(mp_150vl_total) + ",\"optimal\":\"" + mp_optimal + "\",\"total_tax_cents\":" + str(mp_effective_total) + ",\"total_tax_eur\":\"" + fmt_cents(mp_effective_total) + "\",\"note\":\"art. 150 VI/VK CGI — taxe forfaitaire (11% métaux, 6% objets d'art) by default; option art. 150 VL pour régime plus-values (art. 150 UA): 19% IR + 17.2% social sur PV nette, abattement 5%/an au-delà de 2y, exonération 22y; radar reports the lower\"}"
-    out = out + ",\"lmnp_amortissement\":{\"property_value_cents\":" + str(la_property_value) + ",\"property_value_eur\":\"" + fmt_cents(la_property_value) + "\",\"terrain_pct\":" + pct_str(la_terrain_pct) + ",\"building_value_cents\":" + str(la_building) + ",\"mobilier_value_cents\":" + str(la_mobilier_value) + ",\"mobilier_dotation_cents\":" + str(la_mobilier_dotation) + ",\"gros_oeuvre_dotation_cents\":" + str(la_go_dotation) + ",\"toiture_dotation_cents\":" + str(la_to_dotation) + ",\"reseaux_dotation_cents\":" + str(la_re_dotation) + ",\"agencements_dotation_cents\":" + str(la_ag_dotation) + ",\"dotation_brute_cents\":" + str(la_dotation_brute) + ",\"plafond_cents\":" + str(la_plafond) + ",\"dotation_cents\":" + str(la_dotation) + ",\"dotation_eur\":\"" + fmt_cents(la_dotation) + "\",\"ard_reportable_cents\":" + str(la_ard_reportable) + ",\"note\":\"art. 39 C CGI — amortissement linéaire par composants (gros œuvre 50y, toiture 30y, réseaux 25y, agencements 12y, mobilier 7y); terrain non amortissable; plafonnement: dotation ≤ loyer net (ne crée pas de déficit); excédent reportable (ARD); set: bilan rule set 2026 lmnp_amortissement property_value_cents <val>\"}"
+    out = out + ",\"lmnp_amortissement\":{\"property_value_cents\":" + str(la_property_value) + ",\"property_value_eur\":\"" + fmt_cents(la_property_value) + "\",\"terrain_pct\":" + pct_str(la_terrain_pct) + ",\"building_value_cents\":" + str(la_building) + ",\"mobilier_value_cents\":" + str(la_mobilier_value) + ",\"mobilier_dotation_cents\":" + str(la_mobilier_dotation) + ",\"gros_oeuvre_dotation_cents\":" + str(la_go_dotation) + ",\"toiture_dotation_cents\":" + str(la_to_dotation) + ",\"reseaux_dotation_cents\":" + str(la_re_dotation) + ",\"agencements_dotation_cents\":" + str(la_ag_dotation) + ",\"dotation_brute_cents\":" + str(la_dotation_brute) + ",\"plafond_cents\":" + str(la_plafond) + ",\"dotation_cents\":" + str(la_dotation) + ",\"dotation_eur\":\"" + fmt_cents(la_dotation) + "\",\"ard_reportable_cents\":" + str(la_ard_reportable) + ",\"ard_stock_prior_cents\":" + str(la_ard_stock) + ",\"ard_consumed_cents\":" + str(la_ard_consumed) + ",\"ard_stock_after_cents\":" + str(la_ard_stock_after) + ",\"note\":\"art. 39 C CGI — amortissement linéaire par composants (gros œuvre 50y, toiture 30y, réseaux 25y, agencements 12y, mobilier 7y); terrain non amortissable; plafonnement: dotation ≤ loyer net (ne crée pas de déficit); excédent reportable (ARD) sans limite de durée; set: bilan rule set 2026 lmnp_amortissement property_value_cents <val>\"}"
     out = out + ",\"monuments_historiques\":{\"charges_cents\":" + str(mh_charges) + ",\"charges_eur\":\"" + fmt_cents(mh_charges) + "\",\"ouvert_public\":" + json(mh_ouvert == 1) + ",\"taux_pct\":" + pct_str(mh_taux) + ",\"deduction_cents\":" + str(mh_deduction) + ",\"deduction_eur\":\"" + fmt_cents(mh_deduction) + "\",\"note\":\"art. 156 I-3° et II-1° ter CGI — déduction charges foncières du revenu global (100% ouvert public / 50% fermé), sans plafond, hors plafonnement niches; engagement conservation 15y; record charges as negative txs in 'monument_historique' stream\"}"
     out = out + ",\"demembrement\":{\"usufruitier_age\":" + str(dem_age) + ",\"usufruit_pct\":" + pct_str(dem_usufruit_pct) + ",\"nue_propriete_pct\":" + pct_str(dem_nue_propriete_pct) + ",\"note\":\"art. 669 CGI — barème de l'usufruit viager selon l'âge de l'usufruitier; nue-propriété = complément à 100%; s'applique aux DMTG, droits d'enregistrement, IFI; set age: bilan rule set 2026 demembrement usufruitier_age <years>\"}"
     out = out + ",\"quasi_usufruit\":{\"creance_restitution_cents\":" + str(qu_creance) + ",\"creance_restitution_eur\":\"" + fmt_cents(qu_creance) + "\",\"exception_cession_non_fiscal\":" + json(qu_exc_cession == 1) + ",\"exception_usufruit_legal_conjoint\":" + json(qu_exc_conjoint == 1) + ",\"deductible_cents\":" + str(qu_deductible) + ",\"deductible_eur\":\"" + fmt_cents(qu_deductible) + "\",\"note\":\"" + esc(qu_note) + " — art. 774 bis CGI (LF 2024); set: bilan rule set 2026 quasi_usufruit creance_restitution_cents <val> + exception flags\"}"

@@ -172,7 +172,8 @@ func llms_txt() (t) {
         "    5%/an abattement, 22y exonération, radar reports the lower) +\n" +
         "    quasi-usufruit art. 774 bis (déductibilité créance de restitution, LF 2024)\n" +
         "    + démembrement temporaire art. 669 II (23%/10y plafonné viager) + art.\n" +
-        "    13-5 1° (cession = revenu catégoriel);\n" +
+        "    13-5 1° (cession = revenu catégoriel) + LMNP ARD carry-forward art. 39 C\n" +
+        "    II.2 (reportable sans limite, 10y lookback stock tracking);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

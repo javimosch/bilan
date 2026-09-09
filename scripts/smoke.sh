@@ -926,6 +926,19 @@ r=$(BILAN_DB="$LADB2" $BIN tax --year 2026)
 ok "la plafond 3000" 300000 "$(jq -r .lmnp_amortissement.plafond_cents <<<"$r")"
 ok "la dotation capped 3000" 300000 "$(jq -r .lmnp_amortissement.dotation_cents <<<"$r")"
 rm -f "$LADB2"
+# ARD carry-forward: prior year with loyer 2000 < dotation 6981 → ARD stock 4981
+# Current year (2026): no prior-year lmnp_reel txs → ard_stock_prior 0
+# (ARD stock requires prior-year txs + property_value rule set for that year)
+LADB3="$(mktemp -u /tmp/bilan-la3-XXXXXX.db)"
+BILAN_DB="$LADB3" $BIN stream add lm --kind lmnp_reel >/dev/null
+BILAN_DB="$LADB3" $BIN tx add lm 2026-06-30 10000 >/dev/null
+BILAN_DB="$LADB3" $BIN rule set 2026 lmnp_amortissement property_value_cents 20000000 >/dev/null
+BILAN_DB="$LADB3" $BIN rule set 2026 lmnp_amortissement mobilier_value_cents 500000 >/dev/null
+r=$(BILAN_DB="$LADB3" $BIN tax --year 2026)
+ok "la ard stock prior 0 (no prior years)" 0 "$(jq -r .lmnp_amortissement.ard_stock_prior_cents <<<"$r")"
+ok "la ard consumed 0" 0 "$(jq -r .lmnp_amortissement.ard_consumed_cents <<<"$r")"
+ok "la ard stock after 0 (no cap)" 0 "$(jq -r .lmnp_amortissement.ard_stock_after_cents <<<"$r")"
+rm -f "$LADB3"
 
 # --- Quasi-usufruit art. 774 bis (déductibilité créance de restitution) ---
 # 100000 EUR créance, no exception → non-déductible (art. 774 bis I)

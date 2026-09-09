@@ -415,6 +415,17 @@ func guide_text(base) (t) {
         "  New demembrement_temporaire JSON block. Source: BOFiP\n" +
         "  BOI-RPPM-PVMC-20-20.\n" +
         "\n" +
+        "## LMNP ARD carry-forward — article 39 C II.2 CGI\n" +
+        "  Amortissements réputés différés (ARD) are the fraction of the\n" +
+        "  dotation that exceeded the plafond in prior years, reportable sans\n" +
+        "  limite de durée. The radar walks prior years (10y lookback) to\n" +
+        "  compute the ARD stock: each year, if the loyer net was positive, the\n" +
+        "  dotation was capped and the excess was added to the stock; if the\n" +
+        "  loyer net was negative, the full dotation was deferred. The stock is\n" +
+        "  consumed when a future year's plafond exceeds the dotation brute. New\n" +
+        "  lmnp_amortissement fields: ard_stock_prior_cents, ard_consumed_cents,\n" +
+        "  ard_stock_after_cents. Source: BOFiP BOI-BIC-AMT-20-40-10.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
@@ -451,10 +462,10 @@ func guide_text(base) (t) {
         "  temporaire art. 669 II (23%/10y plafonné viager) + art. 13-5 1° (cession =\n" +
         "  revenu catégoriel).\n" +
         "  It does NOT model: deficits beyond their windows, the full BOFiP PAS\n" +
-        "  formula, LMNP ARD carry-forward tracking across years, or barème\n" +
-        "  économique DCF for démembrement temporaire (radar uses fiscal 669 II).\n" +
-        "  Output is an estimate to reason from, not tax advice — say so to the\n" +
-        "  human.\n" +
+        "  taux personnalisé formula (radar uses grille neutre + simplified\n" +
+        "  personalized), or barème économique DCF for démembrement temporaire\n" +
+        "  (radar uses fiscal 669 II). Output is an estimate to reason from, not\n" +
+        "  tax advice — say so to the human.\n" +
         "\n" +
         "## Brian — the cheap copilote (no inference in the platform)\n" +
         "  Brian is a PERSONA, not a service: install it into the harness your human\n" +
