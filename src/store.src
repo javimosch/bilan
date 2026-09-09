@@ -810,6 +810,21 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'terrains_constructibles', 'ratio_max_tenths', '300')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'terrains_constructibles', 'taux_1605_bas_pct_hundredths', '500')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'terrains_constructibles', 'taux_1605_haut_pct_hundredths', '1000')", []string{y})
+    // Taxe sur les conventions d'assurances (TSCA) — article 1001
+    // CGI. Taxe sur primes d'assurance. Main rates: incendie 30%
+    // (general), 24% caisses, 7% agricole, 12% professionnel;
+    // pertes exploitation 33%; automobile 33%; autres 9%;
+    // assurance-vie 3.5%. Source: BOFiP BOI-TCAS-ASSUR-30.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsca', 'prime_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsca', 'category', 'autres')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsca', 'taux_incendie_general_pct_hundredths', '3000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsca', 'taux_incendie_caisses_pct_hundredths', '2400')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsca', 'taux_incendie_agricole_pct_hundredths', '700')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsca', 'taux_incendie_professionnel_pct_hundredths', '1200')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsca', 'taux_pertes_exploitation_pct_hundredths', '3300')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsca', 'taux_automobile_pct_hundredths', '3300')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsca', 'taux_assurance_vie_pct_hundredths', '350')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'tsca', 'taux_autres_pct_hundredths', '900')", []string{y})
     // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
     // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
     // immeubles bâtis only (not terrains à bâtir). Brackets:

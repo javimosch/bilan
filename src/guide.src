@@ -752,6 +752,18 @@ func guide_text(base) (t) {
         "  + forfaitaire_sans_reference <0|1>.\n" +
         "  Source: BOFiP BOI-RFPI-TDC-20.\n" +
         "\n" +
+        "## Taxe sur les conventions d'assurances (TSCA) — art. 1001 CGI\n" +
+        "  Taxe sur primes d'assurance. Incendie 30% (general),\n" +
+        "  24% caisses départementales, 7% agricole, 12%\n" +
+        "  professionnel; pertes d'exploitation 33%; automobile\n" +
+        "  33%; toutes autres assurances 9%; assurance-vie 3.5%.\n" +
+        "  Le radar expose tsca.tax_cents.\n" +
+        "  Set: bilan rule set 2026 tsca prime_cents <val>\n" +
+        "  + category <incendie_general|incendie_caisses_departementales\n" +
+        "  |incendie_agricole|incendie_professionnel|pertes_exploitation\n" +
+        "  |automobile|assurance_vie|autres>.\n" +
+        "  Source: BOFiP BOI-TCAS-ASSUR-30.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

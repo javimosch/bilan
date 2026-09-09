@@ -1422,6 +1422,50 @@ ok "tc forfaitaire 2/3 30000 PV 2000000" 2000000 "$(jq -r .terrains_constructibl
 ok "tc forfaitaire 10% tax 200000" 200000 "$(jq -r .terrains_constructibles.art_1529.tax_cents <<<"$r")"
 rm -f "$TCDB4"
 
+# --- TSCA (art. 1001) — incendie general 30% on 1000 EUR prime ---
+# 1000 EUR = 100000 cents → 30% × 1000 = 300 EUR = 30000 cents
+TSCADB1="$(mktemp -u /tmp/bilan-tsca1-XXXXXX.db)"
+BILAN_DB="$TSCADB1" $BIN rule set 2026 tsca prime_cents 100000 >/dev/null
+BILAN_DB="$TSCADB1" $BIN rule set 2026 tsca category incendie_general >/dev/null
+r=$(BILAN_DB="$TSCADB1" $BIN tax --year 2026)
+ok "tsca incendie general 30% 1000 tax 30000" 30000 "$(jq -r .tsca.tax_cents <<<"$r")"
+rm -f "$TSCADB1"
+
+# --- TSCA (art. 1001) — incendie agricole 7% on 1000 EUR prime ---
+# 7% × 1000 = 70 EUR = 7000 cents
+TSCADB2="$(mktemp -u /tmp/bilan-tsca2-XXXXXX.db)"
+BILAN_DB="$TSCADB2" $BIN rule set 2026 tsca prime_cents 100000 >/dev/null
+BILAN_DB="$TSCADB2" $BIN rule set 2026 tsca category incendie_agricole >/dev/null
+r=$(BILAN_DB="$TSCADB2" $BIN tax --year 2026)
+ok "tsca incendie agricole 7% 1000 tax 7000" 7000 "$(jq -r .tsca.tax_cents <<<"$r")"
+rm -f "$TSCADB2"
+
+# --- TSCA (art. 1001) — automobile 33% on 1000 EUR prime ---
+# 33% × 1000 = 330 EUR = 33000 cents
+TSCADB3="$(mktemp -u /tmp/bilan-tsca3-XXXXXX.db)"
+BILAN_DB="$TSCADB3" $BIN rule set 2026 tsca prime_cents 100000 >/dev/null
+BILAN_DB="$TSCADB3" $BIN rule set 2026 tsca category automobile >/dev/null
+r=$(BILAN_DB="$TSCADB3" $BIN tax --year 2026)
+ok "tsca automobile 33% 1000 tax 33000" 33000 "$(jq -r .tsca.tax_cents <<<"$r")"
+rm -f "$TSCADB3"
+
+# --- TSCA (art. 1001) — autres 9% (default) on 1000 EUR prime ---
+# 9% × 1000 = 90 EUR = 9000 cents
+TSCADB4="$(mktemp -u /tmp/bilan-tsca4-XXXXXX.db)"
+BILAN_DB="$TSCADB4" $BIN rule set 2026 tsca prime_cents 100000 >/dev/null
+r=$(BILAN_DB="$TSCADB4" $BIN tax --year 2026)
+ok "tsca autres default 9% 1000 tax 9000" 9000 "$(jq -r .tsca.tax_cents <<<"$r")"
+rm -f "$TSCADB4"
+
+# --- TSCA (art. 1001) — assurance-vie 3.5% on 10000 EUR prime ---
+# 3.5% × 10000 = 350 EUR = 35000 cents
+TSCADB5="$(mktemp -u /tmp/bilan-tsca5-XXXXXX.db)"
+BILAN_DB="$TSCADB5" $BIN rule set 2026 tsca prime_cents 1000000 >/dev/null
+BILAN_DB="$TSCADB5" $BIN rule set 2026 tsca category assurance_vie >/dev/null
+r=$(BILAN_DB="$TSCADB5" $BIN tax --year 2026)
+ok "tsca assurance_vie 3.5% 10000 tax 35000" 35000 "$(jq -r .tsca.tax_cents <<<"$r")"
+rm -f "$TSCADB5"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents
