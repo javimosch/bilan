@@ -203,7 +203,10 @@ func llms_txt() (t) {
         "    d'impôt borne de recharge VE art. 200 quater C (75%, cap\n" +
         "    500/system, 2025 only) + taxe sur les salaires art. 231\n" +
         "    (4.25/8.5/13.6%, décote art. 1679, abattement associations\n" +
-        "    art. 1679 A 24041);\n" +
+        "    art. 1679 A 24041) + taxe d'apprentissage art. 1599 (0.68%\n" +
+        "    masse salariale, 0.59% principale + 0.09% solde, Alsace-Moselle\n" +
+        "    0.44%, exonération 6×SMIC) + CSA (≥250 salariés <5% alternants,\n" +
+        "    0.05-0.6%);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

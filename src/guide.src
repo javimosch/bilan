@@ -643,6 +643,27 @@ func guide_text(base) (t) {
         "  <val> + abattement_eligible <0|1>. Source: BOFiP\n" +
         "  BOI-RPPM-TXS-10, legisocial.fr.\n" +
         "\n" +
+        "## Taxe d'apprentissage — art. 1599 CGI\n" +
+        "  0.68% de la masse salariale (0.59% part principale + 0.09%\n" +
+        "  solde). Alsace-Moselle taux réduit 0.44% (0.36% + 0.08%).\n" +
+        "  Exonération si base ≤ 6×SMIC annuel (≈ 139000 EUR en 2025).\n" +
+        "  Le radar expose taxe_apprentissage.masse_salariale_cents,\n" +
+        "  taxe_apprentissage.part_principale_cents,\n" +
+        "  taxe_apprentissage.solde_cents, taxe_apprentissage.tax_cents.\n" +
+        "  Set: bilan rule set 2026 taxe_apprentissage\n" +
+        "  masse_salariale_cents <val> + region\n" +
+        "  <metropole|alsace_moselle>. Source: BOFiP BOI-TPA-TA-10,\n" +
+        "  economie.gouv.fr.\n" +
+        "\n" +
+        "## Contribution supplémentaire à l'apprentissage (CSA)\n" +
+        "  Pour entreprises ≥250 salariés avec <5% d'alternants. Taux\n" +
+        "  progressif par ratio d'alternants: <1% → 0.4% (0.6% si\n" +
+        "  ≥2000 salariés), 1-2% → 0.2%, 2-3% → 0.1%, 3-5% → 0.05%,\n" +
+        "  ≥5% → exonéré. Le radar expose taxe_apprentissage.csa.tax_cents.\n" +
+        "  Set: bilan rule set 2026 taxe_apprentissage csa_eligible 1\n" +
+        "  + csa_effectif_moyen <val> + csa_alternants_pct_tenths <val>.\n" +
+        "  Source: BOFiP BOI-TPA-CSA-10, urssaf.fr.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

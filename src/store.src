@@ -682,6 +682,27 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_salaires', 'abattement_cents', '2404100')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_salaires', 'decote_min_cents', '120000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_salaires', 'decote_max_cents', '204000')", []string{y})
+    // Taxe d'apprentissage (art. 1599 CGI). 0.68% of masse salariale
+    // (0.59% part principale + 0.09% solde). Alsace-Moselle reduced rate
+    // 0.44% (0.36% + 0.08%). Exonération if base ≤ 6×SMIC annuel.
+    // SMIC annuel 2025 ≈ 23166 EUR (35h × 11.88 EUR × 12, rounded).
+    // CSA: ≥250 employees, <5% alternants. Progressive rate by ratio.
+    // Source: BOFiP BOI-TPA-TA-10, economie.gouv.fr, urssaf.fr.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_apprentissage', 'masse_salariale_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_apprentissage', 'region', 'metropole')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_apprentissage', 'smic_annuel_cents', '2316600')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_apprentissage', 'rate_principale_pct_hundredths', '59')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_apprentissage', 'rate_solde_pct_hundredths', '9')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_apprentissage', 'rate_principale_alsace_pct_hundredths', '36')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_apprentissage', 'rate_solde_alsace_pct_hundredths', '8')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_apprentissage', 'csa_eligible', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_apprentissage', 'csa_effectif_moyen', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_apprentissage', 'csa_alternants_pct_tenths', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_apprentissage', 'csa_rate_lt_1pct_pct_hundredths', '40')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_apprentissage', 'csa_rate_lt_1pct_2000_pct_hundredths', '60')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_apprentissage', 'csa_rate_1_2pct_pct_hundredths', '20')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_apprentissage', 'csa_rate_2_3pct_pct_hundredths', '10')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_apprentissage', 'csa_rate_3_5pct_pct_hundredths', '5')", []string{y})
     // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
     // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
     // immeubles bâtis only (not terrains à bâtir). Brackets:

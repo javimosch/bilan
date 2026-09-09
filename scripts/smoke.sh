@@ -1057,6 +1057,78 @@ ok "taxe_salaires abattement 24041" 2404100 "$(jq -r .taxe_salaires.abattement_c
 ok "taxe_salaires tax after abattement 0" 0 "$(jq -r .taxe_salaires.tax_cents <<<"$r")"
 rm -f "$TSDB6"
 
+# --- Taxe d'apprentissage (art. 1599) — basic 0.68% ---
+# 200000 EUR masse salariale → 0.59% × 200000 + 0.09% × 200000 = 1180 + 180 = 1360 EUR = 136000 cents
+TADB1="$(mktemp -u /tmp/bilan-ta1-XXXXXX.db)"
+BILAN_DB="$TADB1" $BIN rule set 2026 taxe_apprentissage masse_salariale_cents 20000000 >/dev/null
+r=$(BILAN_DB="$TADB1" $BIN tax --year 2026)
+ok "taxe_apprentissage 200000 tax 1360" 136000 "$(jq -r .taxe_apprentissage.tax_cents <<<"$r")"
+ok "taxe_apprentissage part principale 1180" 118000 "$(jq -r .taxe_apprentissage.part_principale_cents <<<"$r")"
+ok "taxe_apprentissage solde 180" 18000 "$(jq -r .taxe_apprentissage.solde_cents <<<"$r")"
+rm -f "$TADB1"
+
+# --- Taxe d'apprentissage (art. 1599) — exonération 6×SMIC ---
+# 100000 EUR masse salariale ≤ 6×SMIC (139000 EUR) → exonéré, tax 0
+TADB2="$(mktemp -u /tmp/bilan-ta2-XXXXXX.db)"
+BILAN_DB="$TADB2" $BIN rule set 2026 taxe_apprentissage masse_salariale_cents 10000000 >/dev/null
+r=$(BILAN_DB="$TADB2" $BIN tax --year 2026)
+ok "taxe_apprentissage 100000 exoneré" true "$(jq -r .taxe_apprentissage.exonere <<<"$r")"
+ok "taxe_apprentissage 100000 tax 0" 0 "$(jq -r .taxe_apprentissage.tax_cents <<<"$r")"
+rm -f "$TADB2"
+
+# --- Taxe d'apprentissage (art. 1599) — Alsace-Moselle 0.44% ---
+# 200000 EUR masse salariale, Alsace-Moselle → 0.36% × 200000 + 0.08% × 200000 = 720 + 160 = 880 EUR = 88000 cents
+TADB3="$(mktemp -u /tmp/bilan-ta3-XXXXXX.db)"
+BILAN_DB="$TADB3" $BIN rule set 2026 taxe_apprentissage masse_salariale_cents 20000000 >/dev/null
+BILAN_DB="$TADB3" $BIN rule set 2026 taxe_apprentissage region alsace_moselle >/dev/null
+r=$(BILAN_DB="$TADB3" $BIN tax --year 2026)
+ok "taxe_apprentissage alsace 0.44% tax 880" 88000 "$(jq -r .taxe_apprentissage.tax_cents <<<"$r")"
+rm -f "$TADB3"
+
+# --- CSA — <1% alternants, <2000 salariés → 0.4% ---
+# 1000000 EUR masse salariale, 300 salariés, 0.5% alternants → CSA = 0.4% × 1000000 = 4000 EUR = 400000 cents
+TADB4="$(mktemp -u /tmp/bilan-ta4-XXXXXX.db)"
+BILAN_DB="$TADB4" $BIN rule set 2026 taxe_apprentissage masse_salariale_cents 100000000 >/dev/null
+BILAN_DB="$TADB4" $BIN rule set 2026 taxe_apprentissage csa_eligible 1 >/dev/null
+BILAN_DB="$TADB4" $BIN rule set 2026 taxe_apprentissage csa_effectif_moyen 300 >/dev/null
+BILAN_DB="$TADB4" $BIN rule set 2026 taxe_apprentissage csa_alternants_pct_tenths 5 >/dev/null
+r=$(BILAN_DB="$TADB4" $BIN tax --year 2026)
+ok "csa <1% alternants 0.4% tax 400000" 400000 "$(jq -r .taxe_apprentissage.csa.tax_cents <<<"$r")"
+rm -f "$TADB4"
+
+# --- CSA — <1% alternants, ≥2000 salariés → 0.6% ---
+# 1000000 EUR masse salariale, 2500 salariés, 0.5% alternants → CSA = 0.6% × 1000000 = 6000 EUR = 600000 cents
+TADB5="$(mktemp -u /tmp/bilan-ta5-XXXXXX.db)"
+BILAN_DB="$TADB5" $BIN rule set 2026 taxe_apprentissage masse_salariale_cents 100000000 >/dev/null
+BILAN_DB="$TADB5" $BIN rule set 2026 taxe_apprentissage csa_eligible 1 >/dev/null
+BILAN_DB="$TADB5" $BIN rule set 2026 taxe_apprentissage csa_effectif_moyen 2500 >/dev/null
+BILAN_DB="$TADB5" $BIN rule set 2026 taxe_apprentissage csa_alternants_pct_tenths 5 >/dev/null
+r=$(BILAN_DB="$TADB5" $BIN tax --year 2026)
+ok "csa <1% alternants ≥2000 0.6% tax 600000" 600000 "$(jq -r .taxe_apprentissage.csa.tax_cents <<<"$r")"
+rm -f "$TADB5"
+
+# --- CSA — 2-3% alternants → 0.1% ---
+# 1000000 EUR masse salariale, 300 salariés, 2.5% alternants → CSA = 0.1% × 1000000 = 1000 EUR = 100000 cents
+TADB6="$(mktemp -u /tmp/bilan-ta6-XXXXXX.db)"
+BILAN_DB="$TADB6" $BIN rule set 2026 taxe_apprentissage masse_salariale_cents 100000000 >/dev/null
+BILAN_DB="$TADB6" $BIN rule set 2026 taxe_apprentissage csa_eligible 1 >/dev/null
+BILAN_DB="$TADB6" $BIN rule set 2026 taxe_apprentissage csa_effectif_moyen 300 >/dev/null
+BILAN_DB="$TADB6" $BIN rule set 2026 taxe_apprentissage csa_alternants_pct_tenths 25 >/dev/null
+r=$(BILAN_DB="$TADB6" $BIN tax --year 2026)
+ok "csa 2-3% alternants 0.1% tax 100000" 100000 "$(jq -r .taxe_apprentissage.csa.tax_cents <<<"$r")"
+rm -f "$TADB6"
+
+# --- CSA — ≥5% alternants → exonéré (0) ---
+# 1000000 EUR masse salariale, 300 salariés, 5% alternants → CSA = 0
+TADB7="$(mktemp -u /tmp/bilan-ta7-XXXXXX.db)"
+BILAN_DB="$TADB7" $BIN rule set 2026 taxe_apprentissage masse_salariale_cents 100000000 >/dev/null
+BILAN_DB="$TADB7" $BIN rule set 2026 taxe_apprentissage csa_eligible 1 >/dev/null
+BILAN_DB="$TADB7" $BIN rule set 2026 taxe_apprentissage csa_effectif_moyen 300 >/dev/null
+BILAN_DB="$TADB7" $BIN rule set 2026 taxe_apprentissage csa_alternants_pct_tenths 50 >/dev/null
+r=$(BILAN_DB="$TADB7" $BIN tax --year 2026)
+ok "csa ≥5% alternants exoneré 0" 0 "$(jq -r .taxe_apprentissage.csa.tax_cents <<<"$r")"
+rm -f "$TADB7"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents
