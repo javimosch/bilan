@@ -362,6 +362,23 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'tiers_rate_pct_tenths', '600')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'actif_taxable_cents', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'degre_parente', 'ligne_directe')", []string{y})
+    // Assurance-vie succession — article 990 I CGI (primes versées avant 70
+    // ans). Prélèvement per bénéficiaire: abattement fixe 152500 EUR, puis 20%
+    // on fraction ≤ 700000 EUR, 31.25% >. Independent of degree of parenté
+    // (except exonérations: conjoint, PACS, frère-sœur under conditions).
+    // Source: BOFiP BOI-ENR-ASSUR-10.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_vie', 'capital_avant_70_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_vie', 'abattement_990i_cents', '15250000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_vie', 'taux_990i_bracket_1_pct_hundredths', '2000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_vie', 'taux_990i_bracket_1_threshold_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_vie', 'taux_990i_bracket_2_pct_hundredths', '3125')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_vie', 'taux_990i_bracket_2_threshold_cents', '70000000')", []string{y})
+    // Assurance-vie succession — article 757 B CGI (primes versées après 70
+    // ans). Primes enter the succession and follow the DMTG barème (art. 777),
+    // after a global abattement of 30500 EUR (shared among all beneficiaries).
+    // Source: BOFiP BOI-ENR-ASSUR-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_vie', 'primes_apres_70_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_vie', 'abattement_757b_cents', '3050000')", []string{y})
     // FCPI/FIP (art. 199 terdecies-0 A VI CGI). 18% reduction, capped at 12,000
     // EUR single / 24,000 EUR couple. 25% for FIP Corse/Outre-Mer (until 2026).
     // Subject to plafonnement global. Record versements as positive txs in a

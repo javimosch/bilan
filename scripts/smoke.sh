@@ -1046,6 +1046,39 @@ ok "dmtg qu non-deductible 100000" 10000000 "$(jq -r .dmtg.quasi_usufruit_non_de
 ok "dmtg qu tax tiers 60000" 6000000 "$(jq -r .dmtg.quasi_usufruit_tax_cents <<<"$r")"
 rm -f "$DMDB4"
 
+# --- Assurance-vie art. 990 I (primes avant 70 ans) ---
+# 200000 capital, abattement 152500, base 47500, 20% = 9500 EUR = 950000 cents
+AVDB1="$(mktemp -u /tmp/bilan-av1-XXXXXX.db)"
+BILAN_DB="$AVDB1" $BIN rule set 2026 assurance_vie capital_avant_70_cents 20000000 >/dev/null
+r=$(BILAN_DB="$AVDB1" $BIN tax --year 2026)
+ok "av capital 200000" 20000000 "$(jq -r .assurance_vie.capital_avant_70_cents <<<"$r")"
+ok "av abattement 990i 152500" 15250000 "$(jq -r .assurance_vie.abattement_990i_cents <<<"$r")"
+ok "av base 990i 47500" 4750000 "$(jq -r .assurance_vie.base_990i_cents <<<"$r")"
+ok "av tax 990i 9500" 950000 "$(jq -r .assurance_vie.tax_990i_cents <<<"$r")"
+ok "av tax 757b 0 (no primes after 70)" 0 "$(jq -r .assurance_vie.tax_757b_cents <<<"$r")"
+ok "av total 9500" 950000 "$(jq -r .assurance_vie.total_tax_cents <<<"$r")"
+rm -f "$AVDB1"
+# 1000000 capital, abattement 152500, base 847500, 20% on 700000 + 31.25% on 147500
+# = 140000 + 46093.75 = 186093.75 EUR = 18609375 cents
+AVDB2="$(mktemp -u /tmp/bilan-av2-XXXXXX.db)"
+BILAN_DB="$AVDB2" $BIN rule set 2026 assurance_vie capital_avant_70_cents 100000000 >/dev/null
+r=$(BILAN_DB="$AVDB2" $BIN tax --year 2026)
+ok "av base 990i 847500" 84750000 "$(jq -r .assurance_vie.base_990i_cents <<<"$r")"
+ok "av tax 990i 18609375" 18609375 "$(jq -r .assurance_vie.tax_990i_cents <<<"$r")"
+rm -f "$AVDB2"
+# Art. 757 B: 50000 primes after 70, abattement 30500, base 19500, ligne directe
+# DMTG on 19500: 5% 0-8072 + 10% 8072-12098 + 15% 12098-15995 + 20% 15995-19500
+# = 403.6 + 402.6 + 584.55 + 701 = 2091.75 EUR = 209175 cents
+AVDB3="$(mktemp -u /tmp/bilan-av3-XXXXXX.db)"
+BILAN_DB="$AVDB3" $BIN rule set 2026 assurance_vie primes_apres_70_cents 5000000 >/dev/null
+BILAN_DB="$AVDB3" $BIN rule set 2026 dmtg degre_parente ligne_directe >/dev/null
+r=$(BILAN_DB="$AVDB3" $BIN tax --year 2026)
+ok "av primes apres 70 50000" 5000000 "$(jq -r .assurance_vie.primes_apres_70_cents <<<"$r")"
+ok "av abattement 757b 30500" 3050000 "$(jq -r .assurance_vie.abattement_757b_cents <<<"$r")"
+ok "av base 757b 19500" 1950000 "$(jq -r .assurance_vie.base_757b_cents <<<"$r")"
+ok "av tax 757b > 0" 1 "$(if [ "$(jq -r .assurance_vie.tax_757b_cents <<<"$r")" -gt 0 ]; then echo 1; else echo 0; fi)"
+rm -f "$AVDB3"
+
 # --- monuments historiques (art. 156, déduction 100%/50%) ---
 # 10000 charges (negative tx), fermé → 50% deduction = 5000 EUR = 500000 cents
 MHDB1="$(mktemp -u /tmp/bilan-mh1-XXXXXX.db)"

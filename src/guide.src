@@ -448,6 +448,18 @@ func guide_text(base) (t) {
         "  degre_parente <ligne_directe|conjoint|frere_soeur|quatrieme_degre|tiers>.\n" +
         "  New dmtg JSON block. Source: BOFiP BOI-ENR-DMTG-20-30.\n" +
         "\n" +
+        "## Assurance-vie succession — articles 990 I + 757 B CGI\n" +
+        "  Two regimes by date of versement. Art. 990 I (primes versées avant\n" +
+        "  70 ans): prélèvement per bénéficiaire, abattement fixe 152500 EUR,\n" +
+        "  puis 20% on fraction ≤ 700000 EUR, 31.25% >. Independent of degree\n" +
+        "  of parenté (except exonérations: conjoint, PACS, frère-sœur under\n" +
+        "  conditions). Art. 757 B (primes versées après 70 ans): primes enter\n" +
+        "  the succession and follow the DMTG barème (art. 777), after a global\n" +
+        "  abattement of 30500 EUR (shared among all beneficiaries). Set: bilan\n" +
+        "  rule set 2026 assurance_vie capital_avant_70_cents <val> +\n" +
+        "  primes_apres_70_cents <val>. New assurance_vie JSON block. Source:\n" +
+        "  BOFiP BOI-ENR-ASSUR-10/20.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

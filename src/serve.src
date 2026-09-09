@@ -176,7 +176,9 @@ func llms_txt() (t) {
         "    II.2 (reportable sans limite, 10y lookback stock tracking) + PAS taux\n" +
         "    individualisé art. 204 M (LF 2024, conjoint faible + fort) + DMTG art.\n" +
         "    777 (barème by degré, ligne directe/conjoint/frère-sœur/4e degré/tiers,\n" +
-        "    art. 774 bis II quasi-usufruit non-déductible);\n" +
+        "    art. 774 bis II quasi-usufruit non-déductible) + assurance-vie art. 990\n" +
+        "    I (primes avant 70 ans: abattement 152500, 20%/31.25%) + art. 757 B\n" +
+        "    (primes après 70 ans: abattement 30500, barème DMTG);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +
