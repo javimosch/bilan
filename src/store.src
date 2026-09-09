@@ -411,6 +411,12 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'seuil_exoneration_total_artisanat_cents', '9000000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'seuil_exoneration_total_liberal_cents', '35000000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'seuil_exoneration_total_agricole_cents', '35000000')", []string{y})
+    // Upper thresholds for exonération partielle (art. 151 septies II 2°).
+    // Between total and upper, abattement = (upper - recettes) / (upper - total).
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'seuil_exoneration_partielle_commerce_cents', '35000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'seuil_exoneration_partielle_artisanat_cents', '12600000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'seuil_exoneration_partielle_liberal_cents', '12600000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'seuil_exoneration_partielle_agricole_cents', '45000000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pv_pro', 'duree_minimum_years', '5')", []string{y})
     // Plus-values professionnelles — article 151 septies B CGI. Abattement
     // de 10% par année de détention au-delà de la 5ème année, sur biens
@@ -446,6 +452,14 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'conjoint_bracket_7_rate_pct_tenths', '450')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'abattement_789_bis_cents', '50000000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'abattement_789_bis_eligible', '0')", []string{y})
+    // Donation démembrement — article 669 CGI. The donateur transmits
+    // nue-propriété and retains usufruit. The taxable base is the
+    // nue-propriété value, determined by the donateur's age via the
+    // article 669 barème (same as AV démembrement clause bénéficiaire).
+    // At the usufruitier's death, pleine propriété reconstitutes without
+    // additional DMTG (art. 1133 CGI). Source: BOFiP BOI-ENR-DMTG-10-30.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'demembrement_eligible', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg_donation', 'demembrement_donateur_age', '0')", []string{y})
     // Plus-values sur valeurs mobilières — articles 150-0 A et 150-0 D CGI.
     // Art. 150-0 A: gain net = prix cession - prix acquisition - frais.
     // Art. 150-0 D 1 ter: abattement pour durée de détention sur titres de

@@ -1254,6 +1254,42 @@ regular_tax=$(jq -r .dmtg.tax_cents <<<"$r_regular")
 ok "dutreil tax < regular tax" 1 "$(if [ "$dutreil_tax" -lt "$regular_tax" ]; then echo 1; else echo 0; fi)"
 rm -f "$DUTREIL1" "$DUTREIL2"
 
+# --- Donation démembrement art. 669 (donateur 65y → NP 60%) ---
+# 500000 actif, ligne directe, donateur 65y → NP 60% = 300000
+# abattement 100000 → base 200000 → progressive tax
+DDDEM1="$(mktemp -u /tmp/bilan-dddem1-XXXXXX.db)"
+BILAN_DB="$DDDEM1" $BIN rule set 2026 dmtg_donation actif_taxable_cents 50000000 >/dev/null
+BILAN_DB="$DDDEM1" $BIN rule set 2026 dmtg_donation degre_parente ligne_directe >/dev/null
+BILAN_DB="$DDDEM1" $BIN rule set 2026 dmtg_donation demembrement_eligible 1 >/dev/null
+BILAN_DB="$DDDEM1" $BIN rule set 2026 dmtg_donation demembrement_donateur_age 65 >/dev/null
+r=$(BILAN_DB="$DDDEM1" $BIN tax --year 2026)
+ok "dd dem eligible" true "$(jq -r .dmtg_donation_demembrement.eligible <<<"$r")"
+ok "dd dem donateur age 65" 65 "$(jq -r .dmtg_donation_demembrement.donateur_age <<<"$r")"
+ok "dd dem NP pct 60" 60 "$(jq -r .dmtg_donation_demembrement.nue_propriete_pct <<<"$r")"
+ok "dd dem NP value 300000" 30000000 "$(jq -r .dmtg_donation_demembrement.nue_propriete_value_cents <<<"$r")"
+# Tax should be > 0 (base 200000 EUR in progressive brackets)
+ok "dd dem tax > 0" 1 "$(if [ "$(jq -r .dmtg_donation_demembrement.tax_cents <<<"$r")" -gt 0 ]; then echo 1; else echo 0; fi)"
+# Demembrement tax should be < regular donation tax (NP value < full actif)
+dd_dem_tax=$(jq -r .dmtg_donation_demembrement.tax_cents <<<"$r")
+dd_reg_tax=$(jq -r .dmtg_donation.tax_cents <<<"$r")
+ok "dd dem tax < regular donation tax" 1 "$(if [ "$dd_dem_tax" -lt "$dd_reg_tax" ]; then echo 1; else echo 0; fi)"
+rm -f "$DDDEM1"
+
+# --- PV pro exonération partielle art. 151 septies II 2° (commerce 300k) ---
+# Commerce: total 250k, partial 350k. Recettes 300k → abattement = (350k-300k)/(350k-250k) = 50%
+# PV 100000 → exonérée 50000, imposable 50000
+PVPART1="$(mktemp -u /tmp/bilan-pvpart1-XXXXXX.db)"
+BILAN_DB="$PVPART1" $BIN rule set 2026 pv_pro plus_value_cents 10000000 >/dev/null
+BILAN_DB="$PVPART1" $BIN rule set 2026 pv_pro duree_activite_years 6 >/dev/null
+BILAN_DB="$PVPART1" $BIN rule set 2026 pv_pro recettes_cents 30000000 >/dev/null
+BILAN_DB="$PVPART1" $BIN rule set 2026 pv_pro activite_type commerce >/dev/null
+r=$(BILAN_DB="$PVPART1" $BIN tax --year 2026)
+ok "pvp partial exoneration_partielle" true "$(jq -r .pv_pro.exoneration_partielle <<<"$r")"
+ok "pvp partial exoneration pct 50" 50 "$(jq -r .pv_pro.exoneration_pct <<<"$r")"
+ok "pvp partial pv exoneree 50000" 5000000 "$(jq -r .pv_pro.pv_exoneree_cents <<<"$r")"
+ok "pvp partial pv imposable 50000" 5000000 "$(jq -r .pv_pro.pv_imposable_cents <<<"$r")"
+rm -f "$PVPART1"
+
 # --- monuments historiques (art. 156, déduction 100%/50%) ---
 # 10000 charges (negative tx), fermé → 50% deduction = 5000 EUR = 500000 cents
 MHDB1="$(mktemp -u /tmp/bilan-mh1-XXXXXX.db)"

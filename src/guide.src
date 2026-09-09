@@ -526,6 +526,25 @@ func guide_text(base) (t) {
         "  dutreil_donateur_age <val> + dutreil_pleine_propriete 1. New\n" +
         "  dmtg_dutreil JSON block. Source: BOFiP BOI-ENR-DMTG-20-30-50.\n" +
         "\n" +
+        "## Donation démembrement — art. 669 CGI\n" +
+        "  Le donateur transmet la nue-propriété et conserve l'usufruit. La\n" +
+        "  base taxable est la valeur de la nue-propriété, déterminée par le\n" +
+        "  barème art. 669 selon l'âge du donateur (<21: NP 10%, 21-30: 20%,\n" +
+        "  31-40: 30%, 41-50: 40%, 51-60: 50%, 61-70: 60%, 71-80: 70%, 81-90:\n" +
+        "  80%, 91+: 90%). Au décès de l'usufruitier, la pleine propriété se\n" +
+        "  reconstitute sans DMTG supplémentaire (art. 1133). Set: bilan rule\n" +
+        "  set 2026 dmtg_donation demembrement_eligible 1 +\n" +
+        "  demembrement_donateur_age <val>. New dmtg_donation_demembrement\n" +
+        "  JSON block. Source: BOFiP BOI-ENR-DMTG-10-30.\n" +
+        "\n" +
+        "## PV pro exonération partielle — art. 151 septies II 2° CGI\n" +
+        "  Entre le seuil d'exonération totale et le seuil d'exonération\n" +
+        "  partielle, un abattement dégressif s'applique: taux = (seuil_partiel\n" +
+        "  - recettes) / (seuil_partiel - seuil_total). Commerce: 250k-350k.\n" +
+        "  Artisanat/libéral: 90k-126k. Agricole: 350k-450k. Le pv_pro JSON\n" +
+        "  block expose maintenant exoneration_partielle et le taux dégressif.\n" +
+        "  Source: BOFiP BOI-BIC-PVMV-40-10-10-30.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

@@ -188,7 +188,10 @@ func llms_txt() (t) {
         "    + PV valeurs mobilières art. 150-0 A/D (abattement 50/65% non-PME,\n" +
         "    50/75% PME) + DMTG handicap art. 779 II (159325 cumulable) + Pacte\n" +
         "    Dutreil art. 787 B (75% abattement + 50% réduction) + DMTG bracket\n" +
-        "    FIX v0.2.26 (progressive bottom-up, correct thresholds);\n" +
+        "    FIX v0.2.26 (progressive bottom-up, correct thresholds) +\n" +
+        "    donation démembrement art. 669 (nue-propriété by âge donateur) +\n" +
+        "    PV pro exonération partielle art. 151 septies II 2° (degressive\n" +
+        "    abattement between total and partial thresholds);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +
