@@ -998,6 +998,65 @@ ok "cvae CA 1M effective rate 5" 5 "$(jq -r .cvae.effective_rate_pct_hundredths 
 ok "cvae CA 1M cvae 16875" 16875 "$(jq -r .cvae.cvae_cents <<<"$r")"
 rm -f "$CVAEDB3"
 
+# --- Taxe sur les salaires (art. 231) — bracket 1 only ---
+# 5000 EUR salaires → 4.25% × 5000 = 212.50 EUR = 21250 cents
+TSDB1="$(mktemp -u /tmp/bilan-ts1-XXXXXX.db)"
+BILAN_DB="$TSDB1" $BIN rule set 2026 taxe_salaires salaires_bruts_cents 500000 >/dev/null
+r=$(BILAN_DB="$TSDB1" $BIN tax --year 2026)
+ok "taxe_salaires 5000 bracket1 4.25%" 21250 "$(jq -r .taxe_salaires.tax_cents <<<"$r")"
+rm -f "$TSDB1"
+
+# --- Taxe sur les salaires (art. 231) — brackets 1+2 ---
+# 15000 EUR salaires → 4.25% × 9147 + 8.5% × (15000-9147) = 388.75 + 497.50 = 886.24 EUR = 88624 cents
+TSDB2="$(mktemp -u /tmp/bilan-ts2-XXXXXX.db)"
+BILAN_DB="$TSDB2" $BIN rule set 2026 taxe_salaires salaires_bruts_cents 1500000 >/dev/null
+r=$(BILAN_DB="$TSDB2" $BIN tax --year 2026)
+ok "taxe_salaires 15000 brackets 1+2" 88624 "$(jq -r .taxe_salaires.tax_cents <<<"$r")"
+rm -f "$TSDB2"
+
+# --- Taxe sur les salaires (art. 231) — all 3 brackets ---
+# 25000 EUR salaires → 4.25% × 9147 + 8.5% × (18258-9147) + 13.6% × (25000-18258)
+# = 388.74 + 774.43 + 916.91 = 2080.08 EUR = 208008 cents
+TSDB3="$(mktemp -u /tmp/bilan-ts3-XXXXXX.db)"
+BILAN_DB="$TSDB3" $BIN rule set 2026 taxe_salaires salaires_bruts_cents 2500000 >/dev/null
+r=$(BILAN_DB="$TSDB3" $BIN tax --year 2026)
+ok "taxe_salaires 25000 all 3 brackets" 208008 "$(jq -r .taxe_salaires.tax_cents <<<"$r")"
+rm -f "$TSDB3"
+
+# --- Taxe sur les salaires (art. 231) — no décote (tax below 1200 EUR) ---
+# 1500 EUR salaires → 4.25% × 1500 = 63.75 EUR = 6375 cents (below 1200 EUR décote min)
+TSDB4="$(mktemp -u /tmp/bilan-ts4-XXXXXX.db)"
+BILAN_DB="$TSDB4" $BIN rule set 2026 taxe_salaires salaires_bruts_cents 150000 >/dev/null
+r=$(BILAN_DB="$TSDB4" $BIN tax --year 2026)
+ok "taxe_salaires 1500 no decote (below threshold)" 6375 "$(jq -r .taxe_salaires.tax_cents <<<"$r")"
+ok "taxe_salaires 1500 decote 0" 0 "$(jq -r .taxe_salaires.decote_cents <<<"$r")"
+rm -f "$TSDB4"
+
+# --- Taxe sur les salaires (art. 231) — décote triggered ---
+# 20000 EUR salaires → tax = 1400.08 EUR = 140008 cents (between 1200-2040 EUR)
+# décote = 3/4 × (204000 - 140008) = 3/4 × 63992 = 47994 cents
+# tax after décote = 140008 - 47994 = 92014 cents
+TSDB5="$(mktemp -u /tmp/bilan-ts5-XXXXXX.db)"
+BILAN_DB="$TSDB5" $BIN rule set 2026 taxe_salaires salaires_bruts_cents 2000000 >/dev/null
+r=$(BILAN_DB="$TSDB5" $BIN tax --year 2026)
+ok "taxe_salaires decote triggered 47994" 47994 "$(jq -r .taxe_salaires.decote_cents <<<"$r")"
+ok "taxe_salaires tax after decote 92014" 92014 "$(jq -r .taxe_salaires.tax_cents <<<"$r")"
+rm -f "$TSDB5"
+
+# --- Taxe sur les salaires (art. 231) — abattement associations art. 1679 A ---
+# 50000 EUR salaires → tax = 4.25% × 9147 + 8.5% × (18258-9147) + 13.6% × (50000-18258)
+# = 388.75 + 774.44 + 4317.31 = 5480.50 EUR = 548050 cents
+# With abattement 24041 EUR: 5480.50 - 24041 = negative → 0
+TSDB6="$(mktemp -u /tmp/bilan-ts6-XXXXXX.db)"
+BILAN_DB="$TSDB6" $BIN rule set 2026 taxe_salaires salaires_bruts_cents 5000000 >/dev/null
+BILAN_DB="$TSDB6" $BIN rule set 2026 taxe_salaires abattement_eligible 1 >/dev/null
+r=$(BILAN_DB="$TSDB6" $BIN tax --year 2026)
+ok "taxe_salaires abattement eligible true" true "$(jq -r .taxe_salaires.abattement_eligible <<<"$r")"
+ok "taxe_salaires abattement 24041" 2404100 "$(jq -r .taxe_salaires.abattement_cents <<<"$r")"
+# tax before abattement = 548050, abattement 2404100 → negative → 0
+ok "taxe_salaires tax after abattement 0" 0 "$(jq -r .taxe_salaires.tax_cents <<<"$r")"
+rm -f "$TSDB6"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents

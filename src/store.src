@@ -667,6 +667,21 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cvae', 'bracket4_ca_cents', '5000000000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cvae', 'bracket4_rate_pct_hundredths', '75')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cvae', 'reduction_2024_pct_tenths', '250')", []string{y})
+    // Taxe sur les salaires (art. 231 CGI). Progressive tax on employers NOT
+    // subject to TVA (or TVA < 90% of CA). 2025 brackets: 4.25% ≤9147 EUR,
+    // 8.5% 9147-18258 EUR, 13.6% > 18258 EUR. Décote art. 1679: 1200-2040 EUR
+    // → 3/4 × (2040 - tax). Abattement associations art. 1679 A: 24041 EUR.
+    // Source: BOFiP BOI-RPPM-TXS-10, legisocial.fr.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_salaires', 'salaires_bruts_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_salaires', 'bracket1_threshold_cents', '914700')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_salaires', 'bracket2_threshold_cents', '1825800')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_salaires', 'bracket1_rate_pct_hundredths', '425')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_salaires', 'bracket2_rate_pct_hundredths', '850')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_salaires', 'bracket3_rate_pct_hundredths', '1360')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_salaires', 'abattement_eligible', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_salaires', 'abattement_cents', '2404100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_salaires', 'decote_min_cents', '120000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_salaires', 'decote_max_cents', '204000')", []string{y})
     // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
     // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
     // immeubles bâtis only (not terrains à bâtir). Brackets:

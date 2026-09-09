@@ -631,6 +631,18 @@ func guide_text(base) (t) {
         "  reductions.borne_recharge.credit_cents. Source: BOFiP\n" +
         "  BOI-IR-RICI-360.\n" +
         "\n" +
+        "## Taxe sur les salaires — art. 231 CGI\n" +
+        "  Taxe progressive sur les employeurs NON assujettis à la TVA\n" +
+        "  (ou TVA < 90% du CA). Barème 2025: 4.25% ≤9147 EUR, 8.5%\n" +
+        "  9147-18258 EUR, 13.6% >18258 EUR. Décote art. 1679: si taxe\n" +
+        "  1200-2040 EUR, décote = 3/4 × (2040 - taxe). Abattement\n" +
+        "  associations art. 1679 A: 24041 EUR (2025). Le radar expose\n" +
+        "  taxe_salaires.salaires_bruts_cents, taxe_salaires.tax_cents,\n" +
+        "  taxe_salaires.abattement_cents, taxe_salaires.decote_cents.\n" +
+        "  Set: bilan rule set 2026 taxe_salaires salaires_bruts_cents\n" +
+        "  <val> + abattement_eligible <0|1>. Source: BOFiP\n" +
+        "  BOI-RPPM-TXS-10, legisocial.fr.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
