@@ -859,6 +859,50 @@ ok "objets_art 10k tax 600" 60000 "$(jq -r .metaux_precieux.objets_art_tax_cents
 ok "objets_art 10k total 600" 60000 "$(jq -r .metaux_precieux.total_tax_cents <<<"$r")"
 rm -f "$MPDB2"
 
+# --- monuments historiques (art. 156, déduction 100%/50%) ---
+# 10000 charges (negative tx), fermé → 50% deduction = 5000 EUR = 500000 cents
+MHDB1="$(mktemp -u /tmp/bilan-mh1-XXXXXX.db)"
+BILAN_DB="$MHDB1" $BIN stream add mh --kind monument_historique >/dev/null
+BILAN_DB="$MHDB1" $BIN tx add mh 2026-06-30 -10000 >/dev/null
+r=$(BILAN_DB="$MHDB1" $BIN tax --year 2026)
+ok "mh charges 10000" 1000000 "$(jq -r .monuments_historiques.charges_cents <<<"$r")"
+ok "mh fermé taux 50%" 50 "$(jq -r .monuments_historiques.taux_pct <<<"$r")"
+ok "mh fermé deduction 5000" 500000 "$(jq -r .monuments_historiques.deduction_cents <<<"$r")"
+ok "mh fermé ir deduction 5000" 500000 "$(jq -r .ir.mh_deduction_cents <<<"$r")"
+rm -f "$MHDB1"
+# Same charges, ouvert public → 100% deduction = 10000 EUR = 1000000 cents
+MHDB2="$(mktemp -u /tmp/bilan-mh2-XXXXXX.db)"
+BILAN_DB="$MHDB2" $BIN stream add mh --kind monument_historique >/dev/null
+BILAN_DB="$MHDB2" $BIN tx add mh 2026-06-30 -10000 >/dev/null
+BILAN_DB="$MHDB2" $BIN rule set 2026 monuments_historiques ouvert_public 1 >/dev/null
+r=$(BILAN_DB="$MHDB2" $BIN tax --year 2026)
+ok "mh ouvert taux 100%" 100 "$(jq -r .monuments_historiques.taux_pct <<<"$r")"
+ok "mh ouvert deduction 10000" 1000000 "$(jq -r .monuments_historiques.deduction_cents <<<"$r")"
+rm -f "$MHDB2"
+
+# --- démembrement barème (art. 669, usufruit par âge) ---
+# Age 55 → usufruit 50%, nue-propriété 50%
+DEMDB1="$(mktemp -u /tmp/bilan-dem1-XXXXXX.db)"
+BILAN_DB="$DEMDB1" $BIN rule set 2026 demembrement usufruitier_age 55 >/dev/null
+r=$(BILAN_DB="$DEMDB1" $BIN tax --year 2026)
+ok "dem age 55 usufruit 50%" 50 "$(jq -r .demembrement.usufruit_pct <<<"$r")"
+ok "dem age 55 nue-propriete 50%" 50 "$(jq -r .demembrement.nue_propriete_pct <<<"$r")"
+rm -f "$DEMDB1"
+# Age 35 → usufruit 70%, nue-propriété 30%
+DEMDB2="$(mktemp -u /tmp/bilan-dem2-XXXXXX.db)"
+BILAN_DB="$DEMDB2" $BIN rule set 2026 demembrement usufruitier_age 35 >/dev/null
+r=$(BILAN_DB="$DEMDB2" $BIN tax --year 2026)
+ok "dem age 35 usufruit 70%" 70 "$(jq -r .demembrement.usufruit_pct <<<"$r")"
+ok "dem age 35 nue-propriete 30%" 30 "$(jq -r .demembrement.nue_propriete_pct <<<"$r")"
+rm -f "$DEMDB2"
+# Age 75 → usufruit 30%, nue-propriété 70%
+DEMDB3="$(mktemp -u /tmp/bilan-dem3-XXXXXX.db)"
+BILAN_DB="$DEMDB3" $BIN rule set 2026 demembrement usufruitier_age 75 >/dev/null
+r=$(BILAN_DB="$DEMDB3" $BIN tax --year 2026)
+ok "dem age 75 usufruit 30%" 30 "$(jq -r .demembrement.usufruit_pct <<<"$r")"
+ok "dem age 75 nue-propriete 70%" 70 "$(jq -r .demembrement.nue_propriete_pct <<<"$r")"
+rm -f "$DEMDB3"
+
 # --- deficits carried forward (BNC: prior-year loss offsets current-year gross) ---
 DFDB="$(mktemp -u /tmp/bilan-deficit-XXXXXX.db)"
 BILAN_DB="$DFDB" $BIN stream add biz --kind bnc >/dev/null

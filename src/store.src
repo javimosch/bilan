@@ -414,6 +414,29 @@ func seed_rules(db) {
     // mobilières (art. 150 VL). Source: BOFiP BOI-RPPM-PVMC-30.
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'metaux_precieux', 'taux_metaux_pct_tenths', '110')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'metaux_precieux', 'taux_objets_art_pct_tenths', '60')", []string{y})
+    // Monuments historiques (art. 156 I-3° et II-1° ter CGI). Déduction des
+    // charges foncières du revenu global — 100% if open to public, 50%
+    // otherwise. No cap (hors plafonnement global des niches). 15-year
+    // conservation engagement. Record charges in a 'monument_historique'
+    // stream (negative = charges déductibles). Source: BOFiP BOI-IR-BASE-20-40.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'monuments_historiques', 'taux_ouvert_public_pct_tenths', '1000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'monuments_historiques', 'taux_ferme_pct_tenths', '500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'monuments_historiques', 'ouvert_public', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'monuments_historiques', 'conservation_years', '15')", []string{y})
+    // Démembrement — barème de l'usufruit viager (art. 669 CGI). Valeur de
+    // l'usufruit selon l'âge de l'usufruitier au jour de l'acte. La nue-propriété
+    // vaut le complément à 100%. S'applique aux DMTG, droits d'enregistrement,
+    // et IFI. Source: BOFiP BOI-ENR-DMTG-10-20-20-10.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'demembrement', 'age_max_21_usufruit_pct_tenths', '900')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'demembrement', 'age_21_30_usufruit_pct_tenths', '800')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'demembrement', 'age_31_40_usufruit_pct_tenths', '700')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'demembrement', 'age_41_50_usufruit_pct_tenths', '600')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'demembrement', 'age_51_60_usufruit_pct_tenths', '500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'demembrement', 'age_61_70_usufruit_pct_tenths', '400')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'demembrement', 'age_71_80_usufruit_pct_tenths', '300')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'demembrement', 'age_81_90_usufruit_pct_tenths', '200')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'demembrement', 'age_91_plus_usufruit_pct_tenths', '100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'demembrement', 'usufruitier_age', '0')", []string{y})
 }
 
 type Rulevalrow struct { value string }
