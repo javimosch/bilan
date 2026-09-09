@@ -208,7 +208,9 @@ func llms_txt() (t) {
         "    0.44%, exonération 6×SMIC) + CSA (≥250 salariés <5% alternants,\n" +
         "    0.05-0.6%) + CIR art. 244 quater B (30% ≤100M, 5% above, DOM\n" +
         "    50%, JEI refundable) + CII art. 244 quater B bis (20%, 60% DOM,\n" +
-        "    cap 400k PME);\n" +
+        "    cap 400k PME) + plafonnement CET art. 1647 B sexies\n" +
+        "    (CFE+CVAE > 1.438% VA → dégrèvement, floor CFE\n" +
+        "    minimum);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

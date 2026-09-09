@@ -1179,6 +1179,44 @@ r=$(BILAN_DB="$CIRDB6" $BIN tax --year 2026)
 ok "cii 100k DOM 60% credit 60000" 6000000 "$(jq -r .cir.cii.credit_cents <<<"$r")"
 rm -f "$CIRDB6"
 
+# --- Plafonnement CET (art. 1647 B sexies) — no plafonnement (CET < plafond) ---
+# CFE 13680 cents (CA 30000 EUR) + CVAE 0 = 13680 cents CET.
+# VA 1000000 EUR = 100000000 cents → plafond = 1.438% × 1000000 = 14380 EUR = 1438000 cents
+# CET 13680 < plafond 1438000 → no dégrèvement
+CETDB1="$(mktemp -u /tmp/bilan-cet1-XXXXXX.db)"
+BILAN_DB="$CETDB1" $BIN stream add biz --kind bic >/dev/null
+BILAN_DB="$CETDB1" $BIN tx add biz 2026-06-30 30000 >/dev/null
+BILAN_DB="$CETDB1" $BIN rule set 2026 cet_plafonnement valeur_ajoutee_cents 100000000 >/dev/null
+r=$(BILAN_DB="$CETDB1" $BIN tax --year 2026)
+ok "cet plafonnement no degrevement (CET < plafond)" 0 "$(jq -r .cet_plafonnement.degrevement_cents <<<"$r")"
+rm -f "$CETDB1"
+
+# --- Plafonnement CET (art. 1647 B sexies) — dégrèvement triggered ---
+# CFE 13680 cents + CVAE 0 = 13680 cents CET.
+# VA 1000 EUR = 100000 cents → plafond = 1.438% × 1000 = 14.38 EUR = 1438 cents
+# CET 13680 > plafond 1438 → dégrèvement = 13680 - 1438 = 12242 cents
+CETDB2="$(mktemp -u /tmp/bilan-cet2-XXXXXX.db)"
+BILAN_DB="$CETDB2" $BIN stream add biz --kind bic >/dev/null
+BILAN_DB="$CETDB2" $BIN tx add biz 2026-06-30 30000 >/dev/null
+BILAN_DB="$CETDB2" $BIN rule set 2026 cet_plafonnement valeur_ajoutee_cents 100000 >/dev/null
+r=$(BILAN_DB="$CETDB2" $BIN tax --year 2026)
+ok "cet plafonnement degrevement 12242" 12242 "$(jq -r .cet_plafonnement.degrevement_cents <<<"$r")"
+ok "cet plafonnement cet after 1438" 1438 "$(jq -r .cet_plafonnement.cet_after_degrevement_cents <<<"$r")"
+rm -f "$CETDB2"
+
+# --- Plafonnement CET (art. 1647 B sexies) — floor CFE minimum ---
+# CFE 13680 + CVAE 0 = 13680 cents CET. VA 1000 → plafond 1438. dégrèvement = 12242
+# But CFE minimum = 5000 cents → dégrèvement capped at 13680 - 5000 = 8680 cents
+CETDB3="$(mktemp -u /tmp/bilan-cet3-XXXXXX.db)"
+BILAN_DB="$CETDB3" $BIN stream add biz --kind bic >/dev/null
+BILAN_DB="$CETDB3" $BIN tx add biz 2026-06-30 30000 >/dev/null
+BILAN_DB="$CETDB3" $BIN rule set 2026 cet_plafonnement valeur_ajoutee_cents 100000 >/dev/null
+BILAN_DB="$CETDB3" $BIN rule set 2026 cet_plafonnement cfe_minimum_cents 5000 >/dev/null
+r=$(BILAN_DB="$CETDB3" $BIN tax --year 2026)
+ok "cet plafonnement floor CFE min degrevement 8680" 8680 "$(jq -r .cet_plafonnement.degrevement_cents <<<"$r")"
+ok "cet plafonnement floor cet after 5000" 5000 "$(jq -r .cet_plafonnement.cet_after_degrevement_cents <<<"$r")"
+rm -f "$CETDB3"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents

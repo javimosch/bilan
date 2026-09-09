@@ -679,6 +679,18 @@ func guide_text(base) (t) {
         "  Set: bilan rule set 2026 cir cii_depenses_cents <val>\n" +
         "  + cii_dom_eligible <0|1>. Source: BOFiP BOI-BIC-RICI-10-15-20.\n" +
         "\n" +
+        "## Plafonnement de la CET — art. 1647 B sexies CGI\n" +
+        "  Si CFE + CVAE > taux × valeur ajoutée, dégrèvement =\n" +
+        "  CET - plafond. Taux 1.438% (2025), 1.531% (2026/2027).\n" +
+        "  Floor: CET après dégrèvement ≥ cotisation minimum CFE\n" +
+        "  (art. 1647 D). Le radar expose cet_plafonnement.cet_cents,\n" +
+        "  cet_plafonnement.plafond_cents,\n" +
+        "  cet_plafonnement.degrevement_cents,\n" +
+        "  cet_plafonnement.cet_after_degrevement_cents.\n" +
+        "  Set: bilan rule set 2026 cet_plafonnement\n" +
+        "  valeur_ajoutee_cents <val> + cfe_minimum_cents <val>.\n" +
+        "  Source: BOFiP BOI-IF-CFE-40-30-20-30.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
