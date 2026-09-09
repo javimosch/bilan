@@ -721,6 +721,21 @@ func guide_text(base) (t) {
         "  masse_salariale_cents <val>.\n" +
         "  Source: BOFiP, urssaf.fr.\n" +
         "\n" +
+        "## Fnal — art. L 314-12 CSS\n" +
+        "  Fonds national d'aide au logement.\n" +
+        "  <50 salariés: 0.10% sur rémunérations\n" +
+        "  limitées au PASS (48060 EUR 2026).\n" +
+        "  ≥50 salariés: 0.50% sur totalité des\n" +
+        "  rémunérations (Fnal supplémentaire, sans\n" +
+        "  plafond). Seuil franchissement: maintien\n" +
+        "  0.10% 5 premières années, passage 0.50%\n" +
+        "  à la 6e.\n" +
+        "  Le radar expose fnal.tax_cents.\n" +
+        "  Set: bilan rule set 2026 fnal\n" +
+        "  effectif_moyen <val> +\n" +
+        "  remunerations_cents <val>.\n" +
+        "  Source: BOFiP, urssaf.fr.\n" +
+        "\n" +
         "## Plafonnement de la CET — art. 1647 B sexies CGI\n" +
         "  Si CFE + CVAE > taux × valeur ajoutée, dégrèvement =\n" +
         "  CET - plafond. Taux 1.438% (2025), 1.531% (2026/2027).\n" +

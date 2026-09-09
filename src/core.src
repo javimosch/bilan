@@ -5,7 +5,7 @@
 
 // Bumped per release; the released binary reports it via `bilan version`. Keep in
 // lockstep with the git tag.
-func version_str() (v) { v = "0.2.56" }
+func version_str() (v) { v = "0.2.57" }
 
 // esc — JSON-escape a string for hand-built JSON output (stdout is the agent contract).
 func esc(s) (o) {

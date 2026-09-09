@@ -1780,6 +1780,28 @@ r=$(BILAN_DB="$DSDB2" $BIN tax --year 2026)
 ok "ds 0 masse tax 0" 0 "$(jq -r .dialogue_social.tax_cents <<<"$r")"
 rm -f "$DSDB2"
 
+# --- Fnal (art. L 314-12 CSS) — 30 salariés, 100000 EUR, capped at PASS 4806000, 0.10% = 4806 ---
+FNALDB1="$(mktemp -u /tmp/bilan-fnal1-XXXXXX.db)"
+BILAN_DB="$FNALDB1" $BIN rule set 2026 fnal effectif_moyen 30 >/dev/null
+BILAN_DB="$FNALDB1" $BIN rule set 2026 fnal remunerations_cents 10000000 >/dev/null
+r=$(BILAN_DB="$FNALDB1" $BIN tax --year 2026)
+ok "fnal 30 salariés 100k EUR capped PASS tax 4806" 4806 "$(jq -r .fnal.tax_cents <<<"$r")"
+rm -f "$FNALDB1"
+
+# --- Fnal (art. L 314-12 CSS) — 100 salariés, 100000 EUR, 0.50% totalité = 50000 ---
+FNALDB2="$(mktemp -u /tmp/bilan-fnal2-XXXXXX.db)"
+BILAN_DB="$FNALDB2" $BIN rule set 2026 fnal effectif_moyen 100 >/dev/null
+BILAN_DB="$FNALDB2" $BIN rule set 2026 fnal remunerations_cents 10000000 >/dev/null
+r=$(BILAN_DB="$FNALDB2" $BIN tax --year 2026)
+ok "fnal 100 salariés 100k EUR total tax 50000" 50000 "$(jq -r .fnal.tax_cents <<<"$r")"
+rm -f "$FNALDB2"
+
+# --- Fnal (art. L 314-12 CSS) — 0 rémunérations, tax 0 ---
+FNALDB3="$(mktemp -u /tmp/bilan-fnal3-XXXXXX.db)"
+r=$(BILAN_DB="$FNALDB3" $BIN tax --year 2026)
+ok "fnal 0 remunerations tax 0" 0 "$(jq -r .fnal.tax_cents <<<"$r")"
+rm -f "$FNALDB3"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents

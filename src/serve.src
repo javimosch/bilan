@@ -215,6 +215,9 @@ func llms_txt() (t) {
         "    salariés, 2% si non investi) +\n" +
         "    dialogue social art. L 2135-15-1\n" +
         "    (0.016% masse salariale) +\n" +
+        "    Fnal art. L 314-12 CSS\n" +
+        "    (0.10% <50 salariés sur PASS,\n" +
+        "    0.50% ≥50 salariés totalité) +\n" +
         "    plafonnement CET art. 1647 B sexies\n" +
         "    (CFE+CVAE > 1.438% VA → dégrèvement, floor CFE\n" +
         "    minimum) + TSB art. 231 ter (bureaux IDF 4\n" +
