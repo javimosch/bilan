@@ -318,6 +318,50 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'demembrement_temporaire', 'duree_years', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'demembrement_temporaire', 'bien_valeur_cents', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'demembrement_temporaire', 'usufruitier_age', '0')", []string{y})
+    // PAS taux individualisé — article 204 M CGI (LF 2024, applicable 1er
+    // septembre 2025). For couples mariés/PACS soumis à imposition commune, the
+    // taux individualisé becomes the default (instead of taux du foyer). The
+    // conjoint with the lowest revenus personnels gets taux1 = IR1 / (rev_perso1
+    // + ½ rev_communs), where IR1 is computed on rev_perso1 + ½ rev_communs
+    // with ½ parts. The other conjoint gets taux2 = (IR_foyer - IR1 - IR_communs)
+    // / rev_perso2. Source: BOFiP BOI-IR-PAS-20-20-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas_individualise', 'conjoint1_revenu_perso_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas_individualise', 'conjoint2_revenu_perso_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas_individualise', 'revenus_communs_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pas_individualise', 'parts_foyer', '2')", []string{y})
+    // DMTG — droits de mutation à titre gratuit (art. 777 CGI). Barème by
+    // degree of parenté. Ligne directe: 5/10/15/20/30/40/45%. Conjoint/PACS:
+    // exonération totale (successions depuis 22/08/2007). Frères-sœurs: 35%
+    // < 24430, 45% >. 4e degré: 55%. Tiers: 60%. Abattements: ligne directe
+    // 100000, conjoint 80000, frère-sœur 15932, handicap 15932, tiers 1594.
+    // Source: BOFiP BOI-ENR-DMTG-20-30.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'ligne_directe_abattement_cents', '10000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'ligne_directe_bracket_1_threshold_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'ligne_directe_bracket_1_rate_pct_tenths', '50')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'ligne_directe_bracket_2_threshold_cents', '807200')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'ligne_directe_bracket_2_rate_pct_tenths', '100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'ligne_directe_bracket_3_threshold_cents', '1209800')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'ligne_directe_bracket_3_rate_pct_tenths', '150')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'ligne_directe_bracket_4_threshold_cents', '1599500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'ligne_directe_bracket_4_rate_pct_tenths', '200')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'ligne_directe_bracket_5_threshold_cents', '3000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'ligne_directe_bracket_5_rate_pct_tenths', '300')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'ligne_directe_bracket_6_threshold_cents', '5525000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'ligne_directe_bracket_6_rate_pct_tenths', '400')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'ligne_directe_bracket_7_threshold_cents', '9028000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'ligne_directe_bracket_7_rate_pct_tenths', '450')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'conjoint_abattement_cents', '8000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'conjoint_rate_pct_tenths', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'frere_soeur_abattement_cents', '1593200')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'frere_soeur_bracket_1_threshold_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'frere_soeur_bracket_1_rate_pct_tenths', '350')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'frere_soeur_bracket_2_threshold_cents', '2443000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'frere_soeur_bracket_2_rate_pct_tenths', '450')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'quatrieme_degre_rate_pct_tenths', '550')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'tiers_abattement_cents', '159400')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'tiers_rate_pct_tenths', '600')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'actif_taxable_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dmtg', 'degre_parente', 'ligne_directe')", []string{y})
     // FCPI/FIP (art. 199 terdecies-0 A VI CGI). 18% reduction, capped at 12,000
     // EUR single / 24,000 EUR couple. 25% for FIP Corse/Outre-Mer (until 2026).
     // Subject to plafonnement global. Record versements as positive txs in a

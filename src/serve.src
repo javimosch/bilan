@@ -173,7 +173,10 @@ func llms_txt() (t) {
         "    quasi-usufruit art. 774 bis (déductibilité créance de restitution, LF 2024)\n" +
         "    + démembrement temporaire art. 669 II (23%/10y plafonné viager) + art.\n" +
         "    13-5 1° (cession = revenu catégoriel) + LMNP ARD carry-forward art. 39 C\n" +
-        "    II.2 (reportable sans limite, 10y lookback stock tracking);\n" +
+        "    II.2 (reportable sans limite, 10y lookback stock tracking) + PAS taux\n" +
+        "    individualisé art. 204 M (LF 2024, conjoint faible + fort) + DMTG art.\n" +
+        "    777 (barème by degré, ligne directe/conjoint/frère-sœur/4e degré/tiers,\n" +
+        "    art. 774 bis II quasi-usufruit non-déductible);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

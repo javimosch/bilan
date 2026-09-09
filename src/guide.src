@@ -426,6 +426,28 @@ func guide_text(base) (t) {
         "  lmnp_amortissement fields: ard_stock_prior_cents, ard_consumed_cents,\n" +
         "  ard_stock_after_cents. Source: BOFiP BOI-BIC-AMT-20-40-10.\n" +
         "\n" +
+        "## PAS taux individualisé — article 204 M CGI (LF 2024)\n" +
+        "  For couples mariés/PACS soumis à imposition commune, the taux\n" +
+        "  individualisé becomes the default (instead of taux du foyer) from 1er\n" +
+        "  septembre 2025. The conjoint with the lowest revenus personnels gets\n" +
+        "  taux1 = IR1 / (rev_perso1 + ½ rev_communs), where IR1 is computed on\n" +
+        "  rev_perso1 + ½ rev_communs with ½ parts. The other conjoint gets taux2\n" +
+        "  = (IR_foyer - IR1 - IR_communs) / rev_perso2. Set: bilan rule set 2026\n" +
+        "  pas_individualise conjoint1_revenu_perso_cents <val> +\n" +
+        "  conjoint2_revenu_perso_cents <val> + revenus_communs_cents <val>. New\n" +
+        "  pas_individualise JSON block. Source: BOFiP BOI-IR-PAS-20-20-20.\n" +
+        "\n" +
+        "## DMTG — droits de mutation à titre gratuit (art. 777 CGI)\n" +
+        "  Barème by degree of parenté. Ligne directe: 5/10/15/20/30/40/45%\n" +
+        "  after 100000 EUR abattement. Conjoint/PACS: exonération totale\n" +
+        "  (successions depuis 22/08/2007). Frères-sœurs: 35% < 24430, 45% >\n" +
+        "  after 15932 EUR abattement. 4e degré: 55%. Tiers: 60% after 1594 EUR\n" +
+        "  abattement. Art. 774 bis II: DMTG on non-deductible quasi-usufruit\n" +
+        "  créance, calculated by degree of parenté between nu-propriétaire and\n" +
+        "  usufruitier. Set: bilan rule set 2026 dmtg actif_taxable_cents <val> +\n" +
+        "  degre_parente <ligne_directe|conjoint|frere_soeur|quatrieme_degre|tiers>.\n" +
+        "  New dmtg JSON block. Source: BOFiP BOI-ENR-DMTG-20-30.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
@@ -463,9 +485,9 @@ func guide_text(base) (t) {
         "  revenu catégoriel).\n" +
         "  It does NOT model: deficits beyond their windows, the full BOFiP PAS\n" +
         "  taux personnalisé formula (radar uses grille neutre + simplified\n" +
-        "  personalized), or barème économique DCF for démembrement temporaire\n" +
-        "  (radar uses fiscal 669 II). Output is an estimate to reason from, not\n" +
-        "  tax advice — say so to the human.\n" +
+        "  personalized + taux individualisé art. 204 M), or barème économique\n" +
+        "  DCF for démembrement temporaire (radar uses fiscal 669 II). Output is an\n" +
+        "  estimate to reason from, not tax advice — say so to the human.\n" +
         "\n" +
         "## Brian — the cheap copilote (no inference in the platform)\n" +
         "  Brian is a PERSONA, not a service: install it into the harness your human\n" +

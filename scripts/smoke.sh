@@ -985,6 +985,67 @@ ok "dt 30y capped at viager 30%" 30 "$(jq -r .demembrement_temporaire.usufruit_p
 ok "dt 30y usufruit valeur 30000" 3000000 "$(jq -r .demembrement_temporaire.usufruit_valeur_cents <<<"$r")"
 rm -f "$DTDB2"
 
+# --- PAS taux individualisé art. 204 M (conjoint faible + fort) ---
+# C1=20000, C2=60000, communs=10000, parts=2
+# Low = C1 (20000). Low base = 20000 + 5000 = 25000, ½ parts = 1
+# Foyer base = 90000, parts=2, quotient=45000
+# Low taux = IR(25000) / 25000; High taux = (IR(90000,2p) - IR(25000) - IR_communs) / 60000
+PIDB1="$(mktemp -u /tmp/bilan-pi1-XXXXXX.db)"
+BILAN_DB="$PIDB1" $BIN rule set 2026 pas_individualise conjoint1_revenu_perso_cents 2000000 >/dev/null
+BILAN_DB="$PIDB1" $BIN rule set 2026 pas_individualise conjoint2_revenu_perso_cents 6000000 >/dev/null
+BILAN_DB="$PIDB1" $BIN rule set 2026 pas_individualise revenus_communs_cents 1000000 >/dev/null
+r=$(BILAN_DB="$PIDB1" $BIN tax --year 2026)
+ok "pi c1 rev 20000" 2000000 "$(jq -r .pas_individualise.conjoint1_revenu_perso_cents <<<"$r")"
+ok "pi c2 rev 60000" 6000000 "$(jq -r .pas_individualise.conjoint2_revenu_perso_cents <<<"$r")"
+ok "pi communs 10000" 1000000 "$(jq -r .pas_individualise.revenus_communs_cents <<<"$r")"
+# C1 is the low conjoint (20000 < 60000), so c1_taux = low_taux
+# Low base = 25000 EUR = 2500000 cents, 1 part, quotient = 2500000
+# IR = (2500000 - 1149700) * 11% = 1350300 * 0.11 = 148533 cents
+# Taux = 148533 * 1000 / 2500000 = 59 tenths
+ok "pi c1 (low) taux 59" 59 "$(jq -r .pas_individualise.conjoint1_taux_tenths <<<"$r")"
+rm -f "$PIDB1"
+
+# --- DMTG art. 777 (ligne directe, 200000 actif, 100000 abattement) ---
+# Base = 100000. Brackets: 5% 0-8072, 10% 8072-12098, 15% 12098-15995,
+# 20% 15995-30000, 30% 30000-55250, 40% 55250-90280, 45% >90280
+# Tax = 5%*8072 + 10%*4026 + 15%*3897 + 20%*14005 + 30%*25250 + 40%*35030 + 45%*9720
+# = 403.6 + 402.6 + 584.55 + 2801 + 7575 + 14012 + 4374 = 30152.75 EUR
+DMDB1="$(mktemp -u /tmp/bilan-dm1-XXXXXX.db)"
+BILAN_DB="$DMDB1" $BIN rule set 2026 dmtg actif_taxable_cents 20000000 >/dev/null
+BILAN_DB="$DMDB1" $BIN rule set 2026 dmtg degre_parente ligne_directe >/dev/null
+r=$(BILAN_DB="$DMDB1" $BIN tax --year 2026)
+ok "dmtg actif 200000" 20000000 "$(jq -r .dmtg.actif_taxable_cents <<<"$r")"
+ok "dmtg abattement 100000" 10000000 "$(jq -r .dmtg.abattement_cents <<<"$r")"
+ok "dmtg degre ligne_directe" "ligne_directe" "$(jq -r .dmtg.degre_parente <<<"$r")"
+# Tax should be > 0 (base 100000 EUR in progressive brackets)
+ok "dmtg tax > 0" 1 "$(if [ "$(jq -r .dmtg.tax_cents <<<"$r")" -gt 0 ]; then echo 1; else echo 0; fi)"
+rm -f "$DMDB1"
+# DMTG tiers: 200000 actif, 1594 abattement, 60% flat
+# Base = 198406, tax = 198406 * 0.60 = 119043.60 EUR = 11904360 cents
+DMDB2="$(mktemp -u /tmp/bilan-dm2-XXXXXX.db)"
+BILAN_DB="$DMDB2" $BIN rule set 2026 dmtg actif_taxable_cents 20000000 >/dev/null
+BILAN_DB="$DMDB2" $BIN rule set 2026 dmtg degre_parente tiers >/dev/null
+r=$(BILAN_DB="$DMDB2" $BIN tax --year 2026)
+ok "dmtg tiers abattement 1594" 159400 "$(jq -r .dmtg.abattement_cents <<<"$r")"
+ok "dmtg tiers tax 11904360" 11904360 "$(jq -r .dmtg.tax_cents <<<"$r")"
+rm -f "$DMDB2"
+# DMTG conjoint: exonération totale
+DMDB3="$(mktemp -u /tmp/bilan-dm3-XXXXXX.db)"
+BILAN_DB="$DMDB3" $BIN rule set 2026 dmtg actif_taxable_cents 20000000 >/dev/null
+BILAN_DB="$DMDB3" $BIN rule set 2026 dmtg degre_parente conjoint >/dev/null
+r=$(BILAN_DB="$DMDB3" $BIN tax --year 2026)
+ok "dmtg conjoint tax 0 (exonéré)" 0 "$(jq -r .dmtg.tax_cents <<<"$r")"
+rm -f "$DMDB3"
+# DMTG on non-deductible quasi-usufruit créance (art. 774 bis II)
+# 100000 créance, no exception → non-deductible, tiers → 60% on 100000 = 60000
+DMDB4="$(mktemp -u /tmp/bilan-dm4-XXXXXX.db)"
+BILAN_DB="$DMDB4" $BIN rule set 2026 quasi_usufruit creance_restitution_cents 10000000 >/dev/null
+BILAN_DB="$DMDB4" $BIN rule set 2026 dmtg degre_parente tiers >/dev/null
+r=$(BILAN_DB="$DMDB4" $BIN tax --year 2026)
+ok "dmtg qu non-deductible 100000" 10000000 "$(jq -r .dmtg.quasi_usufruit_non_deductible_cents <<<"$r")"
+ok "dmtg qu tax tiers 60000" 6000000 "$(jq -r .dmtg.quasi_usufruit_tax_cents <<<"$r")"
+rm -f "$DMDB4"
+
 # --- monuments historiques (art. 156, déduction 100%/50%) ---
 # 10000 charges (negative tx), fermé → 50% deduction = 5000 EUR = 500000 cents
 MHDB1="$(mktemp -u /tmp/bilan-mh1-XXXXXX.db)"

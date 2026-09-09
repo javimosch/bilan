@@ -808,6 +808,100 @@ func tax_json(db, year) (out, code, err) {
         qu_deductible = 0
         qu_note = "non-déductible (art. 774 bis I — quasi-usufruit de sommes)"
     }
+    // DMTG — droits de mutation à titre gratuit (art. 777 CGI). Barème by
+    // degree of parenté. The radar computes DMTG on the actif taxable (after
+    // abattement) for the configured degré. For the non-deductible quasi-usufruit
+    // créance (art. 774 bis II), DMTG is calculated by degree of parenté between
+    // nu-propriétaire and usufruitier. Source: BOFiP BOI-ENR-DMTG-20-30.
+    dmtg_actif := rule_int(db, year, "dmtg", "actif_taxable_cents", 0)
+    dmtg_degre := rule_str(db, year, "dmtg", "degre_parente", "ligne_directe")
+    dmtg_abattement := 0
+    dmtg_tax := 0
+    if dmtg_degre == "ligne_directe" {
+        dmtg_abattement = rule_int(db, year, "dmtg", "ligne_directe_abattement_cents", 10000000)
+        dmtg_base := dmtg_actif - dmtg_abattement
+        if dmtg_base < 0 { dmtg_base = 0 }
+        // Progressive brackets: 5/10/15/20/30/40/45%
+        dmtg_tax = 0
+        bi := 7
+        prev_thresh := 0
+        for bi >= 1 {
+            thresh := rule_int(db, year, "dmtg", "ligne_directe_bracket_" + str(bi) + "_threshold_cents", 0)
+            rate := rule_int(db, year, "dmtg", "ligne_directe_bracket_" + str(bi) + "_rate_pct_tenths", 0)
+            hi := dmtg_base
+            if hi > thresh { hi = thresh }
+            if hi > prev_thresh { dmtg_tax = dmtg_tax + (hi - prev_thresh) * rate / 1000 }
+            prev_thresh = thresh
+            if dmtg_base <= thresh { bi = 0 } else { bi = bi - 1 }
+        }
+    } else if dmtg_degre == "conjoint" {
+        dmtg_abattement = rule_int(db, year, "dmtg", "conjoint_abattement_cents", 8000000)
+        // Conjoint: exonération totale (successions depuis 22/08/2007)
+        dmtg_tax = 0
+    } else if dmtg_degre == "frere_soeur" {
+        dmtg_abattement = rule_int(db, year, "dmtg", "frere_soeur_abattement_cents", 1593200)
+        dmtg_base := dmtg_actif - dmtg_abattement
+        if dmtg_base < 0 { dmtg_base = 0 }
+        // 35% < 24430, 45% >
+        t1 := rule_int(db, year, "dmtg", "frere_soeur_bracket_1_threshold_cents", 0)
+        r1 := rule_int(db, year, "dmtg", "frere_soeur_bracket_1_rate_pct_tenths", 350)
+        t2 := rule_int(db, year, "dmtg", "frere_soeur_bracket_2_threshold_cents", 2443000)
+        r2 := rule_int(db, year, "dmtg", "frere_soeur_bracket_2_rate_pct_tenths", 450)
+        hi := dmtg_base
+        if hi > t2 { hi = t2 }
+        if hi > t1 { dmtg_tax = dmtg_tax + (hi - t1) * r1 / 1000 }
+        if dmtg_base > t2 { dmtg_tax = dmtg_tax + (dmtg_base - t2) * r2 / 1000 }
+    } else if dmtg_degre == "quatrieme_degre" {
+        dmtg_abattement = rule_int(db, year, "dmtg", "frere_soeur_abattement_cents", 1593200)
+        dmtg_base := dmtg_actif - dmtg_abattement
+        if dmtg_base < 0 { dmtg_base = 0 }
+        rate := rule_int(db, year, "dmtg", "quatrieme_degre_rate_pct_tenths", 550)
+        dmtg_tax = dmtg_base * rate / 1000
+    } else if dmtg_degre == "tiers" {
+        dmtg_abattement = rule_int(db, year, "dmtg", "tiers_abattement_cents", 159400)
+        dmtg_base := dmtg_actif - dmtg_abattement
+        if dmtg_base < 0 { dmtg_base = 0 }
+        rate := rule_int(db, year, "dmtg", "tiers_rate_pct_tenths", 600)
+        dmtg_tax = dmtg_base * rate / 1000
+    }
+    // DMTG on non-deductible quasi-usufruit créance (art. 774 bis II)
+    dmtg_qu_non_deductible := qu_creance - qu_deductible
+    dmtg_qu_tax := 0
+    if dmtg_qu_non_deductible > 0 {
+        // Use the same degré/barème as the main DMTG
+        dmtg_qu_base := dmtg_qu_non_deductible
+        if dmtg_degre == "ligne_directe" {
+            dmtg_qu_tax = 0
+            bi := 7
+            prev_thresh := 0
+            for bi >= 1 {
+                thresh := rule_int(db, year, "dmtg", "ligne_directe_bracket_" + str(bi) + "_threshold_cents", 0)
+                rate := rule_int(db, year, "dmtg", "ligne_directe_bracket_" + str(bi) + "_rate_pct_tenths", 0)
+                hi := dmtg_qu_base
+                if hi > thresh { hi = thresh }
+                if hi > prev_thresh { dmtg_qu_tax = dmtg_qu_tax + (hi - prev_thresh) * rate / 1000 }
+                prev_thresh = thresh
+                if dmtg_qu_base <= thresh { bi = 0 } else { bi = bi - 1 }
+            }
+        } else if dmtg_degre == "conjoint" {
+            dmtg_qu_tax = 0
+        } else if dmtg_degre == "frere_soeur" {
+            t1 := rule_int(db, year, "dmtg", "frere_soeur_bracket_1_threshold_cents", 0)
+            r1 := rule_int(db, year, "dmtg", "frere_soeur_bracket_1_rate_pct_tenths", 350)
+            t2 := rule_int(db, year, "dmtg", "frere_soeur_bracket_2_threshold_cents", 2443000)
+            r2 := rule_int(db, year, "dmtg", "frere_soeur_bracket_2_rate_pct_tenths", 450)
+            hi := dmtg_qu_base
+            if hi > t2 { hi = t2 }
+            if hi > t1 { dmtg_qu_tax = dmtg_qu_tax + (hi - t1) * r1 / 1000 }
+            if dmtg_qu_base > t2 { dmtg_qu_tax = dmtg_qu_tax + (dmtg_qu_base - t2) * r2 / 1000 }
+        } else if dmtg_degre == "quatrieme_degre" {
+            rate := rule_int(db, year, "dmtg", "quatrieme_degre_rate_pct_tenths", 550)
+            dmtg_qu_tax = dmtg_qu_base * rate / 1000
+        } else if dmtg_degre == "tiers" {
+            rate := rule_int(db, year, "dmtg", "tiers_rate_pct_tenths", 600)
+            dmtg_qu_tax = dmtg_qu_base * rate / 1000
+        }
+    }
     // Démembrement temporaire — article 669 II CGI: usufruit temporaire = 23%
     // per 10-year period, capped at the viager value for the same usufruitier
     // age. Article 13-5 1° CGI: the cession price of a temporary usufruit on
@@ -1407,6 +1501,60 @@ func tax_json(db, year) (out, code, err) {
         pas_personnalise_tenths = ir_cents * 1000 / ir_base
     }
     pas_personnalise_monthly := net_salary * pas_personnalise_tenths / 12000
+    // PAS taux individualisé — article 204 M CGI (LF 2024, applicable 1er
+    // septembre 2025). For couples mariés/PACS soumis à imposition commune, the
+    // taux individualisé becomes the default. The conjoint with the lowest
+    // revenus personnels gets taux1 = IR1 / (rev_perso1 + ½ rev_communs), where
+    // IR1 is computed on rev_perso1 + ½ rev_communs with ½ parts. The other
+    // conjoint gets taux2 = (IR_foyer - IR1 - IR_communs) / rev_perso2.
+    // Source: BOFiP BOI-IR-PAS-20-20-20.
+    pi_c1_rev := rule_int(db, year, "pas_individualise", "conjoint1_revenu_perso_cents", 0)
+    pi_c2_rev := rule_int(db, year, "pas_individualise", "conjoint2_revenu_perso_cents", 0)
+    pi_communs := rule_int(db, year, "pas_individualise", "revenus_communs_cents", 0)
+    pi_parts := rule_int(db, year, "pas_individualise", "parts_foyer", 2)
+    // Determine which conjoint has the lowest revenus personnels
+    pi_c1_is_low := 1
+    if pi_c2_rev < pi_c1_rev { pi_c1_is_low = 0 }
+    pi_low_rev := pi_c1_rev
+    pi_high_rev := pi_c2_rev
+    if pi_c1_is_low == 0 { pi_low_rev = pi_c2_rev  pi_high_rev = pi_c1_rev }
+    // IR on low conjoint's base (rev_perso_low + ½ communs) with ½ parts
+    pi_low_base := pi_low_rev + pi_communs / 2
+    pi_half_parts := pi_parts / 2
+    if pi_half_parts < 1 { pi_half_parts = 1 }
+    pi_low_quotient := pi_low_base / pi_half_parts
+    pi_low_ir := 0
+    pi_low_marginal := 0
+    if pi_low_base > 0 {
+        pi_low_ir, pi_low_marginal = bareme_on_quotient(db, year, pi_low_quotient)
+        pi_low_ir = pi_low_ir * pi_half_parts
+    }
+    // Taux individualisé for low conjoint
+    pi_low_taux_tenths := 0
+    if pi_low_base > 0 { pi_low_taux_tenths = pi_low_ir * 1000 / pi_low_base }
+    // IR on communs (at foyer rate = IR_foyer / foyer_base)
+    pi_foyer_base := pi_c1_rev + pi_c2_rev + pi_communs
+    pi_foyer_quotient := pi_foyer_base / pi_parts
+    pi_foyer_ir := 0
+    pi_foyer_marginal := 0
+    if pi_foyer_base > 0 {
+        pi_foyer_ir, pi_foyer_marginal = bareme_on_quotient(db, year, pi_foyer_quotient)
+        pi_foyer_ir = pi_foyer_ir * pi_parts
+    }
+    pi_communs_ir := 0
+    if pi_foyer_base > 0 { pi_communs_ir = pi_foyer_ir * pi_communs / pi_foyer_base }
+    // Taux individualisé for high conjoint
+    // taux2 = (IR_foyer - IR_low - IR_communs) / rev_perso_high
+    pi_high_taux_tenths := 0
+    if pi_high_rev > 0 {
+        pi_high_ir := pi_foyer_ir - pi_low_ir - pi_communs_ir
+        if pi_high_ir < 0 { pi_high_ir = 0 }
+        pi_high_taux_tenths = pi_high_ir * 1000 / pi_high_rev
+    }
+    // Assign back to c1/c2
+    pi_c1_taux_tenths := pi_low_taux_tenths
+    pi_c2_taux_tenths := pi_high_taux_tenths
+    if pi_c1_is_low == 0 { pi_c1_taux_tenths = pi_high_taux_tenths  pi_c2_taux_tenths = pi_low_taux_tenths }
     out = "{\"ok\":true,\"year\":" + year
     out = out + ",\"rates\":{\"pfu_pct\":" + pct_str(rate_pfu) + ",\"micro_bnc_abattement_pct\":" + pct_str(rate_ded_bnc) + ",\"micro_bnc_social_pct\":" + pct_str(rate_soc_bnc) + ",\"micro_bic_abattement_pct\":" + pct_str(rate_ded_bic) + ",\"micro_bic_social_pct\":" + pct_str(rate_soc_bic) + ",\"micro_foncier_abattement_pct\":" + pct_str(rate_ded_fon) + ",\"micro_foncier_social_pct\":" + pct_str(rate_soc_fon) + "}"
     out = out + ",\"regimes\":{"
@@ -1435,6 +1583,8 @@ func tax_json(db, year) (out, code, err) {
     out = out + ",\"demembrement\":{\"usufruitier_age\":" + str(dem_age) + ",\"usufruit_pct\":" + pct_str(dem_usufruit_pct) + ",\"nue_propriete_pct\":" + pct_str(dem_nue_propriete_pct) + ",\"note\":\"art. 669 CGI — barème de l'usufruit viager selon l'âge de l'usufruitier; nue-propriété = complément à 100%; s'applique aux DMTG, droits d'enregistrement, IFI; set age: bilan rule set 2026 demembrement usufruitier_age <years>\"}"
     out = out + ",\"quasi_usufruit\":{\"creance_restitution_cents\":" + str(qu_creance) + ",\"creance_restitution_eur\":\"" + fmt_cents(qu_creance) + "\",\"exception_cession_non_fiscal\":" + json(qu_exc_cession == 1) + ",\"exception_usufruit_legal_conjoint\":" + json(qu_exc_conjoint == 1) + ",\"deductible_cents\":" + str(qu_deductible) + ",\"deductible_eur\":\"" + fmt_cents(qu_deductible) + "\",\"note\":\"" + esc(qu_note) + " — art. 774 bis CGI (LF 2024); set: bilan rule set 2026 quasi_usufruit creance_restitution_cents <val> + exception flags\"}"
     out = out + ",\"demembrement_temporaire\":{\"duree_years\":" + str(dt_duree) + ",\"bien_valeur_cents\":" + str(dt_bien_valeur) + ",\"bien_valeur_eur\":\"" + fmt_cents(dt_bien_valeur) + "\",\"usufruitier_age\":" + str(dt_age) + ",\"taux_par_periode_pct\":" + pct_str(dt_taux_periode) + ",\"periode_years\":" + str(dt_periode) + ",\"viager_cap_pct\":" + pct_str(dt_viager_pct) + ",\"usufruit_pct\":" + pct_str(dt_temporaire_pct) + ",\"usufruit_valeur_cents\":" + str(dt_usufruit_valeur) + ",\"usufruit_valeur_eur\":\"" + fmt_cents(dt_usufruit_valeur) + "\",\"nue_propriete_pct\":" + pct_str(dt_nue_propriete_pct) + ",\"nue_propriete_valeur_cents\":" + str(dt_nue_propriete_valeur) + ",\"note\":\"art. 669 II CGI — usufruit temporaire 23%/10y plafonné au viager (art. 669 I); art. 13-5 1°: cession prix = revenu catégoriel (non PV); set: bilan rule set 2026 demembrement_temporaire duree_years <val> + bien_valeur_cents <val> + usufruitier_age <val>\"}"
+    out = out + ",\"pas_individualise\":{\"conjoint1_revenu_perso_cents\":" + str(pi_c1_rev) + ",\"conjoint2_revenu_perso_cents\":" + str(pi_c2_rev) + ",\"revenus_communs_cents\":" + str(pi_communs) + ",\"parts_foyer\":" + str(pi_parts) + ",\"conjoint1_taux_tenths\":" + str(pi_c1_taux_tenths) + ",\"conjoint2_taux_tenths\":" + str(pi_c2_taux_tenths) + ",\"conjoint1_taux_pct\":" + pct_str(pi_c1_taux_tenths) + ",\"conjoint2_taux_pct\":" + pct_str(pi_c2_taux_tenths) + ",\"foyer_ir_cents\":" + str(pi_foyer_ir) + ",\"low_conjoint_ir_cents\":" + str(pi_low_ir) + ",\"communs_ir_cents\":" + str(pi_communs_ir) + ",\"note\":\"art. 204 M CGI (LF 2024, applicable 1er sept 2025) — taux individualisé default for couples mariés/PACS; conjoint faible = IR sur (rev_perso + ½ communs) avec ½ parts; conjoint fort = (IR_foyer - IR_faible - IR_communs) / rev_perso_fort; set: bilan rule set 2026 pas_individualise conjoint1_revenu_perso_cents <val> + conjoint2_revenu_perso_cents <val> + revenus_communs_cents <val>\"}"
+    out = out + ",\"dmtg\":{\"actif_taxable_cents\":" + str(dmtg_actif) + ",\"actif_taxable_eur\":\"" + fmt_cents(dmtg_actif) + "\",\"degre_parente\":\"" + dmtg_degre + "\",\"abattement_cents\":" + str(dmtg_abattement) + ",\"abattement_eur\":\"" + fmt_cents(dmtg_abattement) + "\",\"tax_cents\":" + str(dmtg_tax) + ",\"tax_eur\":\"" + fmt_cents(dmtg_tax) + "\",\"quasi_usufruit_non_deductible_cents\":" + str(dmtg_qu_non_deductible) + ",\"quasi_usufruit_tax_cents\":" + str(dmtg_qu_tax) + ",\"quasi_usufruit_tax_eur\":\"" + fmt_cents(dmtg_qu_tax) + "\",\"note\":\"art. 777 CGI — barème DMTG by degré (ligne directe 5-45%, conjoint exonéré, frère-sœur 35/45%, 4e degré 55%, tiers 60%); art. 774 bis II: DMTG sur créance non-déductible; set: bilan rule set 2026 dmtg actif_taxable_cents <val> + degre_parente <ligne_directe|conjoint|frere_soeur|quatrieme_degre|tiers>\"}"
     out = out + ",\"totals\":{\"ir_cents\":" + str(ir_after_credit) + ",\"ir_eur\":\"" + fmt_cents(ir_after_credit) + "\",\"flat_tax_cents\":" + str(cap_tax+div_tax) + ",\"flat_tax_eur\":\"" + fmt_cents(cap_tax+div_tax) + "\",\"social_cents\":" + str(soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel) + ",\"social_eur\":\"" + fmt_cents(soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel) + "\",\"tva_cents\":" + str(tva_a_payer) + ",\"tva_eur\":\"" + fmt_cents(tva_a_payer) + "\",\"pv_immo_cents\":" + str(pv_immo_total) + ",\"pv_immo_eur\":\"" + fmt_cents(pv_immo_total) + "\",\"ifi_cents\":" + str(ifi_cents) + ",\"ifi_eur\":\"" + fmt_cents(ifi_cents) + "\",\"cfe_cents\":" + str(cfe_cents) + ",\"cfe_eur\":\"" + fmt_cents(cfe_cents) + "\",\"cvae_cents\":" + str(cvae_cents) + ",\"cvae_eur\":\"" + fmt_cents(cvae_cents) + "\",\"pvm_cents\":" + str(pvm_total_tax) + ",\"pvm_eur\":\"" + fmt_cents(pvm_total_tax) + "\",\"pv_immo_surtaxe_cents\":" + str(pv_surtaxe_cents) + ",\"pv_immo_surtaxe_eur\":\"" + fmt_cents(pv_surtaxe_cents) + "\",\"metaux_precieux_cents\":" + str(mp_effective_total) + ",\"metaux_precieux_eur\":\"" + fmt_cents(mp_effective_total) + "\",\"total_tax_cents\":" + str(ir_after_credit+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel+tva_a_payer+pv_immo_total+pv_surtaxe_cents+ifi_cents+cfe_cents+cvae_cents+mp_effective_total) + ",\"total_tax_eur\":\"" + fmt_cents(ir_after_credit+cap_tax+div_tax+soc_bnc+soc_bic+soc_fon+soc_lmnp+soc_lmnp_reel+tva_a_payer+pv_immo_total+pv_surtaxe_cents+ifi_cents+cfe_cents+cvae_cents+mp_effective_total) + "\"}"
     out = out + ",\"notes\":[\"estimates on the seeded rate card (2025 barème on 2024 income) — override with bilan rule set\",\"IR = progressive barème + plafonnement QF (situation-aware: default 1791/demi-part, parent_isole 4262 total, veuf 1807/demi-part+2011, personne_seule_invalide 3608) + décote; 10% frais per salary stream; BNC/BIC/LMNP deficits 6y; foncier deficit 10700 EUR on global + 10y on foncier (micro + réel)\",\"pension alimentaire (art. 156 II.2°): deductible from revenu global, cap 6794 EUR/child (2024 income)\",\"dons reduction (art. 200 CGI): 75% to 1000 EUR, 66% to 20% of revenu imposable — reduces IR\",\"pinel/denormandie reduction (art. 199 novovicies): 12/18/21% by engagement, cap 300000 EUR, spread over years — reduces IR\",\"malraux reduction (art. 199 tervicies): 30% PSMV / 22% PVAP, cap 400000 EUR, hors plafonnement niches — reduces IR\",\"censi-bouvard reduction (art. 199 sexvicies): 11% LMNP résidences de services, cap 300000 EUR, spread over 9y — reduces IR\",\"scolarité reduction (art. 199 quater F): forfait 61 collège / 153 lycée / 183 supérieur per child — reduces IR\",\"ir-pme reduction (art. 199 terdecies-0 A): 18% PME, cap 50000 single / 100000 couple — reduces IR (plafonnement niches NOT modeled)\",\"emploi à domicile (art. 199 sexdecies): 50% crédit, cap 12000 EUR — refundable (crédit, not réduction)\",\"frais de garde (art. 200 quater B): 50% crédit, cap 3500 EUR/child — refundable (crédit, not réduction)\",\"TVA franchise (art. 293 B): services 36800 / vente 91900 EUR — informational\",\"TVA régime simplifié (art. 302 septies A): services 254000 / vente 840000 EUR, TVA due < 15000 EUR\",\"TVA collectée/déductible (art. 271): TVA à payer = collectée - déductible (négatif = crédit reportable/remboursable)\",\"PAS taux neutre + personnalisé (art. 204 H): monthly estimate for provisioning — v1 simplification of the BOFiP formula\",\"régime réel foncier (art. 29-31): net = loyer - charges (intérêts d'emprunt, travaux), no abattement — combined with micro-foncier\",\"LMNP micro-BIC meublé (art. 50): 50% abattement, threshold 77700 EUR\",\"LMNP régime réel (art. 39): net = loyer - charges - amortissement, no abattement, deficit carry 6y\",\"micro-BNC/BIC/foncier cannot legally generate deficits (forfaitaire) — deficit carry-forward is a régime-réel feature applied to the micro base as a v1 simplification\",\"crypto exemption per form 2086: net gains under the threshold are not declarable\"]}"
     code = 0
