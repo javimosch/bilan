@@ -221,7 +221,8 @@ func llms_txt() (t) {
         "    PV, 5%/10% ratio) + TSCA art. 1001\n" +
         "    (assurances incendie 30%, auto 33%, autres 9%)\n" +
         "    + TTAP solidarité art. L. 422-20 (billets avion\n" +
-        "    120-1200 EUR/passager);\n" +
+        "    120-1200 EUR/passager) + IFER art. 1599\n" +
+        "    quater B (telecom 24.21 EUR/ligne);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

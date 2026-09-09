@@ -775,6 +775,17 @@ func guide_text(base) (t) {
         "  + distance <courte|moyenne|longue> + fret_tonnes_cents <val>.\n" +
         "  Source: BOFiP, ecologie.gouv.fr.\n" +
         "\n" +
+        "## IFER — art. 1599 quater B CGI\n" +
+        "  Imposition forfaitaire sur les entreprises de réseaux.\n" +
+        "  Tarif par ligne en service au 1er janvier. 3 composantes:\n" +
+        "  répartiteurs cuivre, points de mutualisation fibre, nœuds\n" +
+        "  raccordement coaxial. 2025 tarif 24.21 EUR/ligne (Arcep).\n" +
+        "  Revalorisation annuelle + majoration garantie 400M EUR.\n" +
+        "  Le radar expose ifer.tax_cents.\n" +
+        "  Set: bilan rule set 2026 ifer lignes_en_service <val>\n" +
+        "  + tarif_ligne_cents <val>.\n" +
+        "  Source: BOFiP BOI-TFP-IFER-90.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

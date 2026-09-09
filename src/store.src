@@ -847,6 +847,14 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ttap_solidarite', 'longue_autre_cents', '6000')", []string{y})
     // Fret
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ttap_solidarite', 'fret_tarif_cents', '5000')", []string{y})
+    // Imposition forfaitaire sur les entreprises de réseaux (IFER)
+    // — article 1599 quater B CGI. Per-line tariff on lignes en
+    // service au 1er janvier. 3 composantes: répartiteurs cuivre,
+    // points de mutualisation fibre, nœuds raccordement coaxial.
+    // 2025 tarif: 24.21 EUR/ligne (Arcep). Source: BOFiP
+    // BOI-TFP-IFER-90.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer', 'lignes_en_service', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer', 'tarif_ligne_cents', '2421')", []string{y})
     // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
     // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
     // immeubles bâtis only (not terrains à bâtir). Brackets:

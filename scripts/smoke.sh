@@ -1503,6 +1503,23 @@ ok "ttap 10t fret 50EUR tax 50000" 50000 "$(jq -r .ttap_solidarite.fret_tax_cent
 ok "ttap total 3650000" 3650000 "$(jq -r .ttap_solidarite.total_cents <<<"$r")"
 rm -f "$TTAPDB3"
 
+# --- IFER (art. 1599 quater B) — 1000 lignes × 24.21 EUR = 24210 EUR ---
+# 1000 × 2421 cents = 2421000 cents = 24210 EUR
+IFERDB1="$(mktemp -u /tmp/bilan-ifer1-XXXXXX.db)"
+BILAN_DB="$IFERDB1" $BIN rule set 2026 ifer lignes_en_service 1000 >/dev/null
+r=$(BILAN_DB="$IFERDB1" $BIN tax --year 2026)
+ok "ifer 1000 lignes 24.21EUR tax 2421000" 2421000 "$(jq -r .ifer.tax_cents <<<"$r")"
+rm -f "$IFERDB1"
+
+# --- IFER (art. 1599 quater B) — custom tarif 30 EUR, 500 lignes ---
+# 500 × 3000 cents = 1500000 cents = 15000 EUR
+IFERDB2="$(mktemp -u /tmp/bilan-ifer2-XXXXXX.db)"
+BILAN_DB="$IFERDB2" $BIN rule set 2026 ifer lignes_en_service 500 >/dev/null
+BILAN_DB="$IFERDB2" $BIN rule set 2026 ifer tarif_ligne_cents 3000 >/dev/null
+r=$(BILAN_DB="$IFERDB2" $BIN tax --year 2026)
+ok "ifer 500 lignes custom 30EUR tax 1500000" 1500000 "$(jq -r .ifer.tax_cents <<<"$r")"
+rm -f "$IFERDB2"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents
