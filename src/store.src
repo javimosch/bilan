@@ -864,6 +864,18 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'contribution_sociale_is', 'taux_pct_hundredths', '330')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'contribution_sociale_is', 'abattement_cents', '76300000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'contribution_sociale_is', 'seuil_ca_cents', '763000000')", []string{y})
+    // Contribution exceptionnelle sur les bénéfices des grandes
+    // entreprises — article 235 ter ZAA CGI (loi 2025-127 art. 48).
+    // Seuil CA >1 milliard EUR. Taux 20.6% si CA <3 milliards,
+    // 41.2% si CA >=3 milliards. Assiette = moyenne IS dû exercice
+    // courant + exercice précédent. Source: BOFiP BOI-IS-AUT-60.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'contribution_exceptionnelle', 'is_exercice_courant_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'contribution_exceptionnelle', 'is_exercice_precedent_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'contribution_exceptionnelle', 'chiffre_affaires_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'contribution_exceptionnelle', 'seuil_ca_cents', '100000000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'contribution_exceptionnelle', 'seuil_ca_haut_cents', '300000000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'contribution_exceptionnelle', 'taux_bas_pct_hundredths', '2060')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'contribution_exceptionnelle', 'taux_haut_pct_hundredths', '4120')", []string{y})
     // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
     // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
     // immeubles bâtis only (not terrains à bâtir). Brackets:

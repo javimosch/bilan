@@ -224,7 +224,10 @@ func llms_txt() (t) {
         "    120-1200 EUR/passager) + IFER art. 1599\n" +
         "    quater B (telecom 24.21 EUR/ligne)\n" +
         "    + contribution sociale IS art. 235 ter ZC\n" +
-        "    (3.3% IS - abattement 763k);\n" +
+        "    (3.3% IS - abattement 763k)\n" +
+        "    + contribution exceptionnelle art.\n" +
+        "    235 ter ZAA (20.6%/41.2% grandes\n" +
+        "    entreprises CA >1Mds);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

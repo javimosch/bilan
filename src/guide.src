@@ -794,6 +794,18 @@ func guide_text(base) (t) {
         "  is_cents <val> + chiffre_affaires_cents <val>.\n" +
         "  Source: BOFiP BOI-IS-AUT-10-30.\n" +
         "\n" +
+        "## Contribution exceptionnelle — art. 235 ter ZAA CGI\n" +
+        "  Contribution exceptionnelle sur bénéfices grandes\n" +
+        "  entreprises (loi 2025-127 art. 48). Seuil CA >1Mds\n" +
+        "  EUR. Taux 20.6% si CA <3Mds, 41.2% si CA >=3Mds.\n" +
+        "  Assiette = moyenne IS dû exercice courant + précédent.\n" +
+        "  Le radar expose contribution_exceptionnelle.tax_cents.\n" +
+        "  Set: bilan rule set 2026 contribution_exceptionnelle\n" +
+        "  is_exercice_courant_cents <val>\n" +
+        "  + is_exercice_precedent_cents <val>\n" +
+        "  + chiffre_affaires_cents <val>.\n" +
+        "  Source: BOFiP BOI-IS-AUT-60.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

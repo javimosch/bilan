@@ -1541,6 +1541,40 @@ ok "csis CA 5M not eligible false" false "$(jq -r .contribution_sociale_is.eligi
 ok "csis not eligible tax 0" 0 "$(jq -r .contribution_sociale_is.tax_cents <<<"$r")"
 rm -f "$CSISDB2"
 
+# --- Contribution exceptionnelle (art. 235 ter ZAA) — CA 2Mds, IS 10M + 8M ---
+# base = (1000000 + 800000) / 2 = 900000 EUR = 90000000 cents
+# taux 20.6% (CA <3Mds) → tax = 90000000 × 2060 / 10000 = 18540000 cents = 185400 EUR
+CEDB1="$(mktemp -u /tmp/bilan-ce1-XXXXXX.db)"
+BILAN_DB="$CEDB1" $BIN rule set 2026 contribution_exceptionnelle is_exercice_courant_cents 100000000 >/dev/null
+BILAN_DB="$CEDB1" $BIN rule set 2026 contribution_exceptionnelle is_exercice_precedent_cents 80000000 >/dev/null
+BILAN_DB="$CEDB1" $BIN rule set 2026 contribution_exceptionnelle chiffre_affaires_cents 200000000000 >/dev/null
+r=$(BILAN_DB="$CEDB1" $BIN tax --year 2026)
+ok "ce CA 2Mds eligible true" true "$(jq -r .contribution_exceptionnelle.eligible <<<"$r")"
+ok "ce base 90000000 (avg 10M+8M)" 90000000 "$(jq -r .contribution_exceptionnelle.base_cents <<<"$r")"
+ok "ce 20.6% tax 18540000" 18540000 "$(jq -r .contribution_exceptionnelle.tax_cents <<<"$r")"
+rm -f "$CEDB1"
+
+# --- Contribution exceptionnelle (art. 235 ter ZAA) — CA 5Mds, taux haut 41.2% ---
+# base = (1000000 + 800000) / 2 = 900000 EUR = 90000000 cents
+# taux 41.2% (CA >=3Mds) → tax = 90000000 × 4120 / 10000 = 37080000 cents = 370800 EUR
+CEDB2="$(mktemp -u /tmp/bilan-ce2-XXXXXX.db)"
+BILAN_DB="$CEDB2" $BIN rule set 2026 contribution_exceptionnelle is_exercice_courant_cents 100000000 >/dev/null
+BILAN_DB="$CEDB2" $BIN rule set 2026 contribution_exceptionnelle is_exercice_precedent_cents 80000000 >/dev/null
+BILAN_DB="$CEDB2" $BIN rule set 2026 contribution_exceptionnelle chiffre_affaires_cents 500000000000 >/dev/null
+r=$(BILAN_DB="$CEDB2" $BIN tax --year 2026)
+ok "ce CA 5Mds taux 4120" 4120 "$(jq -r .contribution_exceptionnelle.taux_pct_hundredths <<<"$r")"
+ok "ce 41.2% tax 37080000" 37080000 "$(jq -r .contribution_exceptionnelle.tax_cents <<<"$r")"
+rm -f "$CEDB2"
+
+# --- Contribution exceptionnelle (art. 235 ter ZAA) — CA 500M, not eligible ---
+CEDB3="$(mktemp -u /tmp/bilan-ce3-XXXXXX.db)"
+BILAN_DB="$CEDB3" $BIN rule set 2026 contribution_exceptionnelle is_exercice_courant_cents 100000000 >/dev/null
+BILAN_DB="$CEDB3" $BIN rule set 2026 contribution_exceptionnelle chiffre_affaires_cents 50000000000 >/dev/null
+r=$(BILAN_DB="$CEDB3" $BIN tax --year 2026)
+ok "ce CA 500M not eligible false" false "$(jq -r .contribution_exceptionnelle.eligible <<<"$r")"
+ok "ce not eligible tax 0" 0 "$(jq -r .contribution_exceptionnelle.tax_cents <<<"$r")"
+rm -f "$CEDB3"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents
