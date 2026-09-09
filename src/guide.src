@@ -807,6 +807,19 @@ func guide_text(base) (t) {
         "  salaires_cdd_cents <val>.\n" +
         "  Source: BOFiP, code.travail.gouv.fr.\n" +
         "\n" +
+        "## CASA retraite — art. L 14-10-4 1° bis CASF / art. L 137-40 CSS\n" +
+        "  Contribution additionnelle de solidarité\n" +
+        "  pour l'autonomie. 0.30% sur pensions de\n" +
+        "  retraite, invalidité, préretraite (brut).\n" +
+        "  Cotisation personnelle (pas employeur).\n" +
+        "  Exonérations: Aspa, Asi, RFR sous seuils,\n" +
+        "  majoration tierce personne, rentes Perco.\n" +
+        "  Distinct de csa_solidarite (employeur).\n" +
+        "  Le radar expose casa_retraite.tax_cents.\n" +
+        "  Set: bilan rule set 2026 casa_retraite\n" +
+        "  pensions_brutes_cents <val>.\n" +
+        "  Source: BOFiP, service-public.gouv.fr.\n" +
+        "\n" +
         "## Plafonnement de la CET — art. 1647 B sexies CGI\n" +
         "  Si CFE + CVAE > taux × valeur ajoutée, dégrèvement =\n" +
         "  CET - plafond. Taux 1.438% (2025), 1.531% (2026/2027).\n" +

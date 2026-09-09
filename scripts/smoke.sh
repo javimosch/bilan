@@ -1890,6 +1890,19 @@ r=$(BILAN_DB="$CPFCDDDB2" $BIN tax --year 2026)
 ok "cpfcdd 0 CDD tax 0" 0 "$(jq -r .cpf_cdd.tax_cents <<<"$r")"
 rm -f "$CPFCDDDB2"
 
+# --- CASA retraite (art. L 137-40 CSS) — 30000 EUR pensions, 0.30% = 9000 ---
+CASARDB1="$(mktemp -u /tmp/bilan-casar1-XXXXXX.db)"
+BILAN_DB="$CASARDB1" $BIN rule set 2026 casa_retraite pensions_brutes_cents 3000000 >/dev/null
+r=$(BILAN_DB="$CASARDB1" $BIN tax --year 2026)
+ok "casar 30k EUR pensions 0.30% tax 9000" 9000 "$(jq -r .casa_retraite.tax_cents <<<"$r")"
+rm -f "$CASARDB1"
+
+# --- CASA retraite (art. L 137-40 CSS) — 0 pensions, tax 0 ---
+CASARDB2="$(mktemp -u /tmp/bilan-casar2-XXXXXX.db)"
+r=$(BILAN_DB="$CASARDB2" $BIN tax --year 2026)
+ok "casar 0 pensions tax 0" 0 "$(jq -r .casa_retraite.tax_cents <<<"$r")"
+rm -f "$CASARDB2"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents

@@ -230,6 +230,8 @@ func llms_txt() (t) {
         "    (0.55% <11, 1% ≥11 salariés) +\n" +
         "    CPF-CDD art. L 6331-6\n" +
         "    (1% salaires CDD) +\n" +
+        "    CASA retraite art. L 137-40 CSS\n" +
+        "    (0.30% pensions retraite/invalidité) +\n" +
         "    plafonnement CET art. 1647 B sexies\n" +
         "    (CFE+CVAE > 1.438% VA → dégrèvement, floor CFE\n" +
         "    minimum) + TSB art. 231 ter (bureaux IDF 4\n" +

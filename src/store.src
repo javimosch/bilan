@@ -786,6 +786,11 @@ func seed_rules(db) {
     // Source: BOFiP, code.travail.gouv.fr.
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cpf_cdd', 'salaires_cdd_cents', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cpf_cdd', 'taux_pct_hundredths', '100')", []string{y})
+    // CASA retraite — article L 14-10-4 1° bis CASF /
+    // article L 137-40 CSS. 0.30% sur pensions.
+    // Source: BOFiP, service-public.gouv.fr.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'casa_retraite', 'pensions_brutes_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'casa_retraite', 'taux_pct_hundredths', '30')", []string{y})
     // Plafonnement de la CET — article 1647 B sexies CGI. If CFE + CVAE
     // > taux × VA, dégrèvement = CET - plafond. Floor: CET après
     // dégrèvement ≥ cotisation minimum CFE (art. 1647 D). Taux 1.438%
