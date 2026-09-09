@@ -221,6 +221,9 @@ func llms_txt() (t) {
         "    AGS art. L 3253-6 C trav\n" +
         "    (0.25% salaires base chômage,\n" +
         "    plafond 4 PASS mensuels) +\n" +
+        "    assurance chômage art. L 5424-1\n" +
+        "    (4.00% plafond 4 PMSS,\n" +
+        "    bonus-malus 6 secteurs) +\n" +
         "    plafonnement CET art. 1647 B sexies\n" +
         "    (CFE+CVAE > 1.438% VA → dégrèvement, floor CFE\n" +
         "    minimum) + TSB art. 231 ter (bureaux IDF 4\n" +

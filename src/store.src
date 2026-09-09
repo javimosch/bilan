@@ -762,6 +762,12 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ags', 'salaires_base_cents', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ags', 'taux_pct_hundredths', '25')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ags', 'plafond_mensuel_cents', '1602000')", []string{y})
+    // Contribution assurance chômage — article L 5424-1
+    // code du travail. Cotisation patronale 4.00%,
+    // plafond 4 PMSS. Source: Unédic, BOFiP, urssaf.fr.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_chomage', 'salaires_base_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_chomage', 'taux_pct_hundredths', '400')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'assurance_chomage', 'plafond_mensuel_cents', '1602000')", []string{y})
     // Plafonnement de la CET — article 1647 B sexies CGI. If CFE + CVAE
     // > taux × VA, dégrèvement = CET - plafond. Floor: CET après
     // dégrèvement ≥ cotisation minimum CFE (art. 1647 D). Taux 1.438%

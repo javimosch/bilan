@@ -1822,6 +1822,26 @@ r=$(BILAN_DB="$AGSDB3" $BIN tax --year 2026)
 ok "ags 0 base tax 0" 0 "$(jq -r .ags.tax_cents <<<"$r")"
 rm -f "$AGSDB3"
 
+# --- Assurance chômage (art. L 5424-1 C trav) — 10000 EUR below plafond, 4.00% = 40000 ---
+ACDB1="$(mktemp -u /tmp/bilan-ac1-XXXXXX.db)"
+BILAN_DB="$ACDB1" $BIN rule set 2026 assurance_chomage salaires_base_cents 1000000 >/dev/null
+r=$(BILAN_DB="$ACDB1" $BIN tax --year 2026)
+ok "ac 10k EUR below plafond tax 40000" 40000 "$(jq -r .assurance_chomage.tax_cents <<<"$r")"
+rm -f "$ACDB1"
+
+# --- Assurance chômage (art. L 5424-1 C trav) — 20000 EUR above plafond 16020, capped, 4.00% = 64080 ---
+ACDB2="$(mktemp -u /tmp/bilan-ac2-XXXXXX.db)"
+BILAN_DB="$ACDB2" $BIN rule set 2026 assurance_chomage salaires_base_cents 2000000 >/dev/null
+r=$(BILAN_DB="$ACDB2" $BIN tax --year 2026)
+ok "ac 20k EUR above plafond capped tax 64080" 64080 "$(jq -r .assurance_chomage.tax_cents <<<"$r")"
+rm -f "$ACDB2"
+
+# --- Assurance chômage (art. L 5424-1 C trav) — 0 base, tax 0 ---
+ACDB3="$(mktemp -u /tmp/bilan-ac3-XXXXXX.db)"
+r=$(BILAN_DB="$ACDB3" $BIN tax --year 2026)
+ok "ac 0 base tax 0" 0 "$(jq -r .assurance_chomage.tax_cents <<<"$r")"
+rm -f "$ACDB3"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents

@@ -749,6 +749,20 @@ func guide_text(base) (t) {
         "  salaires_base_cents <val>.\n" +
         "  Source: BOFiP, urssaf.fr, ags-garantie-salaires.org.\n" +
         "\n" +
+        "## Assurance chômage — art. L 5424-1 C trav\n" +
+        "  Cotisation patronale 4.00% (depuis 1er mai\n" +
+        "  2025, auparavant 4.05%) sur salaire brut\n" +
+        "  plafonné à 4 PMSS (16020 EUR/mois 2026,\n" +
+        "  192240 EUR/an). Part salariale supprimée\n" +
+        "  depuis 2018. Bonus-malus 6 secteurs\n" +
+        "  (plancher 2.95%, plafond 5.00% depuis\n" +
+        "  mars 2026) pour entreprises ≥11 salariés.\n" +
+        "  Le radar expose assurance_chomage.tax_cents.\n" +
+        "  Set: bilan rule set 2026 assurance_chomage\n" +
+        "  salaires_base_cents <val> +\n" +
+        "  taux_pct_hundredths <val>.\n" +
+        "  Source: Unédic, BOFiP, urssaf.fr.\n" +
+        "\n" +
         "## Plafonnement de la CET — art. 1647 B sexies CGI\n" +
         "  Si CFE + CVAE > taux × valeur ajoutée, dégrèvement =\n" +
         "  CET - plafond. Taux 1.438% (2025), 1.531% (2026/2027).\n" +
