@@ -876,6 +876,14 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'contribution_exceptionnelle', 'seuil_ca_haut_cents', '300000000000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'contribution_exceptionnelle', 'taux_bas_pct_hundredths', '2060')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'contribution_exceptionnelle', 'taux_haut_pct_hundredths', '4120')", []string{y})
+    // Taxe sur l'édition des ouvrages de librairie — articles
+    // 1609 undecies + 1609 duodecies CGI. Redevance 0.20% sur
+    // ventes d'ouvrages de librairie par les éditeurs. Exonération:
+    // CA <= seuil. Source: BOFiP BOI-TCA-EOL.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_edition', 'ventes_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_edition', 'chiffre_affaires_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_edition', 'taux_pct_hundredths', '20')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_edition', 'seuil_ca_cents', '7622500')", []string{y})
     // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
     // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
     // immeubles bâtis only (not terrains à bâtir). Brackets:

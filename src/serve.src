@@ -227,7 +227,9 @@ func llms_txt() (t) {
         "    (3.3% IS - abattement 763k)\n" +
         "    + contribution exceptionnelle art.\n" +
         "    235 ter ZAA (20.6%/41.2% grandes\n" +
-        "    entreprises CA >1Mds);\n" +
+        "    entreprises CA >1Mds)\n" +
+        "    + taxe édition art. 1609 undecies\n" +
+        "    (0.20% librairie);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

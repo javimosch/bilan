@@ -1575,6 +1575,25 @@ ok "ce CA 500M not eligible false" false "$(jq -r .contribution_exceptionnelle.e
 ok "ce not eligible tax 0" 0 "$(jq -r .contribution_exceptionnelle.tax_cents <<<"$r")"
 rm -f "$CEDB3"
 
+# --- Taxe édition (art. 1609 undecies) — ventes 100000, CA 100000, 0.20% ---
+# 100000 EUR ventes × 0.20% = 200 EUR = 20000 cents
+TEDB1="$(mktemp -u /tmp/bilan-te1-XXXXXX.db)"
+BILAN_DB="$TEDB1" $BIN rule set 2026 taxe_edition ventes_cents 10000000 >/dev/null
+BILAN_DB="$TEDB1" $BIN rule set 2026 taxe_edition chiffre_affaires_cents 10000000 >/dev/null
+r=$(BILAN_DB="$TEDB1" $BIN tax --year 2026)
+ok "te ventes 100k CA 100k eligible true" true "$(jq -r .taxe_edition.eligible <<<"$r")"
+ok "te 0.20% 100k tax 20000" 20000 "$(jq -r .taxe_edition.tax_cents <<<"$r")"
+rm -f "$TEDB1"
+
+# --- Taxe édition (art. 1609 undecies) — CA below threshold, not eligible ---
+TEDB2="$(mktemp -u /tmp/bilan-te2-XXXXXX.db)"
+BILAN_DB="$TEDB2" $BIN rule set 2026 taxe_edition ventes_cents 10000000 >/dev/null
+BILAN_DB="$TEDB2" $BIN rule set 2026 taxe_edition chiffre_affaires_cents 5000000 >/dev/null
+r=$(BILAN_DB="$TEDB2" $BIN tax --year 2026)
+ok "te CA 50k below seuil not eligible false" false "$(jq -r .taxe_edition.eligible <<<"$r")"
+ok "te not eligible tax 0" 0 "$(jq -r .taxe_edition.tax_cents <<<"$r")"
+rm -f "$TEDB2"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents

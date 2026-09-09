@@ -806,6 +806,14 @@ func guide_text(base) (t) {
         "  + chiffre_affaires_cents <val>.\n" +
         "  Source: BOFiP BOI-IS-AUT-60.\n" +
         "\n" +
+        "## Taxe sur l'édition — art. 1609 undecies + duodecies CGI\n" +
+        "  Redevance 0.20% sur ventes d'ouvrages de librairie\n" +
+        "  par les éditeurs. Exonération: CA <= seuil.\n" +
+        "  Le radar expose taxe_edition.tax_cents.\n" +
+        "  Set: bilan rule set 2026 taxe_edition\n" +
+        "  ventes_cents <val> + chiffre_affaires_cents <val>.\n" +
+        "  Source: BOFiP BOI-TCA-EOL.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
