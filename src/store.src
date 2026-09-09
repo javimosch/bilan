@@ -936,6 +936,14 @@ func seed_rules(db) {
     // Source: BOFiP BOI-TFP-IFER-50.
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_stations_radio', 'nb_stations', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_stations_radio', 'tarif_station_cents', '188400')", []string{y})
+    // Imposition forfaitaire annuelle sur les pylônes —
+    // article 1519 A CGI. Pylônes supportant lignes
+    // électriques >=200 kV. 2026 tarifs: 3322 EUR (200-350
+    // kV), 6635 EUR (>350 kV). Source: BOFiP BOI-TFP-PYL.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_pylones', 'nb_pylones_200_350_kv', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_pylones', 'nb_pylones_sup_350_kv', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_pylones', 'tarif_200_350_kv_cents', '332200')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ifer_pylones', 'tarif_sup_350_kv_cents', '663500')", []string{y})
     // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
     // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
     // immeubles bâtis only (not terrains à bâtir). Brackets:

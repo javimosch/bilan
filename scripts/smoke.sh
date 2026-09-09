@@ -1679,6 +1679,21 @@ r=$(BILAN_DB="$ISRDB2" $BIN tax --year 2026)
 ok "isr 0 stations tax 0" 0 "$(jq -r .ifer_stations_radio.tax_cents <<<"$r")"
 rm -f "$ISRDB2"
 
+# --- IFER pylônes (art. 1519 A) — 5 pylônes 200-350 kV + 3 pylônes >350 kV ---
+# 5 × 332200 + 3 × 663500 = 1661000 + 1990500 = 3651500 cents = 36515 EUR
+IPDB1="$(mktemp -u /tmp/bilan-ip1-XXXXXX.db)"
+BILAN_DB="$IPDB1" $BIN rule set 2026 ifer_pylones nb_pylones_200_350_kv 5 >/dev/null
+BILAN_DB="$IPDB1" $BIN rule set 2026 ifer_pylones nb_pylones_sup_350_kv 3 >/dev/null
+r=$(BILAN_DB="$IPDB1" $BIN tax --year 2026)
+ok "ip 5 (200-350kV) + 3 (>350kV) tax 3651500" 3651500 "$(jq -r .ifer_pylones.tax_cents <<<"$r")"
+rm -f "$IPDB1"
+
+# --- IFER pylônes (art. 1519 A) — 0 pylônes, tax 0 ---
+IPDB2="$(mktemp -u /tmp/bilan-ip2-XXXXXX.db)"
+r=$(BILAN_DB="$IPDB2" $BIN tax --year 2026)
+ok "ip 0 pylônes tax 0" 0 "$(jq -r .ifer_pylones.tax_cents <<<"$r")"
+rm -f "$IPDB2"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents

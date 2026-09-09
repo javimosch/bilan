@@ -239,7 +239,9 @@ func llms_txt() (t) {
         "    1599 quater A (9 catégories\n" +
         "    matériel roulant) + IFER\n" +
         "    stations radio art. 1519 H\n" +
-        "    (1884 EUR/station);\n" +
+        "    (1884 EUR/station) + IFER\n" +
+        "    pylônes art. 1519 A (3322/\n" +
+        "    6635 EUR 200-350/>350 kV);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +
