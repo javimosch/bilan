@@ -409,6 +409,89 @@ func ifi_bareme(p, b1t, b1r, b2t, b2r, b3t, b3r, b4t, b4r, b5t, b5r) (ifi) {
     if p > b5t { ifi = ifi + (p - b5t) * b5r / 10000 }
 }
 
+// dmtg_bareme_ld — progressive DMTG barème for ligne directe (art. 777 CGI
+// Tableau I). 7 brackets: 5/10/15/20/30/40/45%. Thresholds and rates are read
+// from tax_rules (regime "dmtg", param "ligne_directe_bracket_N_*"). Rates in
+// tenths of a percent (5% = 50). Returns tax in cents. This replaces the
+// broken top-down loop that taxed the entire base at the top marginal rate.
+func dmtg_bareme_ld(db, year, base) (tax) {
+    tax = 0
+    t1 := rule_int(db, year, "dmtg", "ligne_directe_bracket_1_threshold_cents", 0)
+    r1 := rule_int(db, year, "dmtg", "ligne_directe_bracket_1_rate_pct_tenths", 50)
+    t2 := rule_int(db, year, "dmtg", "ligne_directe_bracket_2_threshold_cents", 807200)
+    r2 := rule_int(db, year, "dmtg", "ligne_directe_bracket_2_rate_pct_tenths", 100)
+    t3 := rule_int(db, year, "dmtg", "ligne_directe_bracket_3_threshold_cents", 1210900)
+    r3 := rule_int(db, year, "dmtg", "ligne_directe_bracket_3_rate_pct_tenths", 150)
+    t4 := rule_int(db, year, "dmtg", "ligne_directe_bracket_4_threshold_cents", 1593200)
+    r4 := rule_int(db, year, "dmtg", "ligne_directe_bracket_4_rate_pct_tenths", 200)
+    t5 := rule_int(db, year, "dmtg", "ligne_directe_bracket_5_threshold_cents", 55232400)
+    r5 := rule_int(db, year, "dmtg", "ligne_directe_bracket_5_rate_pct_tenths", 300)
+    t6 := rule_int(db, year, "dmtg", "ligne_directe_bracket_6_threshold_cents", 90283800)
+    r6 := rule_int(db, year, "dmtg", "ligne_directe_bracket_6_rate_pct_tenths", 400)
+    t7 := rule_int(db, year, "dmtg", "ligne_directe_bracket_7_threshold_cents", 180567700)
+    r7 := rule_int(db, year, "dmtg", "ligne_directe_bracket_7_rate_pct_tenths", 450)
+    hi := t2
+    if base < hi { hi = base }
+    if hi > t1 { tax = tax + (hi - t1) * r1 / 1000 }
+    hi = t3
+    if base < hi { hi = base }
+    if hi > t2 { tax = tax + (hi - t2) * r2 / 1000 }
+    hi = t4
+    if base < hi { hi = base }
+    if hi > t3 { tax = tax + (hi - t3) * r3 / 1000 }
+    hi = t5
+    if base < hi { hi = base }
+    if hi > t4 { tax = tax + (hi - t4) * r4 / 1000 }
+    hi = t6
+    if base < hi { hi = base }
+    if hi > t5 { tax = tax + (hi - t5) * r5 / 1000 }
+    hi = t7
+    if base < hi { hi = base }
+    if hi > t6 { tax = tax + (hi - t6) * r6 / 1000 }
+    if base > t7 { tax = tax + (base - t7) * r7 / 1000 }
+}
+
+// dmtg_bareme_conjoint — progressive DMTG barème for conjoint/PACS donations
+// (art. 777 CGI Tableau II). 7 brackets: 5/10/15/20/30/40/45% with different
+// thresholds than ligne directe. Used for donations (successions are
+// exonerées). Returns tax in cents.
+func dmtg_bareme_conjoint(db, year, base) (tax) {
+    tax = 0
+    t1 := rule_int(db, year, "dmtg_donation", "conjoint_bracket_1_threshold_cents", 0)
+    r1 := rule_int(db, year, "dmtg_donation", "conjoint_bracket_1_rate_pct_tenths", 50)
+    t2 := rule_int(db, year, "dmtg_donation", "conjoint_bracket_2_threshold_cents", 807200)
+    r2 := rule_int(db, year, "dmtg_donation", "conjoint_bracket_2_rate_pct_tenths", 100)
+    t3 := rule_int(db, year, "dmtg_donation", "conjoint_bracket_3_threshold_cents", 1593200)
+    r3 := rule_int(db, year, "dmtg_donation", "conjoint_bracket_3_rate_pct_tenths", 150)
+    t4 := rule_int(db, year, "dmtg_donation", "conjoint_bracket_4_threshold_cents", 3186500)
+    r4 := rule_int(db, year, "dmtg_donation", "conjoint_bracket_4_rate_pct_tenths", 200)
+    t5 := rule_int(db, year, "dmtg_donation", "conjoint_bracket_5_threshold_cents", 55232400)
+    r5 := rule_int(db, year, "dmtg_donation", "conjoint_bracket_5_rate_pct_tenths", 300)
+    t6 := rule_int(db, year, "dmtg_donation", "conjoint_bracket_6_threshold_cents", 90283800)
+    r6 := rule_int(db, year, "dmtg_donation", "conjoint_bracket_6_rate_pct_tenths", 400)
+    t7 := rule_int(db, year, "dmtg_donation", "conjoint_bracket_7_threshold_cents", 180567700)
+    r7 := rule_int(db, year, "dmtg_donation", "conjoint_bracket_7_rate_pct_tenths", 450)
+    hi := t2
+    if base < hi { hi = base }
+    if hi > t1 { tax = tax + (hi - t1) * r1 / 1000 }
+    hi = t3
+    if base < hi { hi = base }
+    if hi > t2 { tax = tax + (hi - t2) * r2 / 1000 }
+    hi = t4
+    if base < hi { hi = base }
+    if hi > t3 { tax = tax + (hi - t3) * r3 / 1000 }
+    hi = t5
+    if base < hi { hi = base }
+    if hi > t4 { tax = tax + (hi - t4) * r4 / 1000 }
+    hi = t6
+    if base < hi { hi = base }
+    if hi > t5 { tax = tax + (hi - t5) * r5 / 1000 }
+    hi = t7
+    if base < hi { hi = base }
+    if hi > t6 { tax = tax + (hi - t6) * r6 / 1000 }
+    if base > t7 { tax = tax + (base - t7) * r7 / 1000 }
+}
+
 // p_min — min helper for the IFI barème.
 func p_min(a, b) (m) {
     m = a
@@ -844,19 +927,7 @@ func tax_json(db, year) (out, code, err) {
         dmtg_abattement = rule_int(db, year, "dmtg", "ligne_directe_abattement_cents", 10000000)
         dmtg_base := dmtg_actif - dmtg_abattement
         if dmtg_base < 0 { dmtg_base = 0 }
-        // Progressive brackets: 5/10/15/20/30/40/45%
-        dmtg_tax = 0
-        bi := 7
-        prev_thresh := 0
-        for bi >= 1 {
-            thresh := rule_int(db, year, "dmtg", "ligne_directe_bracket_" + str(bi) + "_threshold_cents", 0)
-            rate := rule_int(db, year, "dmtg", "ligne_directe_bracket_" + str(bi) + "_rate_pct_tenths", 0)
-            hi := dmtg_base
-            if hi > thresh { hi = thresh }
-            if hi > prev_thresh { dmtg_tax = dmtg_tax + (hi - prev_thresh) * rate / 1000 }
-            prev_thresh = thresh
-            if dmtg_base <= thresh { bi = 0 } else { bi = bi - 1 }
-        }
+        dmtg_tax = dmtg_bareme_ld(db, year, dmtg_base)
     } else if dmtg_degre == "conjoint" {
         dmtg_abattement = rule_int(db, year, "dmtg", "conjoint_abattement_cents", 8000000)
         // Conjoint: exonération totale (successions depuis 22/08/2007)
@@ -894,18 +965,7 @@ func tax_json(db, year) (out, code, err) {
         // Use the same degré/barème as the main DMTG
         dmtg_qu_base := dmtg_qu_non_deductible
         if dmtg_degre == "ligne_directe" {
-            dmtg_qu_tax = 0
-            bi := 7
-            prev_thresh := 0
-            for bi >= 1 {
-                thresh := rule_int(db, year, "dmtg", "ligne_directe_bracket_" + str(bi) + "_threshold_cents", 0)
-                rate := rule_int(db, year, "dmtg", "ligne_directe_bracket_" + str(bi) + "_rate_pct_tenths", 0)
-                hi := dmtg_qu_base
-                if hi > thresh { hi = thresh }
-                if hi > prev_thresh { dmtg_qu_tax = dmtg_qu_tax + (hi - prev_thresh) * rate / 1000 }
-                prev_thresh = thresh
-                if dmtg_qu_base <= thresh { bi = 0 } else { bi = bi - 1 }
-            }
+            dmtg_qu_tax = dmtg_bareme_ld(db, year, dmtg_qu_base)
         } else if dmtg_degre == "conjoint" {
             dmtg_qu_tax = 0
         } else if dmtg_degre == "frere_soeur" {
@@ -958,17 +1018,7 @@ func tax_json(db, year) (out, code, err) {
     av_tax_757b := 0
     if av_base_757b > 0 {
         if dmtg_degre == "ligne_directe" {
-            bi := 7
-            prev_thresh := 0
-            for bi >= 1 {
-                thresh := rule_int(db, year, "dmtg", "ligne_directe_bracket_" + str(bi) + "_threshold_cents", 0)
-                rate := rule_int(db, year, "dmtg", "ligne_directe_bracket_" + str(bi) + "_rate_pct_tenths", 0)
-                hi := av_base_757b
-                if hi > thresh { hi = thresh }
-                if hi > prev_thresh { av_tax_757b = av_tax_757b + (hi - prev_thresh) * rate / 1000 }
-                prev_thresh = thresh
-                if av_base_757b <= thresh { bi = 0 } else { bi = bi - 1 }
-            }
+            av_tax_757b = dmtg_bareme_ld(db, year, av_base_757b)
         } else if dmtg_degre == "conjoint" {
             av_tax_757b = 0
         } else if dmtg_degre == "frere_soeur" {
@@ -1110,33 +1160,13 @@ func tax_json(db, year) (out, code, err) {
         dd_abattement = rule_int(db, year, "dmtg", "ligne_directe_abattement_cents", 10000000)
         dd_base = dd_base - dd_abattement
         if dd_base < 0 { dd_base = 0 }
-        bi := 7
-        prev := 0
-        for bi >= 1 {
-            thresh := rule_int(db, year, "dmtg", "ligne_directe_bracket_" + str(bi) + "_threshold_cents", 0)
-            rate := rule_int(db, year, "dmtg", "ligne_directe_bracket_" + str(bi) + "_rate_pct_tenths", 0)
-            hi := dd_base
-            if hi > thresh { hi = thresh }
-            if hi > prev { dd_tax = dd_tax + (hi - prev) * rate / 1000 }
-            prev = thresh
-            if dd_base <= thresh { bi = 0 } else { bi = bi - 1 }
-        }
+        dd_tax = dmtg_bareme_ld(db, year, dd_base)
     } else if dd_degre == "conjoint" {
         // Tableau II — conjoint NOT exoneré for donations
         dd_abattement = rule_int(db, year, "dmtg_donation", "conjoint_abattement_cents", 8072400)
         dd_base = dd_base - dd_abattement
         if dd_base < 0 { dd_base = 0 }
-        bi := 7
-        prev := 0
-        for bi >= 1 {
-            thresh := rule_int(db, year, "dmtg_donation", "conjoint_bracket_" + str(bi) + "_threshold_cents", 0)
-            rate := rule_int(db, year, "dmtg_donation", "conjoint_bracket_" + str(bi) + "_rate_pct_tenths", 0)
-            hi := dd_base
-            if hi > thresh { hi = thresh }
-            if hi > prev { dd_tax = dd_tax + (hi - prev) * rate / 1000 }
-            prev = thresh
-            if dd_base <= thresh { bi = 0 } else { bi = bi - 1 }
-        }
+        dd_tax = dmtg_bareme_conjoint(db, year, dd_base)
     } else if dd_degre == "frere_soeur" {
         dd_abattement = rule_int(db, year, "dmtg", "frere_soeur_abattement_cents", 1593200)
         dd_base = dd_base - dd_abattement
@@ -1204,18 +1234,7 @@ func tax_json(db, year) (out, code, err) {
         dmtg_base_h := dmtg_actif - dmtg_abattement - dmtg_handicap_abattement
         if dmtg_base_h < 0 { dmtg_base_h = 0 }
         if dmtg_degre == "ligne_directe" {
-            dmtg_tax = 0
-            bi := 7
-            prev := 0
-            for bi >= 1 {
-                thresh := rule_int(db, year, "dmtg", "ligne_directe_bracket_" + str(bi) + "_threshold_cents", 0)
-                rate := rule_int(db, year, "dmtg", "ligne_directe_bracket_" + str(bi) + "_rate_pct_tenths", 0)
-                hi := dmtg_base_h
-                if hi > thresh { hi = thresh }
-                if hi > prev { dmtg_tax = dmtg_tax + (hi - prev) * rate / 1000 }
-                prev = thresh
-                if dmtg_base_h <= thresh { bi = 0 } else { bi = bi - 1 }
-            }
+            dmtg_tax = dmtg_bareme_ld(db, year, dmtg_base_h)
         } else if dmtg_degre == "frere_soeur" {
             dmtg_base_h = dmtg_actif - dmtg_abattement - dmtg_handicap_abattement
             if dmtg_base_h < 0 { dmtg_base_h = 0 }
@@ -1246,32 +1265,12 @@ func tax_json(db, year) (out, code, err) {
         if dmtg_base_d < 0 { dmtg_base_d = 0 }
         dmtg_dutreil_tax = 0
         if dmtg_degre == "ligne_directe" {
-            bi := 7
-            prev := 0
-            for bi >= 1 {
-                thresh := rule_int(db, year, "dmtg", "ligne_directe_bracket_" + str(bi) + "_threshold_cents", 0)
-                rate := rule_int(db, year, "dmtg", "ligne_directe_bracket_" + str(bi) + "_rate_pct_tenths", 0)
-                hi := dmtg_base_d
-                if hi > thresh { hi = thresh }
-                if hi > prev { dmtg_dutreil_tax = dmtg_dutreil_tax + (hi - prev) * rate / 1000 }
-                prev = thresh
-                if dmtg_base_d <= thresh { bi = 0 } else { bi = bi - 1 }
-            }
+            dmtg_dutreil_tax = dmtg_bareme_ld(db, year, dmtg_base_d)
         } else if dmtg_degre == "conjoint" {
             dmtg_base_d = dmtg_actif * (1000 - dmtg_dutreil_abattement_pct) / 1000
             dmtg_base_d = dmtg_base_d - rule_int(db, year, "dmtg_donation", "conjoint_abattement_cents", 8072400)
             if dmtg_base_d < 0 { dmtg_base_d = 0 }
-            bi := 7
-            prev := 0
-            for bi >= 1 {
-                thresh := rule_int(db, year, "dmtg_donation", "conjoint_bracket_" + str(bi) + "_threshold_cents", 0)
-                rate := rule_int(db, year, "dmtg_donation", "conjoint_bracket_" + str(bi) + "_rate_pct_tenths", 0)
-                hi := dmtg_base_d
-                if hi > thresh { hi = thresh }
-                if hi > prev { dmtg_dutreil_tax = dmtg_dutreil_tax + (hi - prev) * rate / 1000 }
-                prev = thresh
-                if dmtg_base_d <= thresh { bi = 0 } else { bi = bi - 1 }
-            }
+            dmtg_dutreil_tax = dmtg_bareme_conjoint(db, year, dmtg_base_d)
         }
         // Réduction 50% si donateur < 70 ans et pleine propriété
         dmtg_dutreil_donateur_age := rule_int(db, year, "dmtg", "dutreil_donateur_age", 0)

@@ -560,7 +560,9 @@ func guide_text(base) (t) {
         "  abattement, 22y exonération, radar reports the lower) + quasi-usufruit\n" +
         "  art. 774 bis (déductibilité créance de restitution, LF 2024) + démembrement\n" +
         "  temporaire art. 669 II (23%/10y plafonné viager) + art. 13-5 1° (cession =\n" +
-        "  revenu catégoriel).\n" +
+        "  revenu catégoriel) + DMTG progressive barème FIXED v0.2.26 (bottom-up\n" +
+        "  brackets with correct thresholds 552324/902838/1805677 EUR, replaces\n" +
+        "  broken top-down loop).\n" +
         "  It does NOT model: deficits beyond their windows, the full BOFiP PAS\n" +
         "  taux personnalisé formula (radar uses grille neutre + simplified\n" +
         "  personalized + taux individualisé art. 204 M), or barème économique\n" +

@@ -1007,9 +1007,9 @@ rm -f "$PIDB1"
 
 # --- DMTG art. 777 (ligne directe, 200000 actif, 100000 abattement) ---
 # Base = 100000. Brackets: 5% 0-8072, 10% 8072-12098, 15% 12098-15995,
-# 20% 15995-30000, 30% 30000-55250, 40% 55250-90280, 45% >90280
-# Tax = 5%*8072 + 10%*4026 + 15%*3897 + 20%*14005 + 30%*25250 + 40%*35030 + 45%*9720
-# = 403.6 + 402.6 + 584.55 + 2801 + 7575 + 14012 + 4374 = 30152.75 EUR
+# DMTG ligne directe: 200000 actif, 100000 abattement → base 100000 EUR
+# Progressive barème (FIXED v0.2.26): 5%*8072 + 10%*4037 + 15%*3823 + 20%*84068
+# = 403.60 + 403.70 + 573.45 + 16813.60 = 18194.35 EUR = 1819435 cents
 DMDB1="$(mktemp -u /tmp/bilan-dm1-XXXXXX.db)"
 BILAN_DB="$DMDB1" $BIN rule set 2026 dmtg actif_taxable_cents 20000000 >/dev/null
 BILAN_DB="$DMDB1" $BIN rule set 2026 dmtg degre_parente ligne_directe >/dev/null
@@ -1017,9 +1017,17 @@ r=$(BILAN_DB="$DMDB1" $BIN tax --year 2026)
 ok "dmtg actif 200000" 20000000 "$(jq -r .dmtg.actif_taxable_cents <<<"$r")"
 ok "dmtg abattement 100000" 10000000 "$(jq -r .dmtg.abattement_cents <<<"$r")"
 ok "dmtg degre ligne_directe" "ligne_directe" "$(jq -r .dmtg.degre_parente <<<"$r")"
-# Tax should be > 0 (base 100000 EUR in progressive brackets)
-ok "dmtg tax > 0" 1 "$(if [ "$(jq -r .dmtg.tax_cents <<<"$r")" -gt 0 ]; then echo 1; else echo 0; fi)"
+ok "dmtg ligne_directe progressive tax 1819435" 1819435 "$(jq -r .dmtg.tax_cents <<<"$r")"
 rm -f "$DMDB1"
+# DMTG ligne directe large base (1000000 EUR) hitting 40% bracket
+# 5%*8072 + 10%*4037 + 15%*3823 + 20%*536392 + 30%*350514 + 40%*97162
+# = 403.60 + 403.70 + 573.45 + 107278.40 + 105154.20 + 38864.80 = 252678.15 EUR
+DMDB1B="$(mktemp -u /tmp/bilan-dm1b-XXXXXX.db)"
+BILAN_DB="$DMDB1B" $BIN rule set 2026 dmtg actif_taxable_cents 110000000 >/dev/null
+BILAN_DB="$DMDB1B" $BIN rule set 2026 dmtg degre_parente ligne_directe >/dev/null
+r=$(BILAN_DB="$DMDB1B" $BIN tax --year 2026)
+ok "dmtg ligne_directe 1M base tax 25267815" 25267815 "$(jq -r .dmtg.tax_cents <<<"$r")"
+rm -f "$DMDB1B"
 # DMTG tiers: 200000 actif, 1594 abattement, 60% flat
 # Base = 198406, tax = 198406 * 0.60 = 119043.60 EUR = 11904360 cents
 DMDB2="$(mktemp -u /tmp/bilan-dm2-XXXXXX.db)"
