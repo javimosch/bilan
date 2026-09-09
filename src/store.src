@@ -277,6 +277,26 @@ func seed_rules(db) {
     // Simplified: cap at 35,194 EUR. Record versements as positive txs in a
     // 'per' stream. Source: BOFiP BOI-IR-BASE-20-50.
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'per', 'cap_cents', '3519400')", []string{y})
+    // PASS 2024 (the radar uses 2025 barème on 2024 income). Used by PER TNS
+    // art. 154 bis plafond and other PASS-anchored calculations.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'global', 'pass_cents', '439900')", []string{y})
+    // PER TNS — article 154 bis CGI. Plafond de déduction des cotisations
+    // retraite du bénéfice catégoriel (BIC/BNC). 10% du bénéfice (limité à 8
+    // PASS) + 15% de la fraction du bénéfice entre 1 et 8 PASS. Plancher 10%
+    // du PASS. Source: BOFiP BOI-RPPM-PVMC-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'per_tns', 'rate_pct_tenths', '100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'per_tns', 'rate_sup_pct_tenths', '150')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'per_tns', 'pass_max_multiplier', '8')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'per_tns', 'plancher_rate_pct_tenths', '100')", []string{y})
+    // Abattement fixe pour départ à la retraite des dirigeants (art. 150-0 D
+    // ter CGI). Abattement de 500000 EUR sur les gains nets de cession de
+    // titres de PME par un dirigeant partant à la retraite. Conditions:
+    // cession de l'intégralité des titres (ou >50% droits de vote), détention
+    // ≥ 1 an, fonctions de direction continues 5 ans avant cession, détention
+    // ≥ 25% droits de vote/bénéfices. Prélèvements sociaux dus avant
+    // abattement. Source: BOFiP BOI-RPPM-PVBMI-20-40-10.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pvm_depart_retraite', 'abattement_fixe_cents', '50000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pvm_depart_retraite', 'eligible', '0')", []string{y})
     // FCPI/FIP (art. 199 terdecies-0 A VI CGI). 18% reduction, capped at 12,000
     // EUR single / 24,000 EUR couple. 25% for FIP Corse/Outre-Mer (until 2026).
     // Subject to plafonnement global. Record versements as positive txs in a

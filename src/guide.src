@@ -350,6 +350,27 @@ func guide_text(base) (t) {
         "  (informational — for DMTG/IFI planning). New demembrement JSON block.\n" +
         "  Source: BOFiP BOI-ENR-DMTG-10-20-20-10.\n" +
         "\n" +
+        "## PER TNS — article 154 bis CGI\n" +
+        "  Plafond de déduction des cotisations retraite du bénéfice catégoriel\n" +
+        "  (BIC/BNC). 10% du bénéfice (limité à 8 PASS) + 15% de la fraction du\n" +
+        "  bénéfice comprise entre 1 et 8 PASS. Plancher 10% du PASS. The radar\n" +
+        "  uses 154 bis when there is TNS income (net_bnc + net_bic > 0), else\n" +
+        "  163 quatervicies (10% revenus N-1, cap 8 PASS). A single cotisation\n" +
+        "  can't be deducted on both. New ir fields: per_regime,\n" +
+        "  per_tns_plafond_cents, per_163_quatervicies_cap_cents. Source: BOFiP\n" +
+        "  BOI-IR-BASE-20-50.\n" +
+        "\n" +
+        "## Abattement départ retraite dirigeants — article 150-0 D ter CGI\n" +
+        "  Abattement fixe de 500000 EUR sur les gains nets de cession de titres\n" +
+        "  de PME par un dirigeant partant à la retraite. Conditions: cession de\n" +
+        "  l'intégralité des titres (ou >50% droits de vote), détention ≥ 1 an,\n" +
+        "  fonctions de direction continues 5 ans avant cession, détention ≥ 25%\n" +
+        "  droits de vote/bénéfices. Prélèvements sociaux dus sur la PV avant\n" +
+        "  abattement (social on full gain, IR on gain after abattement). Set:\n" +
+        "  bilan rule set 2026 pvm_depart_retraite eligible 1. New pvm fields:\n" +
+        "  depart_retraite_eligible, depart_retraite_abattement_cents,\n" +
+        "  ir_base_after_abattement_cents. Source: BOFiP BOI-RPPM-PVBMI-20-40-10.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
@@ -377,12 +398,12 @@ func guide_text(base) (t) {
         "  taxe forfaitaire métaux précieux/objets d'art (art. 150 VI/VK, 11%/6%) +\n" +
         "  monuments historiques (art. 156, déduction 100%/50% charges, sans plafond,\n" +
         "  hors niche) + démembrement barème (art. 669, usufruit/nue-propriété par\n" +
-        "  âge). It does NOT model: deficits beyond their windows, the full BOFiP PAS\n" +
-        "  formula, the article 154 bis TNS PER plafond (10% bénéfice + 15% between\n" +
-        "  1-8 PASS — record versements in 'per' and the radar applies the 163\n" +
-        "  quatervicies cap), or LMNP amortissement tables (record the amortissement\n" +
-        "  as a negative tx in the 'lmnp_reel' stream). Output is an estimate to\n" +
-        "  reason from, not tax advice — say so to the human.\n" +
+        "  âge) + PER TNS (art. 154 bis, 10% bénéfice + 15% 1-8 PASS) + abattement\n" +
+        "  départ retraite dirigeants (art. 150-0 D ter, 500k fixe sur PV mobilières).\n" +
+        "  It does NOT model: deficits beyond their windows, the full BOFiP PAS\n" +
+        "  formula, or LMNP amortissement tables (record the amortissement as a\n" +
+        "  negative tx in the 'lmnp_reel' stream). Output is an estimate to reason\n" +
+        "  from, not tax advice — say so to the human.\n" +
         "\n" +
         "## Brian — the cheap copilote (no inference in the platform)\n" +
         "  Brian is a PERSONA, not a service: install it into the harness your human\n" +

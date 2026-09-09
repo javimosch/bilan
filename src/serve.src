@@ -164,7 +164,9 @@ func llms_txt() (t) {
         "    nonies G (2%-6% on PV > 50k, immeubles bâtis) + taxe forfaitaire métaux\n" +
         "    précieux/objets d'art art. 150 VI/VK (11% métaux, 6% objets d'art) +\n" +
         "    monuments historiques art. 156 (déduction 100%/50% charges, sans plafond,\n" +
-        "    hors niche) + démembrement art. 669 (barème usufruit/nue-propriété par âge);\n" +
+        "    hors niche) + démembrement art. 669 (barème usufruit/nue-propriété par âge)\n" +
+        "    + PER TNS art. 154 bis (10% bénéfice + 15% 1-8 PASS) + abattement départ\n" +
+        "    retraite dirigeants art. 150-0 D ter (500k fixe sur PV mobilières);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

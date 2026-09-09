@@ -903,6 +903,59 @@ ok "dem age 75 usufruit 30%" 30 "$(jq -r .demembrement.usufruit_pct <<<"$r")"
 ok "dem age 75 nue-propriete 70%" 70 "$(jq -r .demembrement.nue_propriete_pct <<<"$r")"
 rm -f "$DEMDB3"
 
+# --- PER TNS article 154 bis (10% bénéfice + 15% 1-8 PASS) ---
+# BNC 30000 EUR, micro-BNC abattement 34% → net_bnc 19800 EUR = 1980000 cents
+# PASS 4399 EUR = 439900 cents, 8 PASS = 3519200 (no cap)
+# 10% × 19800 = 1980; 15% × (19800 - 4399) = 15% × 15401 = 2310.15
+# Total plafond = 4290.15 EUR = 429015 cents
+# per_deduction = min(5000, 4290.15) = 4290.15 EUR = 429015 cents
+PRTDB1="$(mktemp -u /tmp/bilan-pertns1-XXXXXX.db)"
+BILAN_DB="$PRTDB1" $BIN stream add biz --kind bnc >/dev/null
+BILAN_DB="$PRTDB1" $BIN tx add biz 2026-06-30 30000 >/dev/null
+BILAN_DB="$PRTDB1" $BIN stream add per --kind per >/dev/null
+BILAN_DB="$PRTDB1" $BIN tx add per 2026-06-30 5000 >/dev/null
+r=$(BILAN_DB="$PRTDB1" $BIN tax --year 2026)
+ok "per tns regime 154_bis" "154_bis" "$(jq -r .ir.per_regime <<<"$r")"
+ok "per tns plafond 429015" 429015 "$(jq -r .ir.per_tns_plafond_cents <<<"$r")"
+ok "per tns deduction capped 429015" 429015 "$(jq -r .ir.per_deduction_cents <<<"$r")"
+rm -f "$PRTDB1"
+# No TNS income → 163 quatervicies regime
+PRTDB2="$(mktemp -u /tmp/bilan-pertns2-XXXXXX.db)"
+BILAN_DB="$PRTDB2" $BIN stream add sal --kind salary >/dev/null
+BILAN_DB="$PRTDB2" $BIN tx add sal 2026-06-30 50000 >/dev/null
+BILAN_DB="$PRTDB2" $BIN stream add per --kind per >/dev/null
+BILAN_DB="$PRTDB2" $BIN tx add per 2026-06-30 3000 >/dev/null
+r=$(BILAN_DB="$PRTDB2" $BIN tax --year 2026)
+ok "per no-tns regime 163_quatervicies" "163_quatervicies" "$(jq -r .ir.per_regime <<<"$r")"
+ok "per no-tns deduction 3000" 300000 "$(jq -r .ir.per_deduction_cents <<<"$r")"
+rm -f "$PRTDB2"
+
+# --- abattement départ retraite art. 150-0 D ter (500k fixe) ---
+# 100000 EUR crypto gain, eligible → IR base = 100000 - 500000 = 0
+# PFU IR = 0; social = 100000 × 17.2% = 17200 EUR = 1720000 cents
+DRDB1="$(mktemp -u /tmp/bilan-dr1-XXXXXX.db)"
+BILAN_DB="$DRDB1" $BIN stream add cr --kind crypto >/dev/null
+BILAN_DB="$DRDB1" $BIN tx add cr 2026-06-30 100000 >/dev/null
+BILAN_DB="$DRDB1" $BIN rule set 2026 pvm_depart_retraite eligible 1 >/dev/null
+r=$(BILAN_DB="$DRDB1" $BIN tax --year 2026)
+ok "dr eligible true" true "$(jq -r .pvm.depart_retraite_eligible <<<"$r")"
+ok "dr abattement 500000" 50000000 "$(jq -r .pvm.depart_retraite_abattement_cents <<<"$r")"
+ok "dr ir base after abattement 0" 0 "$(jq -r .pvm.ir_base_after_abattement_cents <<<"$r")"
+ok "dr pfu ir 0" 0 "$(jq -r .pvm.pfu_ir_cents <<<"$r")"
+ok "dr pfu social 17200" 1720000 "$(jq -r .pvm.pfu_social_cents <<<"$r")"
+rm -f "$DRDB1"
+# 600000 EUR gain, eligible → IR base = 600000 - 500000 = 100000
+# PFU IR = 100000 × 12.8% = 12800; social = 600000 × 17.2% = 103200
+DRDB2="$(mktemp -u /tmp/bilan-dr2-XXXXXX.db)"
+BILAN_DB="$DRDB2" $BIN stream add cr --kind crypto >/dev/null
+BILAN_DB="$DRDB2" $BIN tx add cr 2026-06-30 600000 >/dev/null
+BILAN_DB="$DRDB2" $BIN rule set 2026 pvm_depart_retraite eligible 1 >/dev/null
+r=$(BILAN_DB="$DRDB2" $BIN tax --year 2026)
+ok "dr 600k ir base 100000" 10000000 "$(jq -r .pvm.ir_base_after_abattement_cents <<<"$r")"
+ok "dr 600k pfu ir 12800" 1280000 "$(jq -r .pvm.pfu_ir_cents <<<"$r")"
+ok "dr 600k pfu social 103200" 10320000 "$(jq -r .pvm.pfu_social_cents <<<"$r")"
+rm -f "$DRDB2"
+
 # --- deficits carried forward (BNC: prior-year loss offsets current-year gross) ---
 DFDB="$(mktemp -u /tmp/bilan-deficit-XXXXXX.db)"
 BILAN_DB="$DFDB" $BIN stream add biz --kind bnc >/dev/null
