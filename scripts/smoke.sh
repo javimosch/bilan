@@ -1710,6 +1710,22 @@ r=$(BILAN_DB="$ITDB2" $BIN tax --year 2026)
 ok "it 0 transformateurs tax 0" 0 "$(jq -r .ifer_transformateurs.tax_cents <<<"$r")"
 rm -f "$ITDB2"
 
+# --- IFER gaz (art. 1519 HA) — 1 GNL <=100k + 100km gaz + 2 stations compression ---
+# 1 × 67543100 + 100 × 61600 + 2 × 12316800 = 67543100 + 6160000 + 24633600 = 98336700 cents
+IGDB1="$(mktemp -u /tmp/bilan-ig1-XXXXXX.db)"
+BILAN_DB="$IGDB1" $BIN rule set 2026 ifer_gaz nb_gnl_le_100000_m3 1 >/dev/null
+BILAN_DB="$IGDB1" $BIN rule set 2026 ifer_gaz km_canalisation_gaz 100 >/dev/null
+BILAN_DB="$IGDB1" $BIN rule set 2026 ifer_gaz nb_station_compression 2 >/dev/null
+r=$(BILAN_DB="$IGDB1" $BIN tax --year 2026)
+ok "ig 1 GNL + 100km gaz + 2 compression tax 98336700" 98336700 "$(jq -r .ifer_gaz.tax_cents <<<"$r")"
+rm -f "$IGDB1"
+
+# --- IFER gaz (art. 1519 HA) — 0 installations, tax 0 ---
+IGDB2="$(mktemp -u /tmp/bilan-ig2-XXXXXX.db)"
+r=$(BILAN_DB="$IGDB2" $BIN tax --year 2026)
+ok "ig 0 installations tax 0" 0 "$(jq -r .ifer_gaz.tax_cents <<<"$r")"
+rm -f "$IGDB2"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents

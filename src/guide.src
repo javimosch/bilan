@@ -898,6 +898,27 @@ func guide_text(base) (t) {
         "  nb_50_130_kv <val>.\n" +
         "  Source: BOFiP BOI-TFP-IFER-40.\n" +
         "\n" +
+        "## IFER gaz — art. 1519 HA CGI\n" +
+        "  IFER sur installations gazières et canalisations\n" +
+        "  transport gaz naturel/hydrocarbures/produits\n" +
+        "  chimiques. 7 catégories tarifs 2026: GNL\n" +
+        "  <=100000 m³ 675431 EUR, GNL >100000 m³\n" +
+        "  3079204 EUR, stockage souterrain 615840\n" +
+        "  EUR/site, canalisation gaz 616 EUR/km,\n" +
+        "  station compression 123168 EUR, canalisation\n" +
+        "  hydrocarbures 616 EUR/km, canalisation\n" +
+        "  produits chimiques 597 EUR/km.\n" +
+        "  Le radar expose ifer_gaz.tax_cents.\n" +
+        "  Set: bilan rule set 2026 ifer_gaz\n" +
+        "  nb_gnl_le_100000_m3 <val> +\n" +
+        "  nb_gnl_gt_100000_m3 <val> +\n" +
+        "  nb_stockage_souterrain <val> +\n" +
+        "  km_canalisation_gaz <val> +\n" +
+        "  nb_station_compression <val> +\n" +
+        "  km_canalisation_hydrocarbures <val> +\n" +
+        "  km_canalisation_chimiques <val>.\n" +
+        "  Source: BOFiP BOI-TFP-IFER-60.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

@@ -243,7 +243,9 @@ func llms_txt() (t) {
         "    pylônes art. 1519 A (3322/\n" +
         "    6635 EUR 200-350/>350 kV) +\n" +
         "    IFER transformateurs art. 1519 G\n" +
-        "    (>50 kV 16627-170587 EUR);\n" +
+        "    (>50 kV 16627-170587 EUR) +\n" +
+        "    IFER gaz art. 1519 HA (GNL,\n" +
+        "    canalisations, stockage);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +
