@@ -1129,6 +1129,56 @@ r=$(BILAN_DB="$TADB7" $BIN tax --year 2026)
 ok "csa ≥5% alternants exoneré 0" 0 "$(jq -r .taxe_apprentissage.csa.tax_cents <<<"$r")"
 rm -f "$TADB7"
 
+# --- CIR (art. 244 quater B) — basic 30% ≤ 100M ---
+# 1000000 EUR dépenses → 30% × 1000000 = 300000 EUR = 30000000 cents
+CIRDB1="$(mktemp -u /tmp/bilan-cir1-XXXXXX.db)"
+BILAN_DB="$CIRDB1" $BIN rule set 2026 cir depenses_cents 100000000 >/dev/null
+r=$(BILAN_DB="$CIRDB1" $BIN tax --year 2026)
+ok "cir 1M depenses 30% credit 300000" 30000000 "$(jq -r .cir.credit_cents <<<"$r")"
+rm -f "$CIRDB1"
+
+# --- CIR (art. 244 quater B) — above 100M threshold (30% + 5%) ---
+# 150000000 EUR dépenses (150M) → 30% × 100M + 5% × 50M = 30M + 2.5M = 32500000 EUR = 3250000000 cents
+CIRDB2="$(mktemp -u /tmp/bilan-cir2-XXXXXX.db)"
+BILAN_DB="$CIRDB2" $BIN rule set 2026 cir depenses_cents 15000000000 >/dev/null
+r=$(BILAN_DB="$CIRDB2" $BIN tax --year 2026)
+ok "cir 150M depenses 30%+5% credit 32500000" 3250000000 "$(jq -r .cir.credit_cents <<<"$r")"
+rm -f "$CIRDB2"
+
+# --- CIR (art. 244 quater B) — DOM 50% ≤ 100M ---
+# 1000000 EUR dépenses, DOM → 50% × 1000000 = 500000 EUR = 50000000 cents
+CIRDB3="$(mktemp -u /tmp/bilan-cir3-XXXXXX.db)"
+BILAN_DB="$CIRDB3" $BIN rule set 2026 cir depenses_cents 100000000 >/dev/null
+BILAN_DB="$CIRDB3" $BIN rule set 2026 cir dom_eligible 1 >/dev/null
+r=$(BILAN_DB="$CIRDB3" $BIN tax --year 2026)
+ok "cir 1M DOM 50% credit 500000" 50000000 "$(jq -r .cir.credit_cents <<<"$r")"
+rm -f "$CIRDB3"
+
+# --- CII (art. 244 quater B bis) — basic 20% ≤ 400k cap ---
+# 100000 EUR dépenses innovation → 20% × 100000 = 20000 EUR = 2000000 cents
+CIRDB4="$(mktemp -u /tmp/bilan-cir4-XXXXXX.db)"
+BILAN_DB="$CIRDB4" $BIN rule set 2026 cir cii_depenses_cents 10000000 >/dev/null
+r=$(BILAN_DB="$CIRDB4" $BIN tax --year 2026)
+ok "cii 100k depenses 20% credit 20000" 2000000 "$(jq -r .cir.cii.credit_cents <<<"$r")"
+rm -f "$CIRDB4"
+
+# --- CII (art. 244 quater B bis) — above 400k cap ---
+# 500000 EUR dépenses innovation, cap 400000 → 20% × 400000 = 80000 EUR = 8000000 cents
+CIRDB5="$(mktemp -u /tmp/bilan-cir5-XXXXXX.db)"
+BILAN_DB="$CIRDB5" $BIN rule set 2026 cir cii_depenses_cents 50000000 >/dev/null
+r=$(BILAN_DB="$CIRDB5" $BIN tax --year 2026)
+ok "cii 500k depenses capped 400k credit 80000" 8000000 "$(jq -r .cir.cii.credit_cents <<<"$r")"
+rm -f "$CIRDB5"
+
+# --- CII (art. 244 quater B bis) — DOM 60% ---
+# 100000 EUR dépenses innovation, DOM → 60% × 100000 = 60000 EUR = 6000000 cents
+CIRDB6="$(mktemp -u /tmp/bilan-cir6-XXXXXX.db)"
+BILAN_DB="$CIRDB6" $BIN rule set 2026 cir cii_depenses_cents 10000000 >/dev/null
+BILAN_DB="$CIRDB6" $BIN rule set 2026 cir cii_dom_eligible 1 >/dev/null
+r=$(BILAN_DB="$CIRDB6" $BIN tax --year 2026)
+ok "cii 100k DOM 60% credit 60000" 6000000 "$(jq -r .cir.cii.credit_cents <<<"$r")"
+rm -f "$CIRDB6"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents

@@ -664,6 +664,21 @@ func guide_text(base) (t) {
         "  + csa_effectif_moyen <val> + csa_alternants_pct_tenths <val>.\n" +
         "  Source: BOFiP BOI-TPA-CSA-10, urssaf.fr.\n" +
         "\n" +
+        "## Crédit d'impôt recherche (CIR) — art. 244 quater B CGI\n" +
+        "  30% des dépenses de recherche ≤ 100M EUR, 5% au-delà. DOM:\n" +
+        "  50% ≤ 100M, 5% au-delà. Remboursable pour JEI (Jeune Entreprise\n" +
+        "  Innovante), sinon imputable sur l'IS/IR. Le radar expose\n" +
+        "  cir.depenses_cents, cir.credit_cents, cir.jei_eligible.\n" +
+        "  Set: bilan rule set 2026 cir depenses_cents <val>\n" +
+        "  + dom_eligible <0|1> + jei_eligible <0|1>. Source: BOFiP\n" +
+        "  BOI-BIC-RICI-10-10-30, entreprises.gouv.fr.\n" +
+        "\n" +
+        "## Crédit d'impôt innovation (CII) — art. 244 quater B bis CGI\n" +
+        "  20% des dépenses d'innovation (60% DOM), plafond 400000 EUR/an\n" +
+        "  pour PME. Le radar expose cir.cii.credit_cents.\n" +
+        "  Set: bilan rule set 2026 cir cii_depenses_cents <val>\n" +
+        "  + cii_dom_eligible <0|1>. Source: BOFiP BOI-BIC-RICI-10-15-20.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +

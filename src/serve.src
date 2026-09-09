@@ -206,7 +206,9 @@ func llms_txt() (t) {
         "    art. 1679 A 24041) + taxe d'apprentissage art. 1599 (0.68%\n" +
         "    masse salariale, 0.59% principale + 0.09% solde, Alsace-Moselle\n" +
         "    0.44%, exonération 6×SMIC) + CSA (≥250 salariés <5% alternants,\n" +
-        "    0.05-0.6%);\n" +
+        "    0.05-0.6%) + CIR art. 244 quater B (30% ≤100M, 5% above, DOM\n" +
+        "    50%, JEI refundable) + CII art. 244 quater B bis (20%, 60% DOM,\n" +
+        "    cap 400k PME);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

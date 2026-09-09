@@ -703,6 +703,23 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_apprentissage', 'csa_rate_1_2pct_pct_hundredths', '20')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_apprentissage', 'csa_rate_2_3pct_pct_hundredths', '10')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'taxe_apprentissage', 'csa_rate_3_5pct_pct_hundredths', '5')", []string{y})
+    // Crédit d'impôt recherche (CIR) — article 244 quater B CGI. 30% of
+    // dépenses de recherche ≤ 100M EUR, 5% above. DOM: 50% ≤ 100M, 5% above.
+    // Crédit d'impôt innovation (CII) — article 244 quater B bis CGI.
+    // 20% of dépenses d'innovation (60% DOM), cap 400000 EUR/an for PME.
+    // Source: BOFiP BOI-BIC-RICI-10-10-30, BOI-BIC-RICI-10-15-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cir', 'depenses_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cir', 'dom_eligible', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cir', 'rate_low_pct_hundredths', '3000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cir', 'rate_high_pct_hundredths', '500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cir', 'rate_low_dom_pct_hundredths', '5000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cir', 'threshold_cents', '10000000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cir', 'jei_eligible', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cir', 'cii_depenses_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cir', 'cii_dom_eligible', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cir', 'cii_rate_pct_hundredths', '2000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cir', 'cii_rate_dom_pct_hundredths', '6000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cir', 'cii_cap_cents', '40000000')", []string{y})
     // Surtaxe sur plus-values immobilières élevées (art. 1609 nonies G CGI).
     // Progressive surtaxe on PV nette imposable > 50,000 EUR. Applies to
     // immeubles bâtis only (not terrains à bâtir). Brackets:
