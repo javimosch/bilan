@@ -1855,6 +1855,28 @@ r=$(BILAN_DB="$CSASDB2" $BIN tax --year 2026)
 ok "csas 0 base tax 0" 0 "$(jq -r .csa_solidarite.tax_cents <<<"$r")"
 rm -f "$CSASDB2"
 
+# --- Formation pro (art. L 6331-1/L 6331-3 C trav) — 5 salariés, 100000 EUR, 0.55% = 55000 ---
+FPDB1="$(mktemp -u /tmp/bilan-fp1-XXXXXX.db)"
+BILAN_DB="$FPDB1" $BIN rule set 2026 formation_pro effectif_moyen 5 >/dev/null
+BILAN_DB="$FPDB1" $BIN rule set 2026 formation_pro masse_salariale_cents 10000000 >/dev/null
+r=$(BILAN_DB="$FPDB1" $BIN tax --year 2026)
+ok "fp 5 salariés 100k EUR 0.55% tax 55000" 55000 "$(jq -r .formation_pro.tax_cents <<<"$r")"
+rm -f "$FPDB1"
+
+# --- Formation pro (art. L 6331-1/L 6331-3 C trav) — 20 salariés, 100000 EUR, 1% = 100000 ---
+FPDB2="$(mktemp -u /tmp/bilan-fp2-XXXXXX.db)"
+BILAN_DB="$FPDB2" $BIN rule set 2026 formation_pro effectif_moyen 20 >/dev/null
+BILAN_DB="$FPDB2" $BIN rule set 2026 formation_pro masse_salariale_cents 10000000 >/dev/null
+r=$(BILAN_DB="$FPDB2" $BIN tax --year 2026)
+ok "fp 20 salariés 100k EUR 1% tax 100000" 100000 "$(jq -r .formation_pro.tax_cents <<<"$r")"
+rm -f "$FPDB2"
+
+# --- Formation pro (art. L 6331-1/L 6331-3 C trav) — 0 masse, tax 0 ---
+FPDB3="$(mktemp -u /tmp/bilan-fp3-XXXXXX.db)"
+r=$(BILAN_DB="$FPDB3" $BIN tax --year 2026)
+ok "fp 0 masse tax 0" 0 "$(jq -r .formation_pro.tax_cents <<<"$r")"
+rm -f "$FPDB3"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents

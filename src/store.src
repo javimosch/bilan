@@ -773,6 +773,14 @@ func seed_rules(db) {
     // assiette assurance maladie. Source: BOFiP, urssaf.fr.
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'csa_solidarite', 'salaires_base_cents', '0')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'csa_solidarite', 'taux_pct_hundredths', '30')", []string{y})
+    // Contribution à la formation professionnelle (CPF)
+    // — articles L 6331-1 (<11, 0.55%) et L 6331-3
+    // (≥11, 1%) code du travail. Source: BOFiP.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'formation_pro', 'effectif_moyen', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'formation_pro', 'masse_salariale_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'formation_pro', 'taux_reduit_pct_hundredths', '55')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'formation_pro', 'taux_plein_pct_hundredths', '100')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'formation_pro', 'seuil_effectif', '11')", []string{y})
     // Plafonnement de la CET — article 1647 B sexies CGI. If CFE + CVAE
     // > taux × VA, dégrèvement = CET - plafond. Floor: CET après
     // dégrèvement ≥ cotisation minimum CFE (art. 1647 D). Taux 1.438%

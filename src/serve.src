@@ -226,6 +226,8 @@ func llms_txt() (t) {
         "    bonus-malus 6 secteurs) +\n" +
         "    CSA solidarité art. L 14-10-4 CASF\n" +
         "    (0.30% assiette assurance maladie) +\n" +
+        "    formation pro art. L 6331-1/L 6331-3\n" +
+        "    (0.55% <11, 1% ≥11 salariés) +\n" +
         "    plafonnement CET art. 1647 B sexies\n" +
         "    (CFE+CVAE > 1.438% VA → dégrèvement, floor CFE\n" +
         "    minimum) + TSB art. 231 ter (bureaux IDF 4\n" +

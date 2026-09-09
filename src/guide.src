@@ -778,6 +778,21 @@ func guide_text(base) (t) {
         "  salaires_base_cents <val>.\n" +
         "  Source: BOFiP, urssaf.fr.\n" +
         "\n" +
+        "## Formation professionnelle (CPF) — art. L 6331-1 et L 6331-3\n" +
+        "  Contribution à la formation professionnelle.\n" +
+        "  <11 salariés: 0.55% (art. L 6331-1).\n" +
+        "  ≥11 salariés: 1.00% (art. L 6331-3).\n" +
+        "  Assiette = revenu d'activité retenu pour\n" +
+        "  calcul cotisations SS (masse salariale\n" +
+        "  brute). Apprentis exonérés. Seuil\n" +
+        "  franchissement: maintien 0.55% 5 années\n" +
+        "  consécutives, passage 1% à la 6e.\n" +
+        "  Le radar expose formation_pro.tax_cents.\n" +
+        "  Set: bilan rule set 2026 formation_pro\n" +
+        "  effectif_moyen <val> +\n" +
+        "  masse_salariale_cents <val>.\n" +
+        "  Source: BOFiP, code.travail.gouv.fr.\n" +
+        "\n" +
         "## Plafonnement de la CET — art. 1647 B sexies CGI\n" +
         "  Si CFE + CVAE > taux × valeur ajoutée, dégrèvement =\n" +
         "  CET - plafond. Taux 1.438% (2025), 1.531% (2026/2027).\n" +
