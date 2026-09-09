@@ -744,6 +744,73 @@ ok "cfe CA 600000 bracket 6" 6 "$(jq -r .cfe.bracket <<<"$r")"
 ok "cfe CA 600000 cfe 79060" 79060 "$(jq -r .cfe.cfe_cents <<<"$r")"
 rm -f "$CFEDB4"
 
+# --- plus-values mobilières (art. 200 A, PFU vs barème option) ---
+# PFU path: 10000 crypto → 12.8% IR + 17.2% social = 1280 + 1720 = 3000
+PVDB1="$(mktemp -u /tmp/bilan-pvm1-XXXXXX.db)"
+BILAN_DB="$PVDB1" $BIN stream add cr --kind crypto >/dev/null
+BILAN_DB="$PVDB1" $BIN tx add cr 2026-06-30 10000 >/dev/null
+r=$(BILAN_DB="$PVDB1" $BIN tax --year 2026)
+ok "pvm base 10000" 1000000 "$(jq -r .pvm.base_cents <<<"$r")"
+ok "pvm pfu ir 1280" 128000 "$(jq -r .pvm.pfu_ir_cents <<<"$r")"
+ok "pvm pfu social 1720" 172000 "$(jq -r .pvm.pfu_social_cents <<<"$r")"
+ok "pvm pfu total 3000" 300000 "$(jq -r .pvm.pfu_total_cents <<<"$r")"
+ok "pvm optimal pfu (no detention)" pfu "$(jq -r .pvm.optimal <<<"$r")"
+ok "pvm total tax 3000" 300000 "$(jq -r .pvm.total_tax_cents <<<"$r")"
+rm -f "$PVDB1"
+# Barème option with 5y detention: abattement 50%, IR base 5000, IR 30% = 1500, social 1720, total 3220
+# PFU = 3000 < 3220 → PFU still optimal
+PVDB2="$(mktemp -u /tmp/bilan-pvm2-XXXXXX.db)"
+BILAN_DB="$PVDB2" $BIN stream add cr --kind crypto >/dev/null
+BILAN_DB="$PVDB2" $BIN tx add cr 2026-06-30 10000 >/dev/null
+BILAN_DB="$PVDB2" $BIN rule set 2026 pvm detention_years 5 >/dev/null
+r=$(BILAN_DB="$PVDB2" $BIN tax --year 2026)
+ok "pvm 5y abattement 50%" 50 "$(jq -r .pvm.abattement_pct <<<"$r")"
+ok "pvm 5y bareme ir 1500" 150000 "$(jq -r .pvm.bareme_ir_cents <<<"$r")"
+ok "pvm 5y bareme total 3220" 322000 "$(jq -r .pvm.bareme_total_cents <<<"$r")"
+ok "pvm 5y optimal still pfu" pfu "$(jq -r .pvm.optimal <<<"$r")"
+rm -f "$PVDB2"
+# Barème option with 10y detention: abattement 65%, IR base 3500, IR 30% = 1050, social 1720, total 2770
+# PFU = 3000 > 2770 → barème optimal
+PVDB3="$(mktemp -u /tmp/bilan-pvm3-XXXXXX.db)"
+BILAN_DB="$PVDB3" $BIN stream add cr --kind crypto >/dev/null
+BILAN_DB="$PVDB3" $BIN tx add cr 2026-06-30 10000 >/dev/null
+BILAN_DB="$PVDB3" $BIN rule set 2026 pvm detention_years 10 >/dev/null
+r=$(BILAN_DB="$PVDB3" $BIN tax --year 2026)
+ok "pvm 10y abattement 65%" 65 "$(jq -r .pvm.abattement_pct <<<"$r")"
+ok "pvm 10y bareme ir 1050" 105000 "$(jq -r .pvm.bareme_ir_cents <<<"$r")"
+ok "pvm 10y bareme total 2770" 277000 "$(jq -r .pvm.bareme_total_cents <<<"$r")"
+ok "pvm 10y optimal bareme" bareme "$(jq -r .pvm.optimal <<<"$r")"
+ok "pvm 10y total tax 2770" 277000 "$(jq -r .pvm.total_tax_cents <<<"$r")"
+rm -f "$PVDB3"
+
+# --- CVAE (art. 1586 ter, progressive effective rate) ---
+# CA 4000 → below threshold 152500 → not assujettie, cvae 0
+CVAEDB1="$(mktemp -u /tmp/bilan-cvae1-XXXXXX.db)"
+BILAN_DB="$CVAEDB1" $BIN stream add biz --kind bnc >/dev/null
+BILAN_DB="$CVAEDB1" $BIN tx add biz 2026-06-30 4000 >/dev/null
+r=$(BILAN_DB="$CVAEDB1" $BIN tax --year 2026)
+ok "cvae CA 4000 not assujettie" false "$(jq -r .cvae.assujettie <<<"$r")"
+ok "cvae CA 4000 cvae 0" 0 "$(jq -r .cvae.cvae_cents <<<"$r")"
+rm -f "$CVAEDB1"
+# CA 200000 → assujettie but ≤ 500k franchise → cvae 0
+CVAEDB2="$(mktemp -u /tmp/bilan-cvae2-XXXXXX.db)"
+BILAN_DB="$CVAEDB2" $BIN stream add biz --kind bnc >/dev/null
+BILAN_DB="$CVAEDB2" $BIN tx add biz 2026-06-30 200000 >/dev/null
+r=$(BILAN_DB="$CVAEDB2" $BIN tax --year 2026)
+ok "cvae CA 200000 assujettie" true "$(jq -r .cvae.assujettie <<<"$r")"
+ok "cvae CA 200000 franchise cvae 0" 0 "$(jq -r .cvae.cvae_cents <<<"$r")"
+rm -f "$CVAEDB2"
+# CA 1000000 (>500k, ≤3M) → effective rate = 0.25% × (1M-500k)/2.5M = 0.05%
+# VA = 1M × 45% = 450000 EUR; cvae = 450000 × 0.05% = 225 EUR; 2024 reduction 25% → 168.75 EUR = 16875 cents
+CVAEDB3="$(mktemp -u /tmp/bilan-cvae3-XXXXXX.db)"
+BILAN_DB="$CVAEDB3" $BIN stream add biz --kind bnc >/dev/null
+BILAN_DB="$CVAEDB3" $BIN tx add biz 2026-06-30 1000000 >/dev/null
+r=$(BILAN_DB="$CVAEDB3" $BIN tax --year 2026)
+ok "cvae CA 1M assujettie" true "$(jq -r .cvae.assujettie <<<"$r")"
+ok "cvae CA 1M effective rate 5" 5 "$(jq -r .cvae.effective_rate_pct_hundredths <<<"$r")"
+ok "cvae CA 1M cvae 16875" 16875 "$(jq -r .cvae.cvae_cents <<<"$r")"
+rm -f "$CVAEDB3"
+
 # --- deficits carried forward (BNC: prior-year loss offsets current-year gross) ---
 DFDB="$(mktemp -u /tmp/bilan-deficit-XXXXXX.db)"
 BILAN_DB="$DFDB" $BIN stream add biz --kind bnc >/dev/null

@@ -156,7 +156,11 @@ func llms_txt() (t) {
         "    cap) + plus-values immobilières art. 150 U-VH (19% IR + 17.2% social,\n" +
         "    abattement 22y/30y) + IFI art. 977 (barème 0.5%-1.5%, seuil 1.3M)\n" +
         "    + heures supplémentaires art. 81 quater (7500 EUR cap) + CFE art. 1647 D\n" +
-        "    (cotisation minimum, base × communal rate, exonération CA ≤ 5000);\n" +
+        "    (cotisation minimum, base × communal rate, exonération CA ≤ 5000) + CVAE\n" +
+        "    art. 1586 ter (progressive effective rate 0%-0.75%, VA ≈ 45% of CA, 2024\n" +
+        "    reduction 25%, being phased out) + plus-values mobilières art. 200 A\n" +
+        "    (PFU 12.8%+17.2% vs barème option with abattement durée de détention\n" +
+        "    50%/65%, radar reports the lower);\n" +
         "    2025 barème on 2024 income)\n" +
         "\n" +
         "## The copilote loop (Brian)\n" +

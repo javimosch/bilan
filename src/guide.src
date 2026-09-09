@@ -301,6 +301,22 @@ func guide_text(base) (t) {
         "  EUR. CFE = base × rate / 1000. New cfe JSON block + totals.cfe_cents.\n" +
         "  Source: BOFiP BOI-IF-CFE-20-20-40-10.\n" +
         "\n" +
+        "## CVAE — cotisation sur la valeur ajoutée des entreprises (art. 1586 ter CGI)\n" +
+        "  Progressive effective rate based on CA: 0% < 500k, 0.25% at 3M, 0.7% at\n" +
+        "  10M, 0.75% > 50M. Assujettie if CA > 152,500 EUR but franchise if CA ≤\n" +
+        "  500,000 EUR. VA approximated as 45% of CA (simplified). 2024 reduction\n" +
+        "  25% (art. 79 LF 2024). Being phased out (suppression 2027). New cvae JSON\n" +
+        "  block + totals.cvae_cents. Source: BOFiP BOI-CVAE-LIQ-10.\n" +
+        "\n" +
+        "## Plus-values mobilières (art. 200 A CGI)\n" +
+        "  PFU flat tax 12.8% IR + 17.2% social = 30% by default. Option for barème\n" +
+        "  progressif (case 2OP) — global, applies to all capitaux mobiliers. For\n" +
+        "  titres acquired before 2018 with the barème option, abattement durée de\n" +
+        "  détention: 50% (2-8y), 65% (>8y). Set detention: bilan rule set 2026 pvm\n" +
+        "  detention_years <years>. The radar computes BOTH PFU and barème option and\n" +
+        "  reports the lower (optimal field). New pvm JSON block + totals.pvm_cents.\n" +
+        "  Source: BOFiP BOI-RPPM-PVMC-20.\n" +
+        "\n" +
         "## What the radar is NOT\n" +
         "  It computes regime math + the progressive IR barème + plafonnement QF\n" +
         "  (situation-aware) + décote + 10% frais per salary stream + BNC/BIC/LMNP\n" +
@@ -320,14 +336,18 @@ func guide_text(base) (t) {
         "  abattement détention 22y IR / 30y social) + IFI (art. 977, barème 0.5%-1.5%,\n" +
         "  seuil 1.3M, décote 1.3M-1.4M) + heures supplémentaires exonération (art. 81\n" +
         "  quater, 7500 EUR cap) + CFE cotisation minimum (art. 1647 D, base × communal\n" +
-        "  rate, exonération CA ≤ 5000). It does NOT model: deficits beyond their\n" +
-        "  windows, the full BOFiP PAS formula, the article 154 bis TNS PER plafond\n" +
-        "  (10% bénéfice + 15% between 1-8 PASS — record versements in 'per' and the\n" +
-        "  radar applies the 163 quatervicies cap), plus-values sur autres actifs\n" +
-        "  (métaux précieux, meubles), surtaxe sur plus-values immobilières élevées,\n" +
-        "  or LMNP amortissement tables (record the amortissement as a negative tx\n" +
-        "  in the 'lmnp_reel' stream). Output is an estimate to reason from, not tax\n" +
-        "  advice — say so to the human.\n" +
+        "  rate, exonération CA ≤ 5000) + CVAE (art. 1586 ter, progressive effective\n" +
+        "  rate 0%-0.75%, VA ≈ 45% of CA, 2024 reduction 25%, being phased out) +\n" +
+        "  plus-values mobilières (art. 200 A, PFU 12.8%+17.2% vs barème option with\n" +
+        "  abattement durée de détention 50%/65%, radar reports the lower). It does\n" +
+        "  NOT model: deficits beyond their windows, the full BOFiP PAS formula,\n" +
+        "  the article 154 bis TNS PER plafond (10% bénéfice + 15% between 1-8 PASS\n" +
+        "  — record versements in 'per' and the radar applies the 163 quatervicies\n" +
+        "  cap), plus-values sur autres actifs (métaux précieux, meubles), surtaxe\n" +
+        "  sur plus-values immobilières élevées, or LMNP amortissement tables\n" +
+        "  (record the amortissement as a negative tx in the 'lmnp_reel' stream).\n" +
+        "  Output is an estimate to reason from, not tax advice — say so to the\n" +
+        "  human.\n" +
         "\n" +
         "## Brian — the cheap copilote (no inference in the platform)\n" +
         "  Brian is a PERSONA, not a service: install it into the harness your human\n" +

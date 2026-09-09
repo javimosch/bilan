@@ -361,6 +361,34 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cfe', 'bracket5_ca_cents', '50000000')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cfe', 'bracket5_base_cents', '306700')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cfe', 'bracket6_base_cents', '395300')", []string{y})
+    // Plus-values mobilières (art. 200 A CGI). PFU flat tax 12.8% IR + 17.2%
+    // social = 30% (31.4% for 2025 income with CSG 10.6%). Option for barème
+    // progressif (case 2OP) — global, applies to all capitaux mobiliers. For
+    // titres acquired before 2018, abattement durée de détention applies with
+    // the barème option: 50% (2-8y), 65% (>8y). The radar computes BOTH PFU and
+    // barème option and reports the lower. Source: BOFiP BOI-RPPM-PVMC-20.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pvm', 'pfu_ir_rate_pct_tenths', '128')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pvm', 'pfu_social_rate_pct_tenths', '172')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pvm', 'abattement_2_8y_pct_tenths', '500')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pvm', 'abattement_8y_pct_tenths', '650')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'pvm', 'detention_years', '0')", []string{y})
+    // CVAE — cotisation sur la valeur ajoutée des entreprises (art. 1586 ter
+    // CGI). Progressive effective rate based on CA. Theoretical 0.75%, but
+    // dégrèvement gives a progressive rate: 0% < 500k, 0.25% at 3M, 0.7% at
+    // 10M, 0.75% > 50M. Being phased out (suppression 2027). For 2024, rate
+    // reduced by 25% (art. 79 LF 2024). Assujettie if CA > 152,500 EUR but
+    // franchise if CA ≤ 500,000 EUR. Source: BOFiP BOI-CVAE-LIQ-10.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cvae', 'threshold_cents', '15250000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cvae', 'franchise_ca_cents', '50000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cvae', 'bracket1_ca_cents', '50000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cvae', 'bracket1_rate_pct_hundredths', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cvae', 'bracket2_ca_cents', '300000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cvae', 'bracket2_rate_pct_hundredths', '25')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cvae', 'bracket3_ca_cents', '1000000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cvae', 'bracket3_rate_pct_hundredths', '70')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cvae', 'bracket4_ca_cents', '5000000000')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cvae', 'bracket4_rate_pct_hundredths', '75')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'cvae', 'reduction_2024_pct_tenths', '250')", []string{y})
 }
 
 type Rulevalrow struct { value string }
