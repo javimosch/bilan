@@ -755,6 +755,13 @@ func seed_rules(db) {
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'fnal', 'taux_reduit_pct_hundredths', '10')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'fnal', 'taux_plein_pct_hundredths', '50')", []string{y})
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'fnal', 'seuil_effectif', '50')", []string{y})
+    // AGS — Assurance garantie des salaires, article
+    // L 3253-6 et suivants code du travail. Cotisation
+    // patronale 0.25%, plafond 4 PASS mensuels.
+    // Source: BOFiP, urssaf.fr, ags-garantie-salaires.org.
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ags', 'salaires_base_cents', '0')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ags', 'taux_pct_hundredths', '25')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'ags', 'plafond_mensuel_cents', '1602000')", []string{y})
     // Plafonnement de la CET — article 1647 B sexies CGI. If CFE + CVAE
     // > taux × VA, dégrèvement = CET - plafond. Floor: CET après
     // dégrèvement ≥ cotisation minimum CFE (art. 1647 D). Taux 1.438%

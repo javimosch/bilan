@@ -1802,6 +1802,26 @@ r=$(BILAN_DB="$FNALDB3" $BIN tax --year 2026)
 ok "fnal 0 remunerations tax 0" 0 "$(jq -r .fnal.tax_cents <<<"$r")"
 rm -f "$FNALDB3"
 
+# --- AGS (art. L 3253-6 C trav) — 10000 EUR below plafond, 0.25% = 2500 ---
+AGSDB1="$(mktemp -u /tmp/bilan-ags1-XXXXXX.db)"
+BILAN_DB="$AGSDB1" $BIN rule set 2026 ags salaires_base_cents 1000000 >/dev/null
+r=$(BILAN_DB="$AGSDB1" $BIN tax --year 2026)
+ok "ags 10k EUR below plafond tax 2500" 2500 "$(jq -r .ags.tax_cents <<<"$r")"
+rm -f "$AGSDB1"
+
+# --- AGS (art. L 3253-6 C trav) — 20000 EUR above plafond 16020, capped, 0.25% = 4005 ---
+AGSDB2="$(mktemp -u /tmp/bilan-ags2-XXXXXX.db)"
+BILAN_DB="$AGSDB2" $BIN rule set 2026 ags salaires_base_cents 2000000 >/dev/null
+r=$(BILAN_DB="$AGSDB2" $BIN tax --year 2026)
+ok "ags 20k EUR above plafond capped tax 4005" 4005 "$(jq -r .ags.tax_cents <<<"$r")"
+rm -f "$AGSDB2"
+
+# --- AGS (art. L 3253-6 C trav) — 0 base, tax 0 ---
+AGSDB3="$(mktemp -u /tmp/bilan-ags3-XXXXXX.db)"
+r=$(BILAN_DB="$AGSDB3" $BIN tax --year 2026)
+ok "ags 0 base tax 0" 0 "$(jq -r .ags.tax_cents <<<"$r")"
+rm -f "$AGSDB3"
+
 # --- surtaxe sur plus-values immobilières élevées (art. 1609 nonies G) ---
 # PV immo 80000 (no abattement, detention 0) → pv_ir_base 80000 > 50000
 # Bracket 1: 50k-60k at 2% = 10000 × 2% = 200 EUR = 20000 cents

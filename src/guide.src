@@ -736,6 +736,19 @@ func guide_text(base) (t) {
         "  remunerations_cents <val>.\n" +
         "  Source: BOFiP, urssaf.fr.\n" +
         "\n" +
+        "## AGS — art. L 3253-6 et suivants C trav\n" +
+        "  Assurance garantie des salaires. Cotisation\n" +
+        "  patronale 0.25% des salaires servant de base\n" +
+        "  aux cotisations d'assurance chômage. Plafond\n" +
+        "  4 PASS mensuels (16020 EUR/mois 2026).\n" +
+        "  Garantit le paiement des salaires en cas de\n" +
+        "  procédure collective (sauvegarde, redressement,\n" +
+        "  liquidation judiciaire).\n" +
+        "  Le radar expose ags.tax_cents.\n" +
+        "  Set: bilan rule set 2026 ags\n" +
+        "  salaires_base_cents <val>.\n" +
+        "  Source: BOFiP, urssaf.fr, ags-garantie-salaires.org.\n" +
+        "\n" +
         "## Plafonnement de la CET — art. 1647 B sexies CGI\n" +
         "  Si CFE + CVAE > taux × valeur ajoutée, dégrèvement =\n" +
         "  CET - plafond. Taux 1.438% (2025), 1.531% (2026/2027).\n" +

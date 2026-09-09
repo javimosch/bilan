@@ -218,6 +218,9 @@ func llms_txt() (t) {
         "    Fnal art. L 314-12 CSS\n" +
         "    (0.10% <50 salariés sur PASS,\n" +
         "    0.50% ≥50 salariés totalité) +\n" +
+        "    AGS art. L 3253-6 C trav\n" +
+        "    (0.25% salaires base chômage,\n" +
+        "    plafond 4 PASS mensuels) +\n" +
         "    plafonnement CET art. 1647 B sexies\n" +
         "    (CFE+CVAE > 1.438% VA → dégrèvement, floor CFE\n" +
         "    minimum) + TSB art. 231 ter (bureaux IDF 4\n" +
