@@ -1767,11 +1767,11 @@ r=$(BILAN_DB="$PEECDB3" $BIN tax --year 2026)
 ok "peec 30 salariés below threshold tax 0" 0 "$(jq -r .peec.tax_cents <<<"$r")"
 rm -f "$PEECDB3"
 
-# --- Dialogue social (art. L 2135-15-1 C trav) — 1000000 EUR, 0.016% = 160000 cents ---
+# --- Dialogue social (art. L 2135-15-1 C trav) — 1000000 EUR, 0.016% = 16000 cents ---
 DSDB1="$(mktemp -u /tmp/bilan-ds1-XXXXXX.db)"
 BILAN_DB="$DSDB1" $BIN rule set 2026 dialogue_social masse_salariale_cents 100000000 >/dev/null
 r=$(BILAN_DB="$DSDB1" $BIN tax --year 2026)
-ok "ds 1M EUR tax 160000" 160000 "$(jq -r .dialogue_social.tax_cents <<<"$r")"
+ok "ds 1M EUR tax 16000" 16000 "$(jq -r .dialogue_social.tax_cents <<<"$r")"
 rm -f "$DSDB1"
 
 # --- Dialogue social (art. L 2135-15-1 C trav) — 0 masse, tax 0 ---

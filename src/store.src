@@ -745,7 +745,7 @@ func seed_rules(db) {
     // code du travail. Charge patronale 0.016% masse
     // salariale brute. Source: BOFiP, urssaf.fr.
     sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dialogue_social', 'masse_salariale_cents', '0')", []string{y})
-    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dialogue_social', 'taux_pct_hundredths', '16')", []string{y})
+    sqlite_exec(db, "INSERT OR IGNORE INTO tax_rules(year, regime, param, value) VALUES(?, 'dialogue_social', 'taux_pct_thousandths', '16')", []string{y})
     // Fnal — Fonds national d'aide au logement, article
     // L 314-12 CSS. <50 salariés: 0.10% sur PASS.
     // ≥50 salariés: 0.50% sur totalité. Source: BOFiP, urssaf.fr.
