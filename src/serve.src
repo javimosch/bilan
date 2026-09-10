@@ -41,6 +41,18 @@ func cmd_serve(a) {
             if ws_l == "" { return ok_html(login_html()) }
             return set_session(redirect("/app"), token, "bilan_s", tok_l)
         }
+        if p == "/app/claim" && req.method == "GET" {
+            return ok_html(claim_html())
+        }
+        if p == "/app/claim" && req.method == "POST" {
+            tok_c := form_field(req.body, "token")
+            email_c := form_field(req.body, "email")
+            if tok_c == "" || email_c == "" { return ok_html(claim_html()) }
+            cdb := hosted_control_db()
+            tenant_set_email(cdb, tok_c, email_c)
+            sqlite_close(cdb)
+            return set_session(redirect("/app"), token, "bilan_s", tok_c)
+        }
 if p == "/app/move" && req.method == "POST" {
             mid := form_field(req.body, "id")
             mst := form_field(req.body, "status")
@@ -285,7 +297,15 @@ func llms_txt() (t) {
         "- Command catalog: `bilan help-json`\n" +
         "- Output contract: stdout=JSON data, stderr=errors, exit 0/80s/90s/100s/110s\n" +
         "- Endpoints: /v1/streams, /v1/tx, /v1/import, /v1/stats, /v1/tax, /v1/brief,\n" +
-        "  /v1/moves (Bearer token; 50 gift calls per tenant, then 1 peage cent/call)\n"
+        "  /v1/moves (Bearer token; 50 gift calls per tenant, then 1 peage cent/call)\n" +
+        "  /v1/whoami (free, no gift charge — check your gift balance + email status)\n" +
+        "\n" +
+        "## Agent self-signup (no email needed to start)\n" +
+        "1. set BILAN_TOKEN to any string (your temp code) and BILAN_URL to the hosted API\n" +
+        "2. call any /v1/* endpoint — you are instantly a tenant with 50 free gift calls\n" +
+        "3. GET /v1/whoami returns {gift_calls_remaining, email_attached} — check anytime\n" +
+        "4. when gift runs low, tell your human: visit /app/claim, paste your token + email\n" +
+        "5. the human claims the session (email = recovery + billing), you keep the same token\n"
 }
 
 // api — the /v1/* router. GETs render the same JSON the CLI prints; POSTs parse a
@@ -294,6 +314,11 @@ func llms_txt() (t) {
 func api(req, db_path) (res) {
     db := open_db_at(db_path)
     p := path_only(req.path)
+    if p == "/v1/whoami" {
+        sqlite_close(db)
+        res = ok_json("{\"ok\":true,\"mode\":\"local\",\"gift_calls_remaining\":\"unlimited\",\"email_attached\":false}")
+        return res
+    }
     if p == "/v1/streams" && req.method == "GET" {
         res = ok_json(stream_list_json(db))
         sqlite_close(db)

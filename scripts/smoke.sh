@@ -2671,6 +2671,30 @@ code=$($BIN tax --year 2026 >/dev/null 2>/tmp/smoke-402.err; echo $?)
 ok "cli post-gift exits 100" 100 "$code"
 ok "cli 402 carries pay link" peage "$(jq -r .pay.rail </tmp/smoke-402.err)"
 unset BILAN_URL BILAN_TOKEN
+
+# --- /v1/whoami (free, no gift charge) — agent self-discovery ---
+# whoami on a fresh tenant: gift_calls_remaining should be 3 (BILAN_GIFT_CALLS=3),
+# email_attached false. whoami itself does NOT consume a gift call.
+r=$(curl -sf -H "Authorization: Bearer whoami-agent" http://127.0.0.1:$HPORT/v1/whoami)
+ok "whoami gift_calls_remaining 3 (not charged)" 3 "$(jq -r .gift_calls_remaining <<<"$r")"
+ok "whoami email_attached false" false "$(jq -r .email_attached <<<"$r")"
+ok "whoami has token_hash" true "$(jq -r 'has("token_hash")' <<<"$r")"
+# call whoami again — remaining should still be 3 (whoami is free)
+r=$(curl -sf -H "Authorization: Bearer whoami-agent" http://127.0.0.1:$HPORT/v1/whoami)
+ok "whoami still 3 after second call (free)" 3 "$(jq -r .gift_calls_remaining <<<"$r")"
+
+# --- /app/claim (email attachment) — human claims the agent's token ---
+# GET /app/claim returns the form
+code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$HPORT/app/claim)
+ok "claim form GET 200" 200 "$code"
+# POST /app/claim with token + email attaches the email
+r=$(curl -sf -X POST -d "token=whoami-agent&email=human@example.com" http://127.0.0.1:$HPORT/app/claim -o /dev/null -w '%{http_code}')
+ok "claim POST redirect" 302 "$r"
+# verify email is now attached via whoami
+r=$(curl -sf -H "Authorization: Bearer whoami-agent" http://127.0.0.1:$HPORT/v1/whoami)
+ok "whoami email_attached true after claim" true "$(jq -r .email_attached <<<"$r")"
+ok "whoami email is human@example.com" "human@example.com" "$(jq -r .email <<<"$r")"
+
 curl -sf -X POST -H "Authorization: Bearer optoken" http://127.0.0.1:$HPORT/_shutdown >/dev/null
 sleep 0.4
 if kill -0 $HPID 2>/dev/null; then F=$((F+1)); echo "FAIL: hosted server did not exit"; else P=$((P+1)); fi

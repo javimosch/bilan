@@ -21,10 +21,15 @@ func hosted_control_db() (db) {
     if dbf == "" { dbf = dir + "/control.db" }
     db = sqlite_open(dbf)
     sqlite_exec(db, "PRAGMA busy_timeout=5000", []string{})
-    sqlite_exec(db, "CREATE TABLE IF NOT EXISTS tenants(token TEXT PRIMARY KEY, ws TEXT, calls_used INTEGER DEFAULT 0, created INTEGER)", []string{})
+    sqlite_exec(db, "CREATE TABLE IF NOT EXISTS tenants(token TEXT PRIMARY KEY, ws TEXT, calls_used INTEGER DEFAULT 0, created INTEGER, email TEXT DEFAULT '')", []string{})
+    // migrate: add email column if missing (existing dbs pre-v0.2.65)
+    cols := sqlite_query(db, "PRAGMA table_info(tenants)", []string{})
+    if index(cols, "email") < 0 {
+        sqlite_exec(db, "ALTER TABLE tenants ADD COLUMN email TEXT DEFAULT ''", []string{})
+    }
 }
 
-type Tenantrow struct { ws string  calls_used int }
+type Tenantrow struct { ws string  calls_used int  email string }
 
 // tenant_ensure — resolve a bearer token to its tenant row, auto-provisioning on
 // first sight (the gift starts counting from the first call). The workspace file is
@@ -38,6 +43,20 @@ func tenant_ensure(cdb, tok) (ws, used) {
     ws = hosted_dir() + "/ws-" + substr(sha256(tok), 0, 16) + ".db"
     sqlite_exec(cdb, "INSERT INTO tenants(token,ws,calls_used,created) VALUES(?,?,0,?)", []string{tok, ws, str(now_ms())})
     used = 0
+}
+
+// tenant_email — the email attached to a tenant ("" = anonymous, not yet claimed).
+func tenant_email(cdb, tok) (email) {
+    rows := sqlite_query(cdb, "SELECT email FROM tenants WHERE token=?", []string{tok})
+    if rows != "[]" && rows != "" {
+        parsed := parse(rows, []Tenantrow{})
+        if len(parsed) > 0 { email = parsed[0].email }
+    }
+}
+
+// tenant_set_email — attach a human email to an anonymous tenant (the "claim").
+func tenant_set_email(cdb, tok, email) {
+    sqlite_exec(cdb, "UPDATE tenants SET email=? WHERE token=?", []string{email, tok})
 }
 
 
@@ -64,6 +83,17 @@ func hosted_handle(req) (res) {
     tok := substr(h, 7, len(h))
     if tok == "" { res = unauthorized()  return res }
     cdb := hosted_control_db()
+    // whoami is free: lets the agent check its status without spending gift calls.
+    // Returns token_hash, gift calls used/remaining, and whether an email is attached.
+    if path_only(req.path) == "/v1/whoami" {
+        tws, used := tenant_ensure(cdb, tok)
+        email := tenant_email(cdb, tok)
+        remaining := gift_calls() - used
+        if remaining < 0 { remaining = 0 }
+        res = ok_json("{\"ok\":true,\"token_hash\":\"" + substr(sha256(tok), 0, 16) + "\",\"gift_calls_total\":" + str(gift_calls()) + ",\"gift_calls_used\":" + str(used) + ",\"gift_calls_remaining\":" + str(remaining) + ",\"email_attached\":" + json(email != "") + ",\"email\":\"" + esc(email) + "\"}")
+        sqlite_close(cdb)
+        return res
+    }
     tws, used := tenant_ensure(cdb, tok)
     tenant_hash := substr(sha256(tok), 0, 16)
     started := now_ms()
