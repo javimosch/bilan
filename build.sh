@@ -3,6 +3,6 @@
 set -e
 cd "$(dirname "$0")"
 mkdir -p build
-machin encode framework/machweb.src src/core.src src/store.src src/hosted.src src/guide.src src/ledger.src src/serve.src src/landing.src src/brian.src src/dash.src src/demo.src src/human.src src/telemetry.src src/main.src > build/bilan.mfl
+machin encode framework/machweb.src src/sys.src src/core.src src/store.src src/hosted.src src/guide.src src/ledger.src src/serve.src src/daemon.src src/landing.src src/brian.src src/dash.src src/demo.src src/human.src src/telemetry.src src/main.src > build/bilan.mfl
 machin build build/bilan.mfl -o bilan
 echo "built ./bilan"

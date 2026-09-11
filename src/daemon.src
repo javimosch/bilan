@@ -1,0 +1,103 @@
+// daemon — the cli-daemon-spec lifecycle: start/stop/status of a detached
+// background server. Idempotent by design (start when already running is a
+// no-op success; stop when nothing runs is a no-op success). The actual HTTP
+// handler is bilan_handler in serve.src; this module only manages the process.
+//
+// stdout = JSON (the agent contract), stderr = lifecycle events, semantic exit
+// codes: 0 ok, 3 daemon-not-running (status), 100 upstream (start failed).
+
+// pid_path — where the daemon's pid is recorded so stop/status can find it.
+func pid_path() (p) { p = "/tmp/bilan.pid" }
+
+// daemon_log_path — the detached child's stdout/stderr sink (under ~/.bilan).
+func daemon_log_path() (p) { p = env("HOME") + "/.bilan/daemon.log" }
+
+// shutdown_token_path — reserved for a future token-gated shutdown; v0 keeps
+// /_shutdown open per cli-daemon-spec §3.
+func shutdown_token_path() (p) { p = env("HOME") + "/.bilan/shutdown.token" }
+
+// health_probe — GET /_health on host:port; 1 if it answered 200, else 0.
+// Used by start (poll until up) and stop (poll until gone) and status.
+func health_probe(host, port) (ok) {
+    ok = 0
+    url := "http://" + host + ":" + str(port) + "/_health"
+    status, _, err := http_request("GET", url, []string{}, "")
+    if err == "" {
+        if status == 200 { ok = 1 }
+    }
+}
+
+// start_daemon — idempotent: if already healthy, report and return. Otherwise
+// fork off a detached child (setsid + stdio to /dev/null) that runs serve_on,
+// then poll /_health until it answers (cli-daemon-spec §4).
+func start_daemon(host, port) {
+    if health_probe(host, port) == 1 {
+        say("{\"ok\":true,\"daemon\":true,\"already\":true,\"host\":\"" + esc(host) + "\",\"port\":" + str(port) + "}")
+        return
+    }
+    pid := fork()
+    if pid < 0 {
+        die(100, "fork failed — cannot start daemon")
+    }
+    if pid == 0 {
+        // child: new session, no controlling terminal, stdio to /dev/null so the
+        // parent's pipes don't hold a CI step open.
+        setsid()
+        dn := open("/dev/null", 2, 0)
+        if dn >= 0 {
+            dup2(dn, 0)
+            dup2(dn, 1)
+            dup2(dn, 2)
+        }
+        token := env("BILAN_TOKEN")
+        if token == "" { token = to_hex(rand_bytes(16)) }
+        serve_on(host, port, func(req) { return bilan_handler(req, token) })
+        exit(0)
+    }
+    // parent: record the pid, poll for health, then report and exit.
+    write_file(pid_path(), str(pid))
+    up := 0
+    i := 0
+    for i < 50 {
+        if health_probe(host, port) == 1 { up = 1  break }
+        sleep(100)
+        i = i + 1
+    }
+    if up == 1 {
+        say("{\"ok\":true,\"daemon\":true,\"host\":\"" + esc(host) + "\",\"port\":" + str(port) + ",\"pid\":" + str(pid) + "}")
+    } else {
+        die(100, "daemon failed to become healthy within 5s on port " + str(port))
+    }
+}
+
+// stop_daemon — idempotent: if not running, report and return (no-op success).
+// Otherwise POST /_shutdown, then poll /_health until the port goes away
+// (cli-daemon-spec §4).
+func stop_daemon(host, port) {
+    if health_probe(host, port) == 0 {
+        unlink(pid_path())
+        say("{\"ok\":true,\"daemon\":false,\"already\":true,\"host\":\"" + esc(host) + "\",\"port\":" + str(port) + "}")
+        return
+    }
+    url := "http://" + host + ":" + str(port) + "/_shutdown"
+    _, sbody, _ := http_request("POST", url, []string{}, "")
+    i := 0
+    for i < 30 {
+        if health_probe(host, port) == 0 { break }
+        sleep(100)
+        i = i + 1
+    }
+    unlink(pid_path())
+    say("{\"ok\":true,\"daemon\":false,\"host\":\"" + esc(host) + "\",\"port\":" + str(port) + "}")
+}
+
+// daemon_status — probe /_health; exit 0 (with JSON) if running, exit 3 if
+// stopped (cli-daemon-spec §4). stdout is always JSON either way.
+func daemon_status(host, port) {
+    if health_probe(host, port) == 1 {
+        say("{\"ok\":true,\"daemon\":true,\"running\":true,\"host\":\"" + esc(host) + "\",\"port\":" + str(port) + "}")
+        return
+    }
+    say("{\"ok\":true,\"daemon\":false,\"running\":false,\"host\":\"" + esc(host) + "\",\"port\":" + str(port) + "}")
+    exit(3)
+}

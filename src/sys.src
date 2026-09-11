@@ -1,0 +1,24 @@
+// sys — FFI declarations for the daemon lifecycle (cli-daemon-spec). These are
+// POSIX primitives machin doesn't expose as builtins: process control (fork,
+// setsid, getpid), fd redirection (dup2, open), and signal delivery (kill).
+// unistd/fcntl/signal live in libc, which machin links by default — no cflags.
+//
+// Keep this module declaration-only (no app logic); the daemon lifecycle that
+// USES these lives in daemon.src.
+
+extern "unistd" {
+    header "unistd.h"
+    fn fork() i32
+    fn setsid() i32
+    fn getpid() i32
+    fn unlink(string) i32
+    fn dup2(i32, i32) i32
+}
+extern "fcntl" {
+    header "fcntl.h"
+    fn open(string, i32, i32) i32
+}
+extern "signal" {
+    header "signal.h"
+    fn kill(i32, i32) i32
+}

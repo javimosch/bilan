@@ -5,10 +5,18 @@
 // say — one JSON object + newline on stdout (the data stream).
 func say(s) { write(1, s + "\n") }
 
-// die — a typed error: JSON on stderr + a semantic exit code, nothing on stdout.
+// die — a typed error: JSON on stdout + a semantic exit code (cli-output-spec).
 func die(code, msg) {
-    write(2, "{\"ok\":false,\"error\":\"" + esc(msg) + "\"}\n")
+    say("{\"error\":{\"code\":" + str(code) + ",\"type\":\"" + err_type(code) + "\",\"message\":\"" + esc(msg) + "\",\"recoverable\":false,\"suggestions\":[]}}")
     exit(code)
+}
+
+// err_type — map exit code to the spec's error type string.
+func err_type(code) (t) {
+    t = "internal_error"
+    if code >= 80 && code <= 89 { t = "invalid_argument" }
+    if code >= 90 && code <= 99 { t = "resource_not_found" }
+    if code >= 100 && code <= 109 { t = "upstream_error" }
 }
 
 func main() {
@@ -22,6 +30,7 @@ func main() {
     if cmd == "feedback" { cmd_feedback(a); return }
     if cmd == "update" || cmd == "selfupdate" { cmd_update(); return }
     if cmd == "serve" { cmd_serve(a); return }
+    if cmd == "daemon" { cmd_daemon(a); return }
     // hosted mode: BILAN_URL set => domain commands hit the hosted API instead of a
     // local ledger. A 402 carries the pay object — print it so the agent can hand
     // the top-up link to its human.
@@ -43,9 +52,7 @@ func main() {
     if cmd == "start" { cmd_start(db); sqlite_close(db); return }
     if cmd == "telemetry" { cmd_telemetry(db, a); sqlite_close(db); return }
     sqlite_close(db)
-    hint := " (try: bilan help, or bilan help-json for the machine catalog)"
-    write(2, "{\"ok\":false,\"error\":\"unknown command: " + esc(cmd) + esc(hint) + "\"}\n")
-    exit(80)
+    die(85, "unknown command: " + cmd + " (try: bilan help, or bilan help-json for the machine catalog)")
 }
 
 // ── cmd wrappers over the ledger cores ──────────────────────────────────────
@@ -143,6 +150,24 @@ func cmd_rule(db, a) {
         return
     }
     die(80, "usage: bilan rule list [--year Y] | bilan rule set <year> <regime> <param> <value>")
+}
+
+// cmd_daemon — cli-daemon-spec lifecycle: start|stop|status of a detached
+// background server. Default port matches `serve` (8791); --port / BILAN_PORT
+// override. The host is always 127.0.0.1 (loopback).
+func cmd_daemon(a) {
+    sub := ""
+    if len(a) >= 3 { sub = a[2] }
+    port := 8791
+    p := env("BILAN_PORT")
+    if p != "" { port = parse_int(p) }
+    pv := flagv(a, "--port", "")
+    if pv != "" { port = parse_int(pv) }
+    host := "127.0.0.1"
+    if sub == "start" { start_daemon(host, port); return }
+    if sub == "stop" { stop_daemon(host, port); return }
+    if sub == "status" { daemon_status(host, port); return }
+    die(80, "usage: bilan daemon start|stop|status [--port N]")
 }
 
 // ── meta commands (cli-guide-spec / cli-feedback-spec / cli-update-spec) ────

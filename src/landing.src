@@ -131,6 +131,7 @@ func landing_html() (h) {
     "</div>\n" +
     "<hr class=\"rule\">\n" +
     "<p class=\"no foot\"><a href=\"/guide\">guide</a> · <a href=\"/llms.txt\">llms.txt</a> · <a href=\"/app\">tableau de bord</a> · <a href=\"https://github.com/javimosch/bilan\">github</a> · <a href=\"https://peage.intrane.fr\">peage</a> · <a href=\"/_health\">_health</a></p>\n" +
+    "<script defer src=\"https://vigie.intrane.fr/vigie.js\"></script>\n" +
     "<script src=\"https://chatsnip.intrane.fr/w.js\" data-agent=\"pk_fabb897a8dfe2ad0df3975da\" defer></script>\n" +
     "</body>\n</html>"
 }

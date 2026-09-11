@@ -1169,5 +1169,77 @@ func guide_text(base) (t) {
 }
 
 func cmd_guide() {
-    println(guide_text(""))
+    // cli-guide-spec: JSON by default, --human for markdown
+    human := false
+    a := args()
+    i := 2
+    n := len(a)
+    for i < n { if a[i] == "--human" { human = true } i = i + 1 }
+    if human {
+        println(guide_text(""))
+        return
+    }
+    println(guide_json())
+}
+
+// guide_json — cli-guide-spec conformant JSON agent guide.
+func guide_json() (g) {
+    g = "{"
+    g = g + "\"version\":\"" + version_str() + "\","
+    g = g + "\"one_liner\":\"Deterministic financial ledger + tax radar for professionnels pluri-actifs (salary + micro-BNC/BIC + crypto + trading + rent + dividends). No LLM inside — bilan stores and computes; you (the agent) provide the intelligence.\","
+    g = g + "\"model\":\"There is NO LLM inside bilan — by design. Tax and money math must be deterministic and auditable, so bilan only STORES and COMPUTES; it never guesses. The intelligence is yours: you parse messy exports, explain the JSON, plan around the numbers. The platform never sees a prompt and runs no inference. Data lives in a single SQLite file (BILAN_DB). All stdout is JSON; --text flags render the same numbers as French prose for the human.\","
+    g = g + "\"loop\":["
+    g = g + "\"bilan demo  # seed a deterministic pluri-actif ledger (salary+bnc+crypto+rent)\","
+    g = g + "\"bilan stream add <name> --kind <salary|bnc|bic|rent|crypto|trading|dividends|other>\","
+    g = g + "\"bilan tx add <stream> <YYYY-MM-DD> <amount> [--label L --source S]\","
+    g = g + "\"bilan import <etoro|revolut|generic> <file> --stream S  # idempotent CSV import\","
+    g = g + "\"bilan stats --year 2026  # per-kind totals, net\","
+    g = g + "\"bilan tax --year 2026  # the radar: abattements, social, PFU, crypto 2086 exemption\","
+    g = g + "\"bilan brief --year 2026  # morning digest: provision, momentum, pending moves\""
+    g = g + "],"
+    g = g + "\"concepts\":{"
+    g = g + "\"stream\":\"An activity stream with a kind (salary, bnc, bic, rent, crypto, trading, dividends, other) and currency. Transactions are recorded against streams.\","
+    g = g + "\"tx\":\"A signed money event: positive = income, negative = expense/loss. Idempotent by ext-id.\","
+    g = g + "\"tax_radar\":\"Computes abattements, social charges, PFU (flat tax), and crypto 2086 exemption per French tax rules. Rules are DATA (bilan rule list/set), not hardcoded.\","
+    g = g + "\"brian\":\"The cheap copilote persona — print it and install into any agent harness for context-aware advice.\","
+    g = g + "\"move\":\"Brian moves: propose (agent) / approve (human, dashboard /app). Action + Pourquoi + Impact + Horizon.\","
+    g = g + "\"import\":\"Idempotent CSV import from eToro, Revolut, or generic format. - reads stdin.\","
+    g = g + "\"no_llm\":\"By design, not omission. Tax and money math must be deterministic and auditable. The agent provides the intelligence; bilan stores and computes.\""
+    g = g + "},"
+    g = g + "\"commands\":{"
+    g = g + "\"help-json\":\"Print the machine-readable command catalog\","
+    g = g + "\"guide\":\"Print this agent guide (JSON or --human markdown)\","
+    g = g + "\"version\":\"Print version info\","
+    g = g + "\"stream\":\"Create/list activity streams\","
+    g = g + "\"tx\":\"Record/list transactions\","
+    g = g + "\"import\":\"Import broker/bank CSV (idempotent)\","
+    g = g + "\"stats\":\"Per-kind signed totals, income/expense/net\","
+    g = g + "\"tax\":\"The tax radar: abattements, social, PFU, crypto exemption\","
+    g = g + "\"rule\":\"Rate card (tax rules as data)\","
+    g = g + "\"move\":\"Brian moves: propose/approve\","
+    g = g + "\"brief\":\"Morning digest: provision, momentum, pending moves\","
+    g = g + "\"brian\":\"Print the Brian persona for agent harnesses\","
+    g = g + "\"demo\":\"Seed a deterministic pluri-actif ledger\","
+    g = g + "\"serve\":\"HTTP JSON API (Bearer-gated /v1/*)\","
+    g = g + "\"feedback\":\"Send feedback (dual-write, never fails)\","
+    g = g + "\"update\":\"Self-update via the official installer\","
+    g = g + "\"telemetry\":\"Aggregate usage + errors (hosted operator only)\""
+    g = g + "},"
+    g = g + "\"examples\":["
+    g = g + "\"bilan demo\","
+    g = g + "\"bilan stream add salary --kind salary\","
+    g = g + "\"bilan tx add salary 2026-01-15 3000 --label 'January salary'\","
+    g = g + "\"bilan import etoro trades.csv --stream trading\","
+    g = g + "\"bilan stats --year 2026\","
+    g = g + "\"bilan tax --year 2026 --text\""
+    g = g + "],"
+    g = g + "\"gotchas\":["
+    g = g + "\"No LLM inside — by design. You (the agent) provide the intelligence; bilan stores and computes.\","
+    g = g + "\"All stdout is JSON; use --text for French prose rendering for the human\","
+    g = g + "\"Tax rules are DATA — bilan rule list/set, not hardcoded. Decipercent tenths: 340 = 34.0%.\","
+    g = g + "\"Import is idempotent by ext-id; re-importing the same file is safe\","
+    g = g + "\"BILAN_DB env var sets the SQLite path; the file IS the ledger\","
+    g = g + "\"Brian moves are propose (agent) / approve (human via dashboard /app) — Action + Pourquoi + Impact\""
+    g = g + "]"
+    g = g + "}"
 }

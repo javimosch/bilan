@@ -1,7 +1,9 @@
-// serve — the HTTP JSON API over the same domain cores the CLI uses. Binds all
-// interfaces (machin's listen() has no bind-address arg), so per cli-daemon-spec
-// every /v1/* route and /_shutdown are token-gated; /_health, /guide, /llms.txt
-// stay open. The token comes from BILAN_TOKEN or is generated + printed on stderr.
+// serve — the HTTP JSON API over the same domain cores the CLI uses. Per
+// cli-daemon-spec the default bind is 127.0.0.1 (loopback) via serve_on, so the
+// server is not reachable from the network unless the operator explicitly opts
+// in. /v1/* routes are Bearer-gated; /_health, /guide, /llms.txt, and /_shutdown
+// stay open (/_shutdown is the spec's lifecycle endpoint). The token comes from
+// BILAN_TOKEN or is generated + printed on stderr.
 
 func cmd_serve(a) {
     port := 8791
@@ -12,18 +14,42 @@ func cmd_serve(a) {
     token := env("BILAN_TOKEN")
     if token == "" { token = to_hex(rand_bytes(16)) }
     write(2, "{\"event\":\"serve_token\",\"token\":\"" + token + "\",\"note\":\"set BILAN_TOKEN to pin it\"}\n")
-    say("{\"ok\":true,\"serving\":\"bilan\",\"port\":" + str(port) + ",\"open\":[\"GET /_health\",\"GET /guide\",\"GET /llms.txt\"],\"gated\":[\"/v1/*\",\"POST /_shutdown\"]}")
-    serve(port, func(req) {
+    say("{\"ok\":true,\"serving\":\"bilan\",\"port\":" + str(port) + ",\"open\":[\"GET /_health\",\"GET /guide\",\"GET /llms.txt\",\"POST /_shutdown\"],\"gated\":[\"/v1/*\"]}")
+    serve_on("127.0.0.1", port, func(req) {
+        return bilan_handler(req, token)
+    })
+}
+
+// serve_on — like machweb's serve, but binds a SPECIFIC address via the listen_on
+// builtin (listen() hardcodes INADDR_ANY). cli-daemon-spec §1: the default bind
+// is loopback. Each connection is handled in its own goroutine, same as serve.
+func serve_on(host, port, handler) {
+    server := listen_on(host, port)
+    if server < 0 { exit(1) }
+    println("machweb on http://" + host + ":" + str(port))
+    flush()
+    for {
+        conn := accept(server)
+        go machweb_handle(conn, handler)
+    }
+}
+
+// bilan_handler — the shared HTTP router for both `bilan serve` and the detached
+// daemon child (daemon.src). token gates /v1/*; /_health, /guide, /llms.txt, and
+// /_shutdown are open per cli-daemon-spec.
+func bilan_handler(req, token) (res) {
         p := path_only(req.path)
         if p == "/" && req.method == "GET" { return ok_html(landing_html()) }
-        if p == "/_health" { return ok_json("{\"ok\":true,\"service\":\"bilan\",\"version\":\"" + version_str() + "\"}") }
+        if p == "/_health" { return ok_json("{\"ok\":true,\"service\":\"bilan\",\"version\":\"" + version_str() + "\",\"pid\":" + str(getpid()) + "}") }
         if req.method == "GET" && p == "/guide" { return ok_text(guide_text("")) }
         if req.method == "GET" && p == "/llms.txt" { return ok_text(llms_txt()) }
         if p == "/_shutdown" {
-            if auth_ok(req, token) == 0 { return unauthorized() }
-            write(2, "{\"event\":\"shutdown\"}\n")
-            go shutdown_soon()
-            return ok_json("{\"ok\":true,\"shutdown\":true}")
+            if req.method == "POST" {
+                write(2, "{\"event\":\"shutdown\"}\n")
+                go shutdown_soon()
+                return ok_json("{\"ok\":true,\"stopping\":true}")
+            }
+            return not_found()
         }
         if p == "/app" && req.method == "GET" {
             if env("BILAN_HOSTED") == "1" {
@@ -82,7 +108,6 @@ if p == "/app/move" && req.method == "POST" {
             return api(req, dbpath())
         }
         return not_found()
-    })
 }
 
 // tenant_ws_by_token — the workspace path for a tenant token, provisioning on first
@@ -124,8 +149,11 @@ func path_only(p) (o) {
 }
 
 // shutdown_soon — give the HTTP response a beat to flush, then exit the process.
+// machweb writes the response after the handler returns; the sleep lets that
+// write + close land before exit(0) tears the socket down (cli-daemon-spec §3).
 func shutdown_soon() {
-    sleep(100)
+    sleep(150)
+    flush()
     exit(0)
 }
 
